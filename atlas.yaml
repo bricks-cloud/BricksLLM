@@ -1,0 +1,33 @@
+openai:
+  api_credential: ${OPENAI_KEY}
+
+routes:
+  - path: /travel
+    provider: openai
+    key_auth:
+      key: ${API_KEY}
+    cors:
+      allowed_origins: ["*"]
+      allowed_credentials: true
+    input:
+      plan:
+        type: object
+        properties:
+          place:
+            type: string
+    openai_config:
+      model: gpt-3.5-turbo
+      prompts:
+        - role: assitant
+          content: say hi to {{ plan.place }}
+
+  - path: /test
+    provider: openai
+    input:
+      name:
+        type: string
+    openai_config:
+      model: gpt-3.5-turbo
+      prompts:
+        - role: assitant
+          content: say hi to {{ name }}
