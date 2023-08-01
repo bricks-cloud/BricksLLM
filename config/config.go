@@ -4,12 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/bricks-cloud/atlas/internal/util"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"gopkg.in/yaml.v3"
 )
 
@@ -25,11 +24,83 @@ const (
 	Https Protocol = "https"
 )
 
+func (p Protocol) Valid() bool {
+	if p != Http && p != Https {
+		return false
+	}
+
+	return true
+}
+
 type Provider string
 
 const (
-	openaiProvider Provider = "openai"
+	OpenaiProvider Provider = "openai"
 )
+
+func (p Provider) Valid() bool {
+	if p != OpenaiProvider {
+		return false
+	}
+
+	return true
+}
+
+type ApiLoggerConfig struct {
+	HideIp      bool `yaml:"hide_ip"`
+	HideHeaders bool `yaml:"hide_headers"`
+}
+
+func (alc *ApiLoggerConfig) GetHideIp() bool {
+	if alc == nil {
+		return false
+	}
+
+	return alc.HideIp
+}
+
+func (alc *ApiLoggerConfig) GetHideHeaders() bool {
+	if alc == nil {
+		return false
+	}
+
+	return alc.HideHeaders
+}
+
+type LlmLoggerConfig struct {
+	HideHeaders         bool `yaml:"hide_headers"`
+	HideResponseContent bool `yaml:"hide_response_content"`
+	HidePromptContent   bool `yaml:"hide_prompt_content"`
+}
+
+func (llc *LlmLoggerConfig) GetHideResponseContent() bool {
+	if llc == nil {
+		return false
+	}
+
+	return llc.HideResponseContent
+}
+
+func (llc *LlmLoggerConfig) GetHidePromptContent() bool {
+	if llc == nil {
+		return false
+	}
+
+	return llc.HidePromptContent
+}
+
+func (llc *LlmLoggerConfig) GetHideHeaders() bool {
+	if llc == nil {
+		return false
+	}
+
+	return llc.HideHeaders
+}
+
+type LoggerConfig struct {
+	Api *ApiLoggerConfig `yaml:"api"`
+	Llm *LlmLoggerConfig `yaml:"llm"`
+}
 
 type ServerConfig struct {
 	Port int `yaml:"port"`
@@ -44,6 +115,14 @@ const (
 	ObjectDataType  DataType = "object"
 	BooleanDataType DataType = "boolean"
 )
+
+func (d DataType) Valid() bool {
+	if d != StringDataType && d != NumberDataType && d != ArrayDataType && d != ObjectDataType && d != BooleanDataType {
+		return false
+	}
+
+	return true
+}
 
 type InputValue struct {
 	DataType   DataType               `yaml:"type"`
@@ -97,22 +176,45 @@ type RouteConfig struct {
 type OpenAiMessageRole string
 
 const (
-	system   OpenAiMessageRole = "system"
-	user     OpenAiMessageRole = "user"
-	assitant OpenAiMessageRole = "assitant"
-	function OpenAiMessageRole = "function"
+	SystemMessageRole   OpenAiMessageRole = "system"
+	UserMessageRole     OpenAiMessageRole = "user"
+	AssitantMessageRole OpenAiMessageRole = "assistant"
+	FunctionMessageRole OpenAiMessageRole = "function"
 )
 
+func (r OpenAiMessageRole) Valid() bool {
+	if r != SystemMessageRole && r != UserMessageRole && r != AssitantMessageRole && r != FunctionMessageRole {
+		return false
+	}
+
+	return true
+}
+
 type OpenAiPrompt struct {
-	Role    string `yaml:"role"`
-	Content string `yaml:"content"`
+	Role    OpenAiMessageRole `yaml:"role"`
+	Content string            `yaml:"content"`
 }
 
 type OpenAiModel string
 
 const (
-	gpt35Turbo OpenAiModel = "gpt-3.5-turbo"
+	Gpt35Turbo        OpenAiModel = "gpt-3.5-turbo"
+	Gpt35Turbo16k     OpenAiModel = "gpt-3.5-turbo-16k"
+	Gpt35Turbo0613    OpenAiModel = "gpt-3.5-turbo-0613"
+	Gpt35Turbo16k0613 OpenAiModel = "gpt-3.5-turbo-16k-0613"
+	Gpt4              OpenAiModel = "gpt-4"
+	Gpt40613          OpenAiModel = "gpt-4-0613"
+	Gpt432k           OpenAiModel = "gpt-4-32k"
+	Gpt432k0613       OpenAiModel = "gpt-4-32k-0613"
 )
+
+func (m OpenAiModel) Valid() bool {
+	if m != Gpt35Turbo && m != Gpt35Turbo16k && m != Gpt35Turbo0613 && m != Gpt35Turbo16k0613 && m != Gpt4 && m != Gpt40613 && m != Gpt432k && m != Gpt432k0613 {
+		return false
+	}
+
+	return true
+}
 
 type OpenAiRouteConfig struct {
 	ApiCredential string          `yaml:"api_credential"`
@@ -125,19 +227,19 @@ type OpenAiConfig struct {
 }
 
 type Config struct {
+	LoggerConfig *LoggerConfig  `yaml:"logger"`
 	Routes       []*RouteConfig `yaml:"routes"`
 	Server       *ServerConfig  `yaml:"server"`
 	OpenAiConfig *OpenAiConfig  `yaml:"openai"`
 }
 
 func NewConfig(filePath string) (*Config, error) {
-	yamlFile, err := ioutil.ReadFile(filePath)
+	yamlFile, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read config file with path %s: %w", filePath, err)
 	}
 
 	yamlFile = []byte(os.ExpandEnv(string(yamlFile)))
-
 	c := &Config{}
 	err = yaml.Unmarshal(yamlFile, c)
 	if err != nil {
@@ -151,8 +253,25 @@ func NewConfig(filePath string) (*Config, error) {
 		}
 	}
 
+	// routes have to be configured
 	if len(c.Routes) == 0 {
 		return nil, fmt.Errorf("routes are not configured in config file %s", filePath)
+	}
+
+	// default server port to 8080
+	if c.LoggerConfig == nil {
+		c.LoggerConfig = &LoggerConfig{
+			Api: &ApiLoggerConfig{
+				HideIp:      false,
+				HideHeaders: false,
+			},
+
+			Llm: &LlmLoggerConfig{
+				HideHeaders:         false,
+				HideResponseContent: false,
+				HidePromptContent:   false,
+			},
+		}
 	}
 
 	apiCredentialConfigured := false
@@ -178,6 +297,10 @@ func parseRouteConfig(rc *RouteConfig, isOpenAiConfigured bool) error {
 		return errors.New("provider is empty")
 	}
 
+	if !rc.Provider.Valid() {
+		return errors.New("provider must be openai")
+	}
+
 	if rc.CorsConfig != nil {
 		if len(rc.CorsConfig.AllowedOrgins) == 0 {
 			return fmt.Errorf("cors config is present but allowed_origins is not specified for route: %s", rc.Path)
@@ -190,14 +313,26 @@ func parseRouteConfig(rc *RouteConfig, isOpenAiConfigured bool) error {
 		}
 	}
 
-	if rc.Provider == openaiProvider {
+	if rc.Provider == OpenaiProvider {
 		if rc.OpenAiConfig == nil {
 			return errors.New("openai config is not provided")
 		}
 
+		if len(rc.OpenAiConfig.Model) == 0 {
+			return errors.New("openai model cannot be empty")
+		}
+
+		if !rc.OpenAiConfig.Model.Valid() {
+			return errors.New("open ai model must be of gpt-3.5-turbo, gpt-3.5-turbo-16k, gpt-3.5-turbo-0613, gpt-3.5-turbo-16k-0613, gpt-4, gpt-4-0613, gpt-4-32k and gpt-4-32k-0613")
+		}
+
 		for _, prompt := range rc.OpenAiConfig.Prompts {
 			if len(prompt.Role) == 0 {
-				return errors.New("role is not provided in openai prompt")
+				return errors.New("role cannot be empty in openai prompt")
+			}
+
+			if !prompt.Role.Valid() {
+				return errors.New("role must be of user, system, assistant or function")
 			}
 
 			if !isOpenAiConfigured && len(rc.OpenAiConfig.ApiCredential) == 0 {
@@ -231,6 +366,10 @@ func parseRouteConfig(rc *RouteConfig, isOpenAiConfigured bool) error {
 		rc.Protocol = Http
 	}
 
+	if !rc.Protocol.Valid() {
+		return errors.New("protocol must be of http or https")
+	}
+
 	return nil
 }
 
@@ -258,11 +397,15 @@ func validateInput(input map[string]InputValue, variableMap map[string]string) e
 		for index, part := range parts {
 			value, found := innerInput[part]
 			if !found {
-				return errors.New("referenced value in prompt does not exist")
+				return fmt.Errorf("referenced var: %s in prompt does not exist", value)
 			}
 
 			if index != len(parts)-1 && value.DataType != ObjectDataType {
-				return errors.New("input value is not represented as object")
+				return fmt.Errorf("input value is not represented as object for referenced var: %s", reference)
+			}
+
+			if value.DataType == ObjectDataType && len(value.Properties) == 0 {
+				return fmt.Errorf("object properties is empty for referenced var: %s", reference)
 			}
 
 			js, err := json.Marshal(value.Properties)

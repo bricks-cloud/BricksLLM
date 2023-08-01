@@ -1,0 +1,29 @@
+builds:
+  - id: bricksllm
+    main: cmd/bricksllm/main.go
+    binary: bricksllm
+    goos: [ windows, darwin, linux ]
+    goarch: [ amd64, arm, arm64 ]
+    goarm: ["6", "7"]
+    ignore:
+      - goos: windows
+        goarch: arm
+      - goos: darwin
+        goarch: arm
+    env:
+      - CGO_ENABLED=0
+archives:
+  - id: bricksllm
+    builds: [ bricksllm ]
+    format: tar.gz
+    files:
+      - README.md
+      - CHANGELOG.md
+      - LICENSE
+dist: target/dist
+release:
+  github:
+    owner: bricks-cloud
+    name: bricks
+  prerelease: auto
+  disable: false

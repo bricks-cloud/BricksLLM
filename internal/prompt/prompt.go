@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/bricks-cloud/atlas/config"
+	"github.com/bricks-cloud/bricksllm/config"
 )
 
 type Prompt struct {

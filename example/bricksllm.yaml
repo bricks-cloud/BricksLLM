@@ -1,6 +1,15 @@
 openai:
   api_credential: ${OPENAI_KEY}
 
+# logger:
+#   api:
+#     hide_ip: true
+#     hide_headers: true
+#   llm:
+#     hide_headers: true
+#     hide_response_content: true
+#     hide_prompt_content: true
+
 routes:
   - path: /travel
     provider: openai
@@ -18,7 +27,7 @@ routes:
     openai_config:
       model: gpt-3.5-turbo
       prompts:
-        - role: assitant
+        - role: assistant
           content: say hi to {{ plan.place }}
 
   - path: /test
@@ -29,5 +38,5 @@ routes:
     openai_config:
       model: gpt-3.5-turbo
       prompts:
-        - role: assitant
+        - role: assistant
           content: say hi to {{ name }}

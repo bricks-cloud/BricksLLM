@@ -5,17 +5,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
+	"net"
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 
-	"github.com/bricks-cloud/atlas/config"
-	"github.com/bricks-cloud/atlas/internal/client/openai"
-	"github.com/bricks-cloud/atlas/internal/logger"
-	"github.com/bricks-cloud/atlas/internal/util"
+	"github.com/bricks-cloud/bricksllm/config"
+	"github.com/bricks-cloud/bricksllm/internal/client/openai"
+	"github.com/bricks-cloud/bricksllm/internal/logger"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type WebServer struct {
@@ -23,14 +26,14 @@ type WebServer struct {
 	openAiClinet *openai.OpenAiClient
 }
 
-func NewWebServer(c *config.Config, lg logger.Logger) (*WebServer, error) {
+func NewWebServer(c *config.Config, lg logger.Logger, mode string) (*WebServer, error) {
 	port := c.Server.Port
 
-	router := gin.Default()
+	router := gin.New()
 	openAiClient := openai.NewOpenAiClient(c.OpenAiConfig.ApiCredential)
 
 	for _, rc := range c.Routes {
-		r, err := NewRoute(rc, openAiClient, lg)
+		r, err := NewRoute(rc, openAiClient, lg, c.LoggerConfig, mode)
 		if err != nil {
 			return nil, errors.New("errors with setting up the web server")
 		}
@@ -75,9 +78,25 @@ type keyAuthConfig interface {
 	GetKey() string
 }
 
+type apiLoggerConfig interface {
+	GetHideIp() bool
+	GetHideHeaders() bool
+}
+
+type llmLoggerConfig interface {
+	GetHideHeaders() bool
+	GetHideResponseContent() bool
+	GetHidePromptContent() bool
+}
+
 type Route struct {
+	mode              string
 	logger            logger.Logger
+	apiLoggerConfig   apiLoggerConfig
+	llmLoggerConfig   llmLoggerConfig
+	provider          string
 	path              string
+	protocol          string
 	openAiRouteConfig *config.OpenAiRouteConfig
 	openAiClient      openai.OpenAiClient
 	corsConfig        corsConfig
@@ -85,7 +104,7 @@ type Route struct {
 	dataSchema        reflect.Type
 }
 
-func NewRoute(rc *config.RouteConfig, openAiClient openai.OpenAiClient, lg logger.Logger) (*Route, error) {
+func NewRoute(rc *config.RouteConfig, openAiClient openai.OpenAiClient, lg logger.Logger, lc *config.LoggerConfig, mode string) (*Route, error) {
 	structSchema, err := newInputStruct(rc.Input)
 	if err != nil {
 		return nil, err
@@ -93,6 +112,11 @@ func NewRoute(rc *config.RouteConfig, openAiClient openai.OpenAiClient, lg logge
 
 	return &Route{
 		logger:            lg,
+		apiLoggerConfig:   lc.Api,
+		llmLoggerConfig:   lc.Llm,
+		mode:              mode,
+		provider:          string(rc.Provider),
+		protocol:          string(rc.Protocol),
 		path:              rc.Path,
 		openAiClient:      openAiClient,
 		openAiRouteConfig: rc.OpenAiConfig,
@@ -102,9 +126,134 @@ func NewRoute(rc *config.RouteConfig, openAiClient openai.OpenAiClient, lg logge
 	}, nil
 }
 
+func (r *Route) newApiMessage() *logger.ApiMessage {
+	am := logger.NewApiMessage()
+	am.SetCreatedAt(time.Now().Unix())
+	am.SetPath(r.path)
+	am.SetProtocol(r.protocol)
+	return am
+}
+
+func (r *Route) newLlmMessage() *logger.LlmMessage {
+	lm := logger.NewLlmMessage()
+	lm.SetProvider(r.provider)
+	lm.SetCreatedAt(time.Now().Unix())
+	lm.SetRequestModel(string(r.openAiRouteConfig.Model))
+	return lm
+}
+
+func newErrMessage() *logger.ErrorMessage {
+	return logger.NewErrorMessage()
+}
+
+func newUuid() string {
+	return uuid.New().String()
+}
+
+const (
+	apiKeyHeader string = "X-Api-Key"
+	forwardedFor string = "X-Forwarded-For"
+)
+
+func readUserIP(r *http.Request) string {
+	address := r.Header.Get(forwardedFor)
+	parts := strings.Split(address, ",")
+	ip := ""
+
+	if len(parts) > 0 {
+		ip = parts[0]
+	}
+
+	if len(ip) == 0 {
+		ip = r.RemoteAddr
+	}
+
+	return ip
+}
+
+type openAiError interface {
+	Error() string
+	StatusCode() int
+}
+
 func (r *Route) newRequestHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		apiKey := c.Request.Header.Get("x-api-key")
+		am := r.newApiMessage()
+		lm := r.newLlmMessage()
+		instanceId := newUuid()
+		am.SetInstanceId(instanceId)
+		lm.SetInstanceId(instanceId)
+
+		em := newErrMessage()
+		em.SetInstanceId(instanceId)
+		var err error
+
+		var proxyStart time.Time
+
+		if c.Request != nil {
+			ip := net.ParseIP(readUserIP(c.Request))
+			if ip != nil {
+				am.SetClientIp(ip.String())
+			}
+
+			am.SetRequestBodySize(c.Request.ContentLength)
+			am.SetRequestHeaders(util.FilterHeaders(c.Request.Header, []string{
+				apiKeyHeader,
+				forwardedFor,
+			}))
+
+		}
+
+		start := time.Now()
+		defer func() {
+			now := time.Now()
+			total := now.Sub(start).Milliseconds()
+			latency := now.Sub(proxyStart).Milliseconds()
+
+			errExists := false
+			if err != nil {
+				em.SetCreatedAt(now.Unix())
+				errExists = true
+			}
+
+			am.SetTotalLatency(total)
+			am.SetProxyLatency(latency)
+			lm.SetLatency(latency)
+			am.SetBricksLlmLatency(total - am.GetProxyLatency())
+
+			am.SetResponseHeaders(c.Writer.Header())
+			am.SetResponseStatus(c.Writer.Status())
+			am.ModifyFileds(r.apiLoggerConfig)
+			lm.ModifyFileds(r.llmLoggerConfig)
+
+			if err != nil {
+				em.SetMessage(err.Error())
+			}
+
+			if r.mode == "production" {
+				r.logger.Infow("api message", "context", am)
+				r.logger.Infow("llm message", "context", lm)
+				r.logger.Debugw("error message", "context", em)
+				return
+			}
+
+			data, err := json.MarshalIndent(em, "", "    ")
+			if errExists && err == nil {
+				r.logger.Debug(em.DevLogContext(), "\n", string(data))
+			}
+
+			data, err = json.MarshalIndent(am, "", "    ")
+			if err == nil {
+				r.logger.Info(am.DevLogContext(), "\n", string(data))
+			}
+
+			data, err = json.MarshalIndent(lm, "", "    ")
+			if err == nil {
+				r.logger.Info(lm.DevLogContext(), "\n", string(data))
+			}
+		}()
+
+		apiKey := c.Request.Header.Get(apiKeyHeader)
 		if r.keyAuthConfig.Enabled() {
 			if r.keyAuthConfig.GetKey() != apiKey {
 				c.Status(http.StatusUnauthorized)
@@ -112,9 +261,9 @@ func (r *Route) newRequestHandler() gin.HandlerFunc {
 			}
 		}
 
-		jsonData, err := ioutil.ReadAll(c.Request.Body)
+		jsonData, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			c.IndentedJSON(http.StatusInternalServerError, err.Error())
+			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 
@@ -134,25 +283,48 @@ func (r *Route) newRequestHandler() gin.HandlerFunc {
 		data := reflect.New(r.dataSchema)
 		err = json.Unmarshal(jsonData, data.Interface())
 		if err != nil {
-			c.IndentedJSON(http.StatusInternalServerError, err.Error())
+			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 
 		prompts, err := r.populatePrompts(data)
 		if err != nil {
-			c.IndentedJSON(http.StatusInternalServerError, err.Error())
+			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		res, err := r.openAiClient.Send(r.openAiRouteConfig, prompts)
+		proxyStart = time.Now()
+		res, err := r.openAiClient.Send(r.openAiRouteConfig, prompts, lm)
+		am.SetResponseCreatedAt(time.Now().Unix())
 		if err != nil {
-			c.IndentedJSON(http.StatusInternalServerError, err.Error())
+			if oae, ok := err.(openAiError); ok {
+				c.JSON(oae.StatusCode(), err.Error())
+				return
+			}
+
+			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		r.logger.Infow("successful request")
+		lm.SetCompletionTokens(res.Usage.CompletionTokens)
+		lm.SetPromptTokens(res.Usage.PromptTokens)
+		lm.SetTotalTokens(res.Usage.TotalTokens)
+		lm.SetResponseId(res.Id)
 
-		c.IndentedJSON(http.StatusOK, res)
+		resData, err := json.Marshal(res)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		size, err := c.Writer.Write(resData)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		am.SetResponseBodySize(int64(size))
+		c.Status(http.StatusOK)
 	}
 }
 
@@ -269,10 +441,12 @@ func populateVariablesInPromptTemplate(propmtContent string, val reflect.Value) 
 			return "", err
 		}
 
-		bs, err := json.Marshal(val)
+		stringified := fmt.Sprint(val)
+		if len(stringified) == 0 {
+			return "", fmt.Errorf("input value is empty: %v", err)
+		}
 
-		populated = strings.ReplaceAll(populated, old, string(bs))
-
+		populated = strings.ReplaceAll(populated, old, stringified)
 	}
 
 	return populated, nil
@@ -304,14 +478,12 @@ func accessValueFromDataStruct(val reflect.Value, reference string) (interface{}
 			continue
 		}
 
-		if index != len(parts)-1 {
-			inner = inner.FieldByName(strings.Title(part))
-			if inner.IsZero() {
-				return nil, fmt.Errorf("referenced data struct is empty: %s", part)
-			}
-
-			continue
+		inner = inner.FieldByName(strings.Title(part))
+		if inner.IsZero() {
+			return nil, fmt.Errorf("referenced data struct is empty: %s", part)
 		}
+
+		continue
 	}
 
 	return inner.Interface(), nil
