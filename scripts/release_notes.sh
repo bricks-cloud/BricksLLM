@@ -7,4 +7,4 @@ cat CHANGELOG.md | awk '
       if ( release == 1 ) print;
       if ( release > 1 ) exit;
   }'
-echo "The full change log can be [found here](https://github.com/bricks-cloud/bricks/blob/main/CHANGELOG.md)."
+echo "The full change log can be [found here](https://github.com/bricks-cloud/BricksLLM/blob/main/CHANGELOG.md)."
