@@ -208,7 +208,6 @@ func (r *Route) newRequestHandler() gin.HandlerFunc {
 		defer func() {
 			now := time.Now()
 			total := now.Sub(start).Milliseconds()
-			latency := now.Sub(proxyStart).Milliseconds()
 
 			errExists := false
 			if err != nil {
@@ -217,9 +216,12 @@ func (r *Route) newRequestHandler() gin.HandlerFunc {
 			}
 
 			am.SetTotalLatency(total)
-			am.SetProxyLatency(latency)
-			lm.SetLatency(latency)
-			am.SetBricksLlmLatency(total - am.GetProxyLatency())
+			if !proxyStart.IsZero() {
+				latency := now.Sub(proxyStart).Milliseconds()
+				am.SetProxyLatency(latency)
+				lm.SetLatency(latency)
+				am.SetBricksLlmLatency(total - am.GetProxyLatency())
+			}
 
 			am.SetResponseHeaders(c.Writer.Header())
 			am.SetResponseStatus(c.Writer.Status())
@@ -256,6 +258,7 @@ func (r *Route) newRequestHandler() gin.HandlerFunc {
 		apiKey := c.Request.Header.Get(apiKeyHeader)
 		if r.keyAuthConfig.Enabled() {
 			if r.keyAuthConfig.GetKey() != apiKey {
+				err = errors.New("unauthorized http request with mismatched api key")
 				c.Status(http.StatusUnauthorized)
 				return
 			}
