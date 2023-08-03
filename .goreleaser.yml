@@ -2,28 +2,54 @@ builds:
   - id: bricksllm
     main: cmd/bricksllm/main.go
     binary: bricksllm
-    goos: [ windows, darwin, linux ]
-    goarch: [ amd64, arm, arm64 ]
+    goos: [windows, linux]
+    goarch: [amd64]
     goarm: ["6", "7"]
-    ignore:
-      - goos: windows
-        goarch: arm
-      - goos: darwin
-        goarch: arm
     env:
       - CGO_ENABLED=0
+
+  - binary: bricksllm
+    main: cmd/bricksllm/main.go
+    id: bricksllm-macos-arm
+    goos: [darwin]
+    goarch: [arm64]
+    hooks:
+      post:
+        - output: true
+          cmd: 'codesign --timestamp --options=runtime -s "Developer ID Application: Yuanxin Lu" -v {{ .Path }}'
+        - output: true
+          cmd: zip -j "{{ .Path }}_{{ .Version }}_darwin_arm64_notarized.zip"  "{{ .Path }}"
+        - output: true
+          cmd: xcrun notarytool submit "{{ .Path }}_{{ .Version }}_darwin_arm64_notarized.zip" --apple-id "{{ .Env.APPLE_DEVELOPER_USERNAME }}" --team-id "{{ .Env.APPLE_DEVELOPER_TEAM_ID }}" --password "{{ .Env.APPLE_DEVELOPER_PASSWORD }}" --progress --wait
+
+  - binary: bricksllm
+    main: cmd/bricksllm/main.go
+    id: bricksllm-macos-amd
+    goos: [darwin]
+    goarch: [amd64]
+    hooks:
+      post:
+        - output: true
+          cmd: 'codesign --timestamp --options=runtime -s "Developer ID Application: Yuanxin Lu" -v {{ .Path }}'
+        - output: true
+          cmd: zip -j "{{ .Path }}_{{ .Version }}_darwin_amd64_notarized.zip"  "{{ .Path }}"
+        - output: true
+          cmd: xcrun notarytool submit "{{ .Path }}_{{ .Version }}_darwin_amd64_notarized.zip" --apple-id "{{ .Env.APPLE_DEVELOPER_USERNAME }}" --team-id "{{ .Env.APPLE_DEVELOPER_TEAM_ID }}" --password "{{ .Env.APPLE_DEVELOPER_PASSWORD }}" --progress --wait
+
 archives:
   - id: bricksllm
-    builds: [ bricksllm ]
-    format: tar.gz
+    builds: [bricksllm, bricksllm-macos-amd, bricksllm-macos-arm]
     files:
       - README.md
       - CHANGELOG.md
       - LICENSE
+    format_overrides:
+      - goos: windows
+        format: zip
+
 dist: target/dist
 release:
   github:
     owner: bricks-cloud
-    name: bricks
+    name: bricksLLM
   prerelease: auto
-  disable: false
