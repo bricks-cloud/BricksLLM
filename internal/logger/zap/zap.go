@@ -68,7 +68,9 @@ func (e *prependEncoder) toAtalasPrefix(lvl zapcore.Level) string {
 	case zapcore.DebugLevel:
 		return "DEBUG"
 	case zapcore.InfoLevel:
-		return "INFO "
+		return "INFO"
+	case zapcore.FatalLevel:
+		return "FATAL"
 	}
 	return ""
 }
