@@ -15,9 +15,9 @@ import (
 )
 
 func main() {
-	modePtr := flag.String("mode", "dev", "select the mode that bricksllm runs in")
+	modePtr := flag.String("m", "dev", "select the mode that bricksllm runs in")
 
-	filePathPtr := flag.String("path", "", "enter the file path to the config file")
+	filePathPtr := flag.String("c", "", "enter the file path to the config file")
 
 	flag.Parse()
 
