@@ -10,7 +10,7 @@
    <a href="https://github.com/bricks-cloud/bricks/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-red" alt="License"></a>
 </p>
 
-**BricksLLM** is a declarative Go framework that gives you building blocks to create reliable LLM workflows. Productionizing LLM applications is difficult due to the technology's probalistic nature. **BricksLLM** solves this issue by accelerating the developer development cycle and allowing developers to relentlessly test and improve their LLM applications continuously.
+**BricksLLM** is a declarative Go framework that gives you building blocks to create reliable LLM workflows. Productionizing LLM is difficult due to the technology's probalistic nature. **BricksLLM** solves this issue by accelerating the developer development cycle and allowing developers to relentlessly test and improve their LLM applications continuously.
 
 * **Build**: Use BricksLLM building blocks to quickly build out your LLM backend.
 * **Test**: Unit test prompts and BricksLLM APIs in CI/CD.
@@ -18,6 +18,80 @@
 * **Deploy**: Containerize and deploy BricksLLM anywhere.
 * **Monitor**: Out of the box detailed logging and monitoring.
 * **A/B Testing**: Fine tune your prompt strategies through A/B testing.
+
+# Build your LLM Backend in 4 steps
+## 1. Set your OpenAI key
+Create a file called config.yaml, and set up OpenAI client.
+```yaml
+openai:
+  api_credential: ${OPENAI_KEY}
+```
+
+## 2. Define your API and expected JSON request body
+```yaml
+routes:
+  - path: /travel
+    provider: openai
+    input:
+      person:
+        type: string
+```
+## 3. Embed the request data into the prompt
+```yaml
+routes:
+  - path: /hi
+    provider: openai
+    input:
+      person:
+        type: string
+    openai_config:
+      model: gpt-3.5-turbo
+      prompts:
+        - role: assistant
+          content: say hi to {{ person }}
+```
+
+## 4. Test your configured applicationg with BricksLLM
+Start the BricksLLM web server
+```
+bricksllm -c config.yaml
+```
+Test your LLM workflow using ```curl```
+```
+curl -d '{"person":"Mike"}' -H "Content-Type: application/json" -X POST http://localhost:3000/hi
+```
+
+# Documentation
+## Install
+Grab a binary for your OS from [here](https://github.com/bricks-cloud/BricksLLM/releases). 
+
+Or pull the docker image:
+```
+docker pull luyuanxin1995/bricksllm
+```
+
+## Run
+```
+bricksllm -c ./path/to/your/config.ymal
+```
+
+With Docker Compose
+```yaml
+services:
+  bricksllm:
+    image: luyuanxin1995/bricksllm
+    volumes:
+     - ./path/to/your/config.yaml:/bricksllm.yaml
+    environment:
+      OPENAI_KEY: ${OPENAI_KEY}
+      API_KEY: ${API_KEY}
+    ports: ["8080:8080"]
+```
+
+With Docker
+```
+docker run --rm -v /path/to/your/config.yaml:/bricksllm.yaml luyuanxin1995/bricksllm
+```
 
 ## Overview
 Here is an example of BricksLLM config yaml.
@@ -29,8 +103,6 @@ openai:
 routes:
   - path: /travel
     provider: openai
-    key_auth:
-      key: ${API_KEY}
     cors:
       allowed_origins: ["*"]
       allowed_credentials: true
@@ -65,8 +137,6 @@ Each BricksLLM application has to have at least one route configuration
 routes:
   - path: /travel
     provider: openai
-    key_auth:
-      key: ${API_KEY}
     cors:
       allowed_origins: ["*"]
       allowed_credentials: true
@@ -105,7 +175,6 @@ openai:
   api_credential: ${OPENAI_KEY}
 ```
 
-# Documentation
 ## routes
 ### Example
 ```yaml
@@ -131,13 +200,13 @@ routes:
 ```
 ### Fields
 #### `routes` 
-##### Required: ```true```
-##### Type: ```array```
+##### Required: true
+##### Type: array
 A list of route configurations connected with LLM APIs.
 
 #### `routes[].path`
-##### Required: ```true```
-##### Type: ```string```
+##### Required: true
+##### Type: string
 A path specifies the resource that gets exposed to the client.
 
 ```yaml
@@ -146,39 +215,39 @@ routes:
 ```
 
 #### `routes[].provider`
-##### Required: ```true```
-##### Type: ```enum```
-##### Options: [`openai`] 
+##### Required: true
+##### Type: enum
+##### Options: [openai] 
 A provider is the name of the service that provides the LLM API. Right now, Bricks only supports OpenAI.
 
 #### `routes[].key_auth`
-##### Required: ```false```
-##### Type: ```object```
+##### Required: false
+##### Type: object
 Contains configurations for using API key authentication. If set up, BricksLLM would start checking API header `X-Api-Key` of incoming request for authentication and return ```401``` if the API call is unauthorized.
 
 #### `routes[].key_auth.key`
-##### Required: `true`
-##### Type: `string`
+##### Required: true
+##### Type: string
 A unique key to authenticate the API.
 
 #### `routes[].cors`
-##### Required: `false`
-##### Type: `object`
+##### Required: false
+##### Type: object
 The `cors` field is used to specify Cross-Origin Resource Sharing settings. It includes subfields for setting up CORS policies.
 
 #### `routes[].cors.allowed_origins`
-##### Required: `true`
-##### Type: `array`
+##### Required: true
+##### Type: array
 An array of strings specifying allowed origins for CORS.
 
 #### `routes[].cors.allowed_credentials`
-##### Required: `true`
-##### Type: `boolean`
+##### Required: true
+##### Type: boolean
 A boolean value specifying if CORS response can include credentials. It sets `Access-Control-Allow-Credentials` to `true` in server responses. You can read more about it [here](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Credentials).
 
 #### `routes[].input`
-##### Required: `false`
-##### Type: `object`
+##### Required: false
+##### Type: object
 The `input` field is used to specify the input JSON schema of the route.
 
 ```yaml
@@ -202,24 +271,24 @@ This translates to the following JSON schema.
 BricksLLM would use this schema to validate incoming HTTP requests. It would return `400` if expected fields in the request body are empty or the data type does not match the schema.
 
 #### `routes[].input[field_name].type`
-##### Required: `false`
-##### Type: `enum`
-##### Options: [`string`, `boolean`, `object`, `number`]
+##### Required: false
+##### Type: enum
+##### Options: [string, boolean, object, number]
 The `type` field within input specifies the data type of the expected
 
 #### `routes[].input[field_name].properties`
-##### Required: `true` (Only if the field data type is `object`)
-##### Type: `object`
+##### Required: true (Only if the field data type is `object`)
+##### Type: object
 The `properties` field specifies the schema of the `object` field.
 
 #### `routes[].openai_config`
-##### Required: `false`
-##### Type: `object`
+##### Required: false
+##### Type: object
 The `openai_config` field is used to specify the configuration details for OpenAI.
 
 #### `routes[].openai_config.api_credential`
-##### Required: `true` (Only required `openai.api_credential` is not specified)
-##### Type: `string`
+##### Required: true (Only required `openai.api_credential` is not specified)
+##### Type: string
 OpenAI API credential. If `openai.api_credential` is specified, the credential here will overwrite it in the API call to OpenAI.
 
 ```yaml
@@ -231,26 +300,26 @@ OpenAI API credential. If `openai.api_credential` is specified, the credential h
 :warning: **Store OpenAI key securely, and only use it as an environment variable.**
 
 #### `routes[].openai_config.model`
-##### Required: `true`
-##### Type: `enum`
-##### Options: [`gpt-3.5-turbo`, `gpt-3.5-turbo-16k`, `gpt-3.5-turbo-0613`, `gpt-3.5-turbo-16k-0613`, `gpt-4`, `gpt-4-0613`, `gpt-4-32k`, `gpt-4-32k-0613`]
+##### Required: true
+##### Type: enum
+##### Options: [gpt-3.5-turbo, gpt-3.5-turbo-16k, gpt-3.5-turbo-0613, gpt-3.5-turbo-16k-0613, gpt-4, gpt-4-0613, gpt-4-32k, gpt-4-32k-0613]
 
 The `model` field specifies the version of the model to use. Right now, BricksLLM supports all `gpt-3.5` and `gpt-4` OpenAI models.
 
 #### `routes[].openai_config.prompts`
-##### Required: `true`
-##### Type: `array`
+##### Required: true
+##### Type: array
 An array of objects that define how the model should respond to input.
 
 #### `routes[].openai_config.prompts[].role`
-##### Required: `true`
-##### Type: `enum`
-##### Options: [`assisstant, system, user`] 
+##### Required: true
+##### Type: enum
+##### Options: [assisstant, system, user] 
 The `role` field specifies the role the model should take when responding to input.
 
 #### `routes[].openai_config.prompts[].content`
-##### Required: `true`
-##### Type: `string`
+##### Required: true
+##### Type: string
 The `content` field specifies content of the prompt.
 
 ## openai
@@ -262,13 +331,13 @@ openai:
 
 ### Fields
 #### `openai`
-##### Required: `true`
-##### Type: `string`
+##### Required: true
+##### Type: string
 It contains the configuration of OpenAI API.
 
 #### `openai.api_credential`
-##### Required: `true`
-##### Type: `string`
+##### Required: true
+##### Type: string
 OpenAI API credential. If `routes[].openai_config.api_credential` is specified, it will overwrite this credential in the OpenAI API call.
 
 :warning: **Store OpenAI key securely, and only use it as an environment variable.**
@@ -289,12 +358,12 @@ logger:
 ### Fields
 #### `logger`
 ##### Required: `false`
-##### Type: `object`
+##### Type: object
 It contains the configuration of the logger.
 
 #### `logger.api`
-##### Required: `false`
-##### Type: `object`
+##### Required: false
+##### Type: object
 It contains the configuration for API log. Here is an example of the API log:
 ```json
 {
@@ -358,8 +427,8 @@ It contains the configuration for API log. Here is an example of the API log:
 
 
 #### `logger.llm`
-##### Required: `false`
-##### Type: `object`
+##### Required: false
+##### Type: object
 It contains the configuration for LLM API log. Here is an example of the LLM API log. 
 ```json
 {
@@ -469,32 +538,32 @@ It contains the configuration for LLM API log. Here is an example of the LLM API
 ```
 
 #### `logger.api.hide_ip`
-##### Required: `false`
-##### Default: `false`
-##### Type: `boolean`
+##### Required: false
+##### Default: false
+##### Type: boolean
 This field prevents logger from logging the http request ip.
 
 #### `logger.api.hide_headers`
-##### Required: `false`
-##### Default: `false`
-##### Type: `boolean`
+##### Required: false
+##### Default: false
+##### Type: boolean
 This field prevents logger from logging the http request and response headers.
 
 
 #### `logger.llm.hide_headers`
-##### Required: `false`
-##### Default: `false`
-##### Type: `boolean`
+##### Required: false
+##### Default: false
+##### Type: boolean
 This field prevents logger from logging the upstream llm http request and llm response headers.
 
 #### `logger.llm.hide_response_content`
-##### Required: `false`
-##### Default: `false`
-##### Type: `boolean`
+##### Required: false
+##### Default: false
+##### Type: boolean
 This field prevents logger from logging the upstream llm http response content.
 
 #### `logger.llm.hide_prompt_content`
-##### Required: `false`
-##### Default: `false`
-##### Type: `boolean`
+##### Required: false
+##### Default: false
+##### Type: boolean
 This field prevents logger from logging the upstream llm http request prompt content.
