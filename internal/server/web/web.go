@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"reflect"
@@ -23,6 +22,7 @@ import (
 
 type WebServer struct {
 	server       *http.Server
+	logger       logger.Logger
 	openAiClinet *openai.OpenAiClient
 }
 
@@ -39,6 +39,8 @@ func NewWebServer(c *config.Config, lg logger.Logger, mode string) (*WebServer, 
 		}
 
 		router.POST(rc.Path, r.newRequestHandler())
+
+		lg.Infof("%s is set up", rc.Path)
 	}
 
 	srv := &http.Server{
@@ -47,6 +49,7 @@ func NewWebServer(c *config.Config, lg logger.Logger, mode string) (*WebServer, 
 	}
 
 	return &WebServer{
+		logger: lg,
 		server: srv,
 	}, nil
 }
@@ -54,7 +57,7 @@ func NewWebServer(c *config.Config, lg logger.Logger, mode string) (*WebServer, 
 func (w *WebServer) Run() {
 	go func() {
 		if err := w.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %s\n", err)
+			w.logger.Fatalf("listen: %s\n", err)
 		}
 	}()
 }
