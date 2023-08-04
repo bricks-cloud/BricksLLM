@@ -13,4 +13,4 @@ COPY --from=build /go/src/github.com/bricks-cloud/BricksLLM/bin /go/bin
 EXPOSE 8080
 ENTRYPOINT ["/go/bin/bricksllm"]
 
-CMD ["-path=/bricksllm.yaml"]
+CMD ["-c", "/bricksllm.yaml", "-m", "production"]
