@@ -30,7 +30,7 @@ openai:
 ## 2. Define your API and expected JSON request body
 ```yaml
 routes:
-  - path: /travel
+  - path: /hi
     provider: openai
     input:
       person:
@@ -51,7 +51,7 @@ routes:
           content: say hi to {{ person }}
 ```
 
-## 4. Test your configured applicationg with BricksLLM
+## 4. Test your configured BricksLLM application
 Start the BricksLLM web server
 ```
 bricksllm -c config.yaml
