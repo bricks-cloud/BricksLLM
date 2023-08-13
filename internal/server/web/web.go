@@ -17,7 +17,6 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/logger"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 type WebServer struct {
@@ -57,7 +56,7 @@ func NewWebServer(c *config.Config, lg logger.Logger, mode string) (*WebServer, 
 func (w *WebServer) Run() {
 	go func() {
 		if err := w.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			w.logger.Fatalf("listen: %s\n", err)
+			w.logger.Fatalf("proxy server listen: %s\n", err)
 		}
 	}()
 }
@@ -149,10 +148,6 @@ func newErrMessage() *logger.ErrorMessage {
 	return logger.NewErrorMessage()
 }
 
-func newUuid() string {
-	return uuid.New().String()
-}
-
 const (
 	apiKeyHeader string = "X-Api-Key"
 	forwardedFor string = "X-Forwarded-For"
@@ -183,7 +178,7 @@ func (r *Route) newRequestHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		am := r.newApiMessage()
 		lm := r.newLlmMessage()
-		instanceId := newUuid()
+		instanceId := util.NewUuid()
 		am.SetInstanceId(instanceId)
 		lm.SetInstanceId(instanceId)
 

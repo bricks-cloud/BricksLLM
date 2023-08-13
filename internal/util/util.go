@@ -4,7 +4,13 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+
+	"github.com/google/uuid"
 )
+
+func NewUuid() string {
+	return uuid.New().String()
+}
 
 func GetVariableMap(str string) map[string]string {
 	regexPattern := `({{\s*(.*?)\s*}})`
