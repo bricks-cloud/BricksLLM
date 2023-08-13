@@ -34,7 +34,12 @@ func main() {
 		sslModeSuffix = "?sslmode=disable"
 	}
 
-	store, err := postgresql.NewStore(fmt.Sprintf("postgresql://%s:%s@%s:%s/postgres%s", cfg.PostgresqlUsername, cfg.PostgresqlUsername, cfg.PostgresqlHosts, cfg.PostgresqlPort, sslModeSuffix), lg)
+	store, err := postgresql.NewStore(
+		fmt.Sprintf("postgresql://%s:%s@%s:%s/postgres%s", cfg.PostgresqlUsername, cfg.PostgresqlUsername, cfg.PostgresqlHosts, cfg.PostgresqlPort, sslModeSuffix),
+		lg,
+		cfg.PostgresqlWriteTimeout,
+		cfg.PostgresqlReadTimeout,
+	)
 	if err != nil {
 		lg.Fatalf("cannot connect to postgresql: %v", err)
 	}

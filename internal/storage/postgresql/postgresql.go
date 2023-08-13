@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/logger"
@@ -16,9 +17,11 @@ import (
 type Store struct {
 	db *sql.DB
 	lg logger.Logger
+	wt time.Duration
+	rt time.Duration
 }
 
-func NewStore(connStr string, lg logger.Logger) (*Store, error) {
+func NewStore(connStr string, lg logger.Logger, wt time.Duration, rt time.Duration) (*Store, error) {
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		return nil, err
@@ -27,6 +30,8 @@ func NewStore(connStr string, lg logger.Logger) (*Store, error) {
 	return &Store{
 		db: db,
 		lg: lg,
+		wt: wt,
+		rt: rt,
 	}, nil
 }
 
@@ -49,7 +54,10 @@ func (s *Store) CreateKeysTable() error {
 		ttl BIGINT
 	)`
 
-	_, err := s.db.ExecContext(context.Background(), createTableQuery)
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+
+	_, err := s.db.ExecContext(ctxTimeout, createTableQuery)
 	if err != nil {
 		return err
 	}
@@ -59,7 +67,10 @@ func (s *Store) CreateKeysTable() error {
 
 func (s *Store) DropKeysTable() error {
 	createTableQuery := `DROP TABLE keys`
-	_, err := s.db.ExecContext(context.Background(), createTableQuery)
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+
+	_, err := s.db.ExecContext(ctxTimeout, createTableQuery)
 	if err != nil {
 		return err
 	}
@@ -68,7 +79,10 @@ func (s *Store) DropKeysTable() error {
 }
 
 func (s *Store) GetKeysByTag(tag string) ([]*key.ResponseKey, error) {
-	rows, err := s.db.QueryContext(context.Background(), "SELECT * FROM keys WHERE $1 = ANY(tags)", tag)
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM keys WHERE $1 = ANY(tags)", tag)
 	if err != nil {
 		return nil, err
 	}
@@ -176,8 +190,11 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 
 	query := fmt.Sprintf("UPDATE keys SET %s WHERE key_id = $1 RETURNING *;", strings.Join(fields, ","))
 
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+
 	var k key.ResponseKey
-	if err := s.db.QueryRowContext(context.Background(), query, values...).Scan(
+	if err := s.db.QueryRowContext(ctxTimeout, query, values...).Scan(
 		&k.Name,
 		&k.CreatedAt,
 		&k.UpdatedAt,
@@ -223,8 +240,11 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		rk.Ttl.Milliseconds(),
 	}
 
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+
 	var k key.ResponseKey
-	if err := s.db.QueryRowContext(context.Background(), query, values...).Scan(
+	if err := s.db.QueryRowContext(ctxTimeout, query, values...).Scan(
 		&k.Name,
 		&k.CreatedAt,
 		&k.UpdatedAt,
@@ -247,7 +267,10 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 }
 
 func (s *Store) DeleteKey(id string) error {
-	_, err := s.db.ExecContext(context.Background(), "DELETE FROM keys WHERE key_id = $1", id)
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+
+	_, err := s.db.ExecContext(ctxTimeout, "DELETE FROM keys WHERE key_id = $1", id)
 	return err
 }
 

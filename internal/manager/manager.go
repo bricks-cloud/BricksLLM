@@ -15,7 +15,6 @@ type Storage interface {
 }
 
 type Encrypter interface {
-	GetKeysByTag(tag string) ([]*key.ResponseKey, error)
 	Encrypt(secret string) string
 }
 
