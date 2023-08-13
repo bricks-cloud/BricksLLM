@@ -8,6 +8,9 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/logger"
+
+	"github.com/lib/pq"
+	_ "github.com/lib/pq"
 )
 
 type Store struct {
@@ -27,6 +30,43 @@ func NewStore(connStr string, lg logger.Logger) (*Store, error) {
 	}, nil
 }
 
+func (s *Store) CreateKeysTable() error {
+	createTableQuery := `
+	CREATE TABLE IF NOT EXISTS keys (
+		name VARCHAR(255) NOT NULL,
+		created_at BIGINT NOT NULL,
+		updated_at BIGINT NOT NULL,
+		tags VARCHAR(255)[],
+		revoked BOOLEAN NOT NULL,
+		key_id VARCHAR(255) PRIMARY KEY,
+		key VARCHAR(255) NOT NULL,
+		retrievable BOOLEAN NOT NULL,
+		cost_limit_in_usd FLOAT8,
+		cost_limit_in_usd_over_time FLOAT8,
+		cost_limit_in_usd_unit VARCHAR(255),
+		rate_limit_over_time INT,
+		rate_limit_unit VARCHAR(255),
+		ttl BIGINT
+	)`
+
+	_, err := s.db.ExecContext(context.Background(), createTableQuery)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Store) DropKeysTable() error {
+	createTableQuery := `DROP TABLE keys`
+	_, err := s.db.ExecContext(context.Background(), createTableQuery)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *Store) GetKeysByTag(tag string) ([]*key.ResponseKey, error) {
 	rows, err := s.db.QueryContext(context.Background(), "SELECT * FROM keys WHERE $1 = ANY(tags)", tag)
 	if err != nil {
@@ -37,7 +77,22 @@ func (s *Store) GetKeysByTag(tag string) ([]*key.ResponseKey, error) {
 	keys := []*key.ResponseKey{}
 	for rows.Next() {
 		var k key.ResponseKey
-		if err := rows.Scan(&k); err != nil {
+		if err := rows.Scan(
+			&k.Name,
+			&k.CreatedAt,
+			&k.UpdatedAt,
+			pq.Array(&k.Tags),
+			&k.Revoked,
+			&k.KeyId,
+			&k.Key,
+			&k.Retrievable,
+			&k.CostLimitInUsd,
+			&k.CostLimitInUsdOverTime,
+			&k.CostLimitInUsdUnit,
+			&k.RateLimitOverTime,
+			&k.RateLimitUnit,
+			&k.Ttl,
+		); err != nil {
 			return nil, err
 		}
 		keys = append(keys, &k)
@@ -46,69 +101,75 @@ func (s *Store) GetKeysByTag(tag string) ([]*key.ResponseKey, error) {
 	return keys, nil
 }
 
-func (s *Store) UpdateKey(id string, rk *key.RequestKey) (*key.ResponseKey, error) {
+func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error) {
 	fields := []string{}
 	counter := 2
 	values := []any{
 		id,
 	}
 
-	if len(rk.Name) != 0 {
-		values = append(values, rk.Name)
+	if len(uk.Name) != 0 {
+		values = append(values, uk.Name)
 		fields = append(fields, fmt.Sprintf("name = $%d", counter))
 		counter++
 	}
 
-	if rk.UpdatedAt != 0 {
-		values = append(values, rk.UpdatedAt)
+	if uk.UpdatedAt != 0 {
+		values = append(values, uk.UpdatedAt)
 		fields = append(fields, fmt.Sprintf("updated_at = $%d", counter))
 		counter++
 	}
 
-	if len(rk.Tags) != 0 {
-		values = append(values, rk.Tags)
+	if len(uk.Tags) != 0 {
+		values = append(values, sliceToSqlStringArray(uk.Tags))
 		fields = append(fields, fmt.Sprintf("tags = $%d", counter))
 		counter++
 	}
 
-	if rk.Revoked != nil {
-		values = append(values, rk.Revoked)
+	if uk.Revoked != nil {
+		values = append(values, uk.Revoked)
 		fields = append(fields, fmt.Sprintf("revoked = $%d", counter))
 		counter++
 	}
 
-	if rk.Retrievable != nil {
-		values = append(values, rk.Retrievable)
+	if uk.Retrievable != nil {
+		values = append(values, uk.Retrievable)
 		fields = append(fields, fmt.Sprintf("retrievable = $%d", counter))
 		counter++
 	}
 
-	if rk.CostLimitInUsd != 0 {
-		values = append(values, rk.CostLimitInUsd)
+	if uk.CostLimitInUsd != 0 {
+		values = append(values, uk.CostLimitInUsd)
 		fields = append(fields, fmt.Sprintf("cost_limit_in_usd = $%d", counter))
 		counter++
 	}
 
-	if rk.CostLimitInUsdPerDay != 0 {
-		values = append(values, rk.CostLimitInUsdPerDay)
-		fields = append(fields, fmt.Sprintf("cost_limit_in_usd_per_day = $%d", counter))
+	if uk.CostLimitInUsdOverTime != 0 {
+		values = append(values, uk.CostLimitInUsdOverTime)
+		fields = append(fields, fmt.Sprintf("cost_limit_in_usd_over_time = $%d", counter))
 		counter++
 	}
 
-	if rk.RateLimit != 0 {
-		values = append(values, rk.RateLimit)
-		fields = append(fields, fmt.Sprintf("rate_limit = $%d", counter))
+	if len(uk.CostLimitInUsdUnit) != 0 {
+		values = append(values, uk.CostLimitInUsdUnit)
+		fields = append(fields, fmt.Sprintf("cost_limit_in_usd_unit = $%d", counter))
 		counter++
 	}
 
-	if rk.RateLimitDuration != 0 {
-		values = append(values, rk.RateLimit)
-		fields = append(fields, fmt.Sprintf("rate_limit_duration = $%d", counter))
+	if uk.RateLimitOverTime != 0 {
+		values = append(values, uk.RateLimitOverTime)
+		fields = append(fields, fmt.Sprintf("rate_limit_over_time = $%d", counter))
 		counter++
 	}
 
-	if rk.Ttl != 0 {
-		values = append(values, rk.Ttl)
+	if len(uk.RateLimitUnit) != 0 {
+		values = append(values, uk.RateLimitUnit)
+		fields = append(fields, fmt.Sprintf("rate_limit_unit = $%d", counter))
+		counter++
+	}
+
+	if uk.Ttl != 0 {
+		values = append(values, uk.Ttl.Milliseconds())
 		fields = append(fields, fmt.Sprintf("ttl = $%d", counter))
 		counter++
 	}
@@ -116,7 +177,22 @@ func (s *Store) UpdateKey(id string, rk *key.RequestKey) (*key.ResponseKey, erro
 	query := fmt.Sprintf("UPDATE keys SET %s WHERE key_id = $1 RETURNING *;", strings.Join(fields, ","))
 
 	var k key.ResponseKey
-	if err := s.db.QueryRowContext(context.Background(), query, values...).Scan(&k); err != nil {
+	if err := s.db.QueryRowContext(context.Background(), query, values...).Scan(
+		&k.Name,
+		&k.CreatedAt,
+		&k.UpdatedAt,
+		pq.Array(&k.Tags),
+		&k.Revoked,
+		&k.KeyId,
+		&k.Key,
+		&k.Retrievable,
+		&k.CostLimitInUsd,
+		&k.CostLimitInUsdOverTime,
+		&k.CostLimitInUsdUnit,
+		&k.RateLimitOverTime,
+		&k.RateLimitUnit,
+		&k.Ttl,
+	); err != nil {
 		return nil, err
 	}
 
@@ -125,8 +201,8 @@ func (s *Store) UpdateKey(id string, rk *key.RequestKey) (*key.ResponseKey, erro
 
 func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 	query := `
-		INSERT INTO keys (name, created_at, updated_at, tags, key_id, revoked, key, retrievable, cost_limit_in_usd, cost_limit_in_usd_per_day, rate_limit, rate_limit_duration, ttl)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		INSERT INTO keys (name, created_at, updated_at, tags, revoked, key_id, key, retrievable, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING *;
 	`
 
@@ -134,19 +210,36 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		rk.Name,
 		rk.CreatedAt,
 		rk.UpdatedAt,
-		rk.Tags,
-		rk.KeyId,
+		sliceToSqlStringArray(rk.Tags),
 		rk.Revoked,
+		rk.KeyId,
 		rk.Key,
 		rk.Retrievable,
 		rk.CostLimitInUsd,
-		rk.RateLimit,
-		rk.RateLimitDuration.String(),
-		rk.Ttl.String(),
+		rk.CostLimitInUsdOverTime,
+		rk.CostLimitInUsdUnit,
+		rk.RateLimitOverTime,
+		rk.RateLimitUnit,
+		rk.Ttl.Milliseconds(),
 	}
 
 	var k key.ResponseKey
-	if err := s.db.QueryRowContext(context.Background(), query, values...).Scan(&k); err != nil {
+	if err := s.db.QueryRowContext(context.Background(), query, values...).Scan(
+		&k.Name,
+		&k.CreatedAt,
+		&k.UpdatedAt,
+		pq.Array(&k.Tags),
+		&k.Revoked,
+		&k.KeyId,
+		&k.Key,
+		&k.Retrievable,
+		&k.CostLimitInUsd,
+		&k.CostLimitInUsdOverTime,
+		&k.CostLimitInUsdUnit,
+		&k.RateLimitOverTime,
+		&k.RateLimitUnit,
+		&k.Ttl,
+	); err != nil {
 		return nil, err
 	}
 
@@ -156,4 +249,8 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 func (s *Store) DeleteKey(id string) error {
 	_, err := s.db.ExecContext(context.Background(), "DELETE FROM keys WHERE key_id = $1", id)
 	return err
+}
+
+func sliceToSqlStringArray(slice []string) string {
+	return "{" + strings.Join(slice, ",") + "}"
 }
