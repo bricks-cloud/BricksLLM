@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -12,7 +13,7 @@ import (
 
 type KeyManager interface {
 	GetKeysByTag(tag string) ([]*key.ResponseKey, error)
-	UpdateKey(id string, key *key.RequestKey) (*key.ResponseKey, error)
+	UpdateKey(id string, key *key.UpdateKey) (*key.ResponseKey, error)
 	CreateKey(key *key.RequestKey) (*key.ResponseKey, error)
 	DeleteKey(id string) error
 }
@@ -51,6 +52,22 @@ func NewAdminServer(lg logger.Logger, m KeyManager) (*AdminServer, error) {
 	}, nil
 }
 
+func (as *AdminServer) Run() {
+	go func() {
+		if err := as.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			as.logger.Fatalf("admin server listen: %s\n", err)
+		}
+	}()
+}
+
+func (as *AdminServer) Shutdown(ctx context.Context) error {
+	if err := as.server.Shutdown(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func getGetKeysHandler(m KeyManager) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tag := c.Query("tag")
@@ -63,6 +80,7 @@ func getGetKeysHandler(m KeyManager) gin.HandlerFunc {
 				Detail:   "query param tag is missing from the request url. it is required for retrieving keys.",
 				Instance: path,
 			})
+			return
 		}
 
 		keys, err := m.GetKeysByTag(tag)
@@ -88,7 +106,7 @@ type ValidationError interface {
 
 func getCreateKeyHandler(m KeyManager) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		path := "/api/key-management/keys/:id"
+		path := "/api/key-management/keys"
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -169,8 +187,8 @@ func getUpdateKeyHandler(m KeyManager) gin.HandlerFunc {
 			return
 		}
 
-		rk := &key.RequestKey{}
-		err = json.Unmarshal(data, rk)
+		uk := &key.UpdateKey{}
+		err = json.Unmarshal(data, uk)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
@@ -182,8 +200,19 @@ func getUpdateKeyHandler(m KeyManager) gin.HandlerFunc {
 			return
 		}
 
-		resk, err := m.UpdateKey(newUuid(), rk)
-		if resk != nil {
+		resk, err := m.UpdateKey(id, uk)
+		if err != nil {
+			if _, ok := err.(ValidationError); ok {
+				c.JSON(http.StatusBadRequest, &ErrorResponse{
+					Type:     "/errors/validation",
+					Title:    "key validation failed",
+					Status:   http.StatusBadRequest,
+					Detail:   err.Error(),
+					Instance: path,
+				})
+				return
+			}
+
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/key-manager",
 				Title:    "update key error",
@@ -194,7 +223,7 @@ func getUpdateKeyHandler(m KeyManager) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, rk)
+		c.JSON(http.StatusOK, resk)
 	}
 }
 
