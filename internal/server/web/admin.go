@@ -45,6 +45,11 @@ func NewAdminServer(lg logger.Logger, m KeyManager) (*AdminServer, error) {
 		Handler: router,
 	}
 
+	lg.Info("GET    /api/key-management/keys is set up for retrieving keys using a query param called tag")
+	lg.Info("PUT    /api/key-management/keys is set up for creating a key")
+	lg.Info("PATCH  /api/key-management/keys/:id is set up for updating a key using an id")
+	lg.Info("DELETE /api/key-management/keys/:id is set up for deleting a key using an id")
+
 	return &AdminServer{
 		logger: lg,
 		server: srv,

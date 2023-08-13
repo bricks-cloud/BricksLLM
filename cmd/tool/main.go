@@ -3,22 +3,37 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/bricks-cloud/bricksllm/internal/config"
 	"github.com/bricks-cloud/bricksllm/internal/logger/zap"
 	"github.com/bricks-cloud/bricksllm/internal/manager"
 	"github.com/bricks-cloud/bricksllm/internal/server/web"
 	"github.com/bricks-cloud/bricksllm/internal/storage/postgresql"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
 	modePtr := flag.String("m", "dev", "select the mode that bricksllm runs in")
 	lg := zap.NewLogger(*modePtr)
 
-	store, err := postgresql.NewStore("", lg)
+	gin.SetMode(gin.ReleaseMode)
+
+	cfg, err := config.ParseEnvVariables()
+	if err != nil {
+		lg.Fatalf("cannot parse environment variables: %v", err)
+	}
+
+	sslModeSuffix := ""
+	if !cfg.PostgresqlSslEnabled {
+		sslModeSuffix = "?sslmode=disable"
+	}
+
+	store, err := postgresql.NewStore(fmt.Sprintf("postgresql://%s:%s@%s:%s/postgres%s", cfg.PostgresqlUsername, cfg.PostgresqlUsername, cfg.PostgresqlHosts, cfg.PostgresqlPort, sslModeSuffix), lg)
 	if err != nil {
 		lg.Fatalf("cannot connect to postgresql: %v", err)
 	}
