@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/config"
+	"github.com/bricks-cloud/bricksllm/internal/encrypter"
 	"github.com/bricks-cloud/bricksllm/internal/logger/zap"
 	"github.com/bricks-cloud/bricksllm/internal/manager"
 	"github.com/bricks-cloud/bricksllm/internal/server/web"
@@ -43,7 +44,8 @@ func main() {
 		lg.Fatalf("error creating keys table: %v", err)
 	}
 
-	m := manager.NewManager(store)
+	e := encrypter.NewEncrypter(cfg.EncryptionKey)
+	m := manager.NewManager(store, e)
 	as, err := web.NewAdminServer(lg, m)
 	if err != nil {
 		lg.Fatalf("error creating http server: %v", err)

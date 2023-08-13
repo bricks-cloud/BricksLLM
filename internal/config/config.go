@@ -10,6 +10,7 @@ type Config struct {
 	PostgresqlPassword   string `env:"POSTGRESQL_PASSWORD"`
 	PostgresqlSslEnabled bool   `env:"POSTGRESQL_SSL_ENABLED" envDefault:"false"`
 	PostgresqlPort       string `env:"POSTGRESQL_PORT" envDefault:"5432"`
+	EncryptionKey        string `env:"ENCRYPTION_KEY,required"`
 }
 
 func ParseEnvVariables() (*Config, error) {

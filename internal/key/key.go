@@ -132,6 +132,10 @@ func (rk *RequestKey) Validate() error {
 		invalid = append(invalid, "retrievable")
 	}
 
+	if len(rk.Key) == 0 {
+		invalid = append(invalid, "key")
+	}
+
 	if rk.CreatedAt <= 0 {
 		invalid = append(invalid, "createdAt")
 	}

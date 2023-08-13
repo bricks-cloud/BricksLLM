@@ -14,13 +14,20 @@ type Storage interface {
 	DeleteKey(id string) error
 }
 
-type Manager struct {
-	s Storage
+type Encrypter interface {
+	GetKeysByTag(tag string) ([]*key.ResponseKey, error)
+	Encrypt(secret string) string
 }
 
-func NewManager(s Storage) *Manager {
+type Manager struct {
+	s Storage
+	e Encrypter
+}
+
+func NewManager(s Storage, e Encrypter) *Manager {
 	return &Manager{
 		s: s,
+		e: e,
 	}
 }
 
@@ -31,8 +38,10 @@ func (m *Manager) GetKeysByTag(tag string) ([]*key.ResponseKey, error) {
 func (m *Manager) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 	rk.CreatedAt = time.Now().Unix()
 	rk.UpdatedAt = time.Now().Unix()
+	rk.Key = m.e.Encrypt(rk.Key)
 	rk.KeyId = util.NewUuid()
 	f := false
+
 	rk.Revoked = &f
 
 	if err := rk.Validate(); err != nil {
