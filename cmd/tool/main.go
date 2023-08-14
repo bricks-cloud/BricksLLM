@@ -14,6 +14,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/logger/zap"
 	"github.com/bricks-cloud/bricksllm/internal/manager"
 	"github.com/bricks-cloud/bricksllm/internal/server/web"
+	"github.com/bricks-cloud/bricksllm/internal/storage/memdb"
 	"github.com/bricks-cloud/bricksllm/internal/storage/postgresql"
 	"github.com/gin-gonic/gin"
 )
@@ -40,6 +41,7 @@ func main() {
 		cfg.PostgresqlWriteTimeout,
 		cfg.PostgresqlReadTimeout,
 	)
+
 	if err != nil {
 		lg.Fatalf("cannot connect to postgresql: %v", err)
 	}
@@ -48,6 +50,13 @@ func main() {
 	if err != nil {
 		lg.Fatalf("error creating keys table: %v", err)
 	}
+
+	memStore, err := memdb.NewMemDb(store, lg, cfg.InMemoryDbUpdateInterval)
+	if err != nil {
+		lg.Fatalf("cannot initialize memdb: %v", err)
+	}
+
+	memStore.Listen()
 
 	e := encrypter.NewEncrypter(cfg.EncryptionKey)
 	m := manager.NewManager(store, e)
@@ -61,6 +70,8 @@ func main() {
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+
+	memStore.Stop()
 	lg.Infof("shutting down server...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

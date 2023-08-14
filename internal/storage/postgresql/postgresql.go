@@ -115,6 +115,80 @@ func (s *Store) GetKeysByTag(tag string) ([]*key.ResponseKey, error) {
 	return keys, nil
 }
 
+func (s *Store) GetAllKeys() ([]*key.ResponseKey, error) {
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM keys")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	keys := []*key.ResponseKey{}
+	for rows.Next() {
+		var k key.ResponseKey
+		if err := rows.Scan(
+			&k.Name,
+			&k.CreatedAt,
+			&k.UpdatedAt,
+			pq.Array(&k.Tags),
+			&k.Revoked,
+			&k.KeyId,
+			&k.Key,
+			&k.Retrievable,
+			&k.CostLimitInUsd,
+			&k.CostLimitInUsdOverTime,
+			&k.CostLimitInUsdUnit,
+			&k.RateLimitOverTime,
+			&k.RateLimitUnit,
+			&k.Ttl,
+		); err != nil {
+			return nil, err
+		}
+		keys = append(keys, &k)
+	}
+
+	return keys, nil
+}
+
+func (s *Store) GetUpdatedKeys(interval time.Duration) ([]*key.ResponseKey, error) {
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM keys WHERE updated_at >= $1", time.Now().Unix()-int64(interval.Seconds()))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	keys := []*key.ResponseKey{}
+	for rows.Next() {
+		var k key.ResponseKey
+		if err := rows.Scan(
+			&k.Name,
+			&k.CreatedAt,
+			&k.UpdatedAt,
+			pq.Array(&k.Tags),
+			&k.Revoked,
+			&k.KeyId,
+			&k.Key,
+			&k.Retrievable,
+			&k.CostLimitInUsd,
+			&k.CostLimitInUsdOverTime,
+			&k.CostLimitInUsdUnit,
+			&k.RateLimitOverTime,
+			&k.RateLimitUnit,
+			&k.Ttl,
+		); err != nil {
+			return nil, err
+		}
+		keys = append(keys, &k)
+	}
+
+	return keys, nil
+}
+
 func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error) {
 	fields := []string{}
 	counter := 2
