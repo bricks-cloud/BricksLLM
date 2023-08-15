@@ -53,7 +53,7 @@ func (v *Validator) Validate(k *key.ResponseKey, input string, model string) err
 	}
 
 	if !v.validateTtl(k.CreatedAt, k.Ttl) {
-		return internal_errors.NewValidationError("api key expired")
+		return internal_errors.NewExpirationError("api key expired", internal_errors.TtlExpiration)
 	}
 
 	tks, err := v.ce.EstimateTokens(model, input)
@@ -144,7 +144,7 @@ func (v *Validator) validateCostLimit(keyId string, costLimit float64, promptCos
 	}
 
 	if convertDollarToMicroDollars(promptCost)+existingTotalCost > convertDollarToMicroDollars(costLimit) {
-		return internal_errors.NewValidationError(fmt.Sprintf("total cost limit: %f has been reached", costLimit))
+		return internal_errors.NewExpirationError(fmt.Sprintf("total cost limit: %f has been reached", costLimit), internal_errors.CostLimitExpiration)
 	}
 
 	return nil
