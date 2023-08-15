@@ -16,7 +16,7 @@ func NewCostEstiamtor() (*CostEstimator, error) {
 	return &CostEstimator{}, nil
 }
 
-func (ce *CostEstimator) estimateTokens(model string, input string) (int, error) {
+func (ce *CostEstimator) EstimateTokens(model string, input string) (int, error) {
 	tkm, err := tiktoken.EncodingForModel(model)
 	if err != nil {
 		return 0, err
@@ -26,13 +26,8 @@ func (ce *CostEstimator) estimateTokens(model string, input string) (int, error)
 	return len(token), nil
 }
 
-func (ce *CostEstimator) EstimatePromptTokenCost(model string, input string) (float64, error) {
-	num, err := ce.estimateTokens(model, input)
-	if err != nil {
-		return 0, err
-	}
-
-	cost, err := estimatePromptTokenCost(model, num)
+func (ce *CostEstimator) EstimatePromptTokenCost(tks int, model string) (float64, error) {
+	cost, err := estimatePromptTokenCost(model, tks)
 	if err != nil {
 		return 0, err
 	}
@@ -40,18 +35,27 @@ func (ce *CostEstimator) EstimatePromptTokenCost(model string, input string) (fl
 	return cost, nil
 }
 
-func (ce *CostEstimator) EstimateTotalCost(model string, input string) (float64, error) {
-	num, err := ce.estimateTokens(model, input)
-	if err != nil {
-		return 0, err
-	}
-
-	cost, err := estimatePromptTokenCost(model, num)
+func (ce *CostEstimator) EstimateCompletionTokenCost(tks int, model string) (float64, error) {
+	cost, err := estimateCompletionTokenCost(model, tks)
 	if err != nil {
 		return 0, err
 	}
 
 	return cost, nil
+}
+
+func (ce *CostEstimator) EstimateTotalCost(completionTks int, promptTks int, model string, input string) (float64, error) {
+	promptTksCost, err := estimatePromptTokenCost(model, promptTks)
+	if err != nil {
+		return 0, err
+	}
+
+	completionTksCost, err := estimateCompletionTokenCost(model, promptTks)
+	if err != nil {
+		return 0, err
+	}
+
+	return promptTksCost + completionTksCost, nil
 }
 
 func estimateTotalCost(model string, promptTokens int, completionTokens int) (float64, error) {
