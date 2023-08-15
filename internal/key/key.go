@@ -15,17 +15,17 @@ const (
 )
 
 type UpdateKey struct {
-	Name                   string             `json:"name"`
-	UpdatedAt              int64              `json:"updatedAt"`
-	Tags                   []string           `json:"tags"`
-	Revoked                *bool              `json:"revoked"`
-	Retrievable            *bool              `json:"retrievable"`
-	CostLimitInUsd         float64            `json:"costLimitInUsd"`
-	CostLimitInUsdOverTime float64            `json:"costLimitInUsdOverTime"`
-	CostLimitInUsdUnit     CostLimitInUsdUnit `json:"costLimitInUsdUnit"`
-	RateLimitOverTime      int                `json:"rateLimitOverTime"`
-	RateLimitUnit          RateLimitUnit      `json:"rateLimitUnit"`
-	Ttl                    time.Duration      `json:"ttl"`
+	Name                   string        `json:"name"`
+	UpdatedAt              int64         `json:"updatedAt"`
+	Tags                   []string      `json:"tags"`
+	Revoked                *bool         `json:"revoked"`
+	Retrievable            *bool         `json:"retrievable"`
+	CostLimitInUsd         float64       `json:"costLimitInUsd"`
+	CostLimitInUsdOverTime float64       `json:"costLimitInUsdOverTime"`
+	CostLimitInUsdUnit     TimeUnit      `json:"costLimitInUsdUnit"`
+	RateLimitOverTime      int           `json:"rateLimitOverTime"`
+	RateLimitUnit          TimeUnit      `json:"rateLimitUnit"`
+	Ttl                    time.Duration `json:"ttl"`
 }
 
 func (uk *UpdateKey) Validate() error {
@@ -75,7 +75,7 @@ func (uk *UpdateKey) Validate() error {
 			return errors.NewValidationError("rate limit unit can not be empty if rate limit over time is specified")
 		}
 
-		if uk.RateLimitUnit != HourRateLimitUnit && uk.RateLimitUnit != SecondRateLimitUnit {
+		if uk.RateLimitUnit != HourTimeUnit && uk.RateLimitUnit != MinuteTimeUnit && uk.RateLimitUnit != SecondTimeUnit && uk.RateLimitUnit != DayTimeUnit {
 			return errors.NewValidationError("rate limit unit can not be identified")
 		}
 	}
@@ -85,7 +85,7 @@ func (uk *UpdateKey) Validate() error {
 			return errors.NewValidationError("cost limit unit can not be empty if cost limit over time is specified")
 		}
 
-		if uk.CostLimitInUsdUnit != HourCostLimitInUsdUnit && uk.CostLimitInUsdUnit != SecondCostLimitInUsdUnit {
+		if uk.CostLimitInUsdUnit != HourTimeUnit && uk.CostLimitInUsdUnit != DayTimeUnit {
 			return errors.NewValidationError("cost limit unit can not be identified")
 		}
 	}
@@ -94,20 +94,20 @@ func (uk *UpdateKey) Validate() error {
 }
 
 type RequestKey struct {
-	Name                   string             `json:"name"`
-	CreatedAt              int64              `json:"createdAt"`
-	UpdatedAt              int64              `json:"updatedAt"`
-	Tags                   []string           `json:"tags"`
-	Revoked                *bool              `json:"revoked"`
-	KeyId                  string             `json:"keyId"`
-	Key                    string             `json:"key"`
-	Retrievable            *bool              `json:"retrievable"`
-	CostLimitInUsd         float64            `json:"costLimitInUsd"`
-	CostLimitInUsdOverTime float64            `json:"costLimitInUsdOverTime"`
-	CostLimitInUsdUnit     CostLimitInUsdUnit `json:"costLimitInUsdUnit"`
-	RateLimitOverTime      int                `json:"rateLimitOverTime"`
-	RateLimitUnit          RateLimitUnit      `json:"rateLimitUnit"`
-	Ttl                    time.Duration      `json:"ttl"`
+	Name                   string        `json:"name"`
+	CreatedAt              int64         `json:"createdAt"`
+	UpdatedAt              int64         `json:"updatedAt"`
+	Tags                   []string      `json:"tags"`
+	Revoked                *bool         `json:"revoked"`
+	KeyId                  string        `json:"keyId"`
+	Key                    string        `json:"key"`
+	Retrievable            *bool         `json:"retrievable"`
+	CostLimitInUsd         float64       `json:"costLimitInUsd"`
+	CostLimitInUsdOverTime float64       `json:"costLimitInUsdOverTime"`
+	CostLimitInUsdUnit     TimeUnit      `json:"costLimitInUsdUnit"`
+	RateLimitOverTime      int           `json:"rateLimitOverTime"`
+	RateLimitUnit          TimeUnit      `json:"rateLimitUnit"`
+	Ttl                    time.Duration `json:"ttl"`
 }
 
 func (rk *RequestKey) Validate() error {
@@ -181,7 +181,7 @@ func (rk *RequestKey) Validate() error {
 			return errors.NewValidationError("rate limit unit can not be empty if rate limit over time is specified")
 		}
 
-		if rk.RateLimitUnit != HourRateLimitUnit && rk.RateLimitUnit != SecondRateLimitUnit {
+		if rk.RateLimitUnit != HourTimeUnit && rk.RateLimitUnit != MinuteTimeUnit && rk.RateLimitUnit != SecondTimeUnit && rk.RateLimitUnit != DayTimeUnit {
 			return errors.NewValidationError("rate limit unit can not be identified")
 		}
 	}
@@ -191,7 +191,7 @@ func (rk *RequestKey) Validate() error {
 			return errors.NewValidationError("cost limit unit can not be empty if cost limit over time is specified")
 		}
 
-		if rk.CostLimitInUsdUnit != HourCostLimitInUsdUnit && rk.CostLimitInUsdUnit != SecondCostLimitInUsdUnit {
+		if rk.CostLimitInUsdUnit != DayTimeUnit && rk.CostLimitInUsdUnit != HourTimeUnit {
 			return errors.NewValidationError("cost limit unit can not be identified")
 		}
 	}
@@ -199,33 +199,28 @@ func (rk *RequestKey) Validate() error {
 	return nil
 }
 
-type RateLimitUnit string
+type TimeUnit string
 
 const (
-	HourRateLimitUnit   RateLimitUnit = "h"
-	SecondRateLimitUnit RateLimitUnit = "s"
-)
-
-type CostLimitInUsdUnit string
-
-const (
-	HourCostLimitInUsdUnit   CostLimitInUsdUnit = "h"
-	SecondCostLimitInUsdUnit CostLimitInUsdUnit = "s"
+	HourTimeUnit   TimeUnit = "h"
+	MinuteTimeUnit TimeUnit = "m"
+	SecondTimeUnit TimeUnit = "s"
+	DayTimeUnit    TimeUnit = "d"
 )
 
 type ResponseKey struct {
-	Name                   string             `json:"name"`
-	CreatedAt              int64              `json:"createdAt"`
-	UpdatedAt              int64              `json:"updatedAt"`
-	Tags                   []string           `json:"tags"`
-	KeyId                  string             `json:"keyId"`
-	Revoked                bool               `json:"revoked"`
-	Key                    string             `json:"key"`
-	Retrievable            bool               `json:"retrievable"`
-	CostLimitInUsd         float64            `json:"costLimitInUsd"`
-	CostLimitInUsdOverTime float64            `json:"costLimitInUsdOverTime"`
-	CostLimitInUsdUnit     CostLimitInUsdUnit `json:"costLimitInUsdUnit"`
-	RateLimitOverTime      int                `json:"rateLimitOverTime"`
-	RateLimitUnit          RateLimitUnit      `json:"rateLimitUnit"`
-	Ttl                    time.Duration      `json:"ttl"`
+	Name                   string        `json:"name"`
+	CreatedAt              int64         `json:"createdAt"`
+	UpdatedAt              int64         `json:"updatedAt"`
+	Tags                   []string      `json:"tags"`
+	KeyId                  string        `json:"keyId"`
+	Revoked                bool          `json:"revoked"`
+	Key                    string        `json:"key"`
+	Retrievable            bool          `json:"retrievable"`
+	CostLimitInUsd         float64       `json:"costLimitInUsd"`
+	CostLimitInUsdOverTime float64       `json:"costLimitInUsdOverTime"`
+	CostLimitInUsdUnit     TimeUnit      `json:"costLimitInUsdUnit"`
+	RateLimitOverTime      int           `json:"rateLimitOverTime"`
+	RateLimitUnit          TimeUnit      `json:"rateLimitUnit"`
+	Ttl                    time.Duration `json:"ttl"`
 }
