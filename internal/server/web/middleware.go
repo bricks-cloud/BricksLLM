@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/logger"
@@ -11,47 +12,48 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type RateLimitError interface {
+type rateLimitError interface {
 	Error() string
 	RateLimit()
 }
 
-type ExpirationError interface {
+type expirationError interface {
 	Error() string
 	Reason() string
 }
 
-type KeyMemStorage interface {
+type keyMemStorage interface {
 	GetKey(hash string) *key.ResponseKey
 }
 
-type KeyStorage interface {
+type keyStorage interface {
 	UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error)
 }
 
-type Estimator interface {
+type estimator interface {
 	EstimateChatCompletionPromptCost(r *openai.ChatCompletionRequest) (float64, error)
 }
 
-type Validator interface {
+type validator interface {
 	Validate(k *key.ResponseKey, promptCost float64, model string) error
 }
 
 const apiHeader string = "X-Api-Key"
 
-func KeyValidator(kms KeyMemStorage, e Estimator, v Validator, ks KeyStorage, log logger.Logger) gin.HandlerFunc {
+func getKeyValidator(kms keyMemStorage, e estimator, v validator, ks keyStorage, log logger.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			c.Status(http.StatusInternalServerError)
 			return
 		}
 
-		apiKey := c.Request.Header.Get(apiKeyHeader)
-		if len(apiKey) == 0 {
+		split := strings.Split(c.Request.Header.Get("Authorization"), "Bearer ")
+		if len(split) < 2 || len(split[1]) == 0 {
 			c.Status(http.StatusUnauthorized)
 			return
 		}
 
+		apiKey := split[1]
 		kc := kms.GetKey(apiKey)
 		if kc == nil {
 			c.Status(http.StatusUnauthorized)
@@ -84,7 +86,7 @@ func KeyValidator(kms KeyMemStorage, e Estimator, v Validator, ks KeyStorage, lo
 				return
 			}
 
-			if _, ok := err.(ExpirationError); ok {
+			if _, ok := err.(expirationError); ok {
 				truePtr := true
 				_, err = ks.UpdateKey(kc.KeyId, &key.UpdateKey{
 					Revoked: &truePtr,
@@ -98,7 +100,7 @@ func KeyValidator(kms KeyMemStorage, e Estimator, v Validator, ks KeyStorage, lo
 				return
 			}
 
-			if _, ok := err.(RateLimitError); ok {
+			if _, ok := err.(rateLimitError); ok {
 				c.JSON(http.StatusTooManyRequests, err.Error())
 				return
 			}
