@@ -19,7 +19,7 @@ type UpdateKey struct {
 	UpdatedAt              int64         `json:"updatedAt"`
 	Tags                   []string      `json:"tags"`
 	Revoked                *bool         `json:"revoked"`
-	Retrievable            *bool         `json:"retrievable"`
+	RevokedReason          string        `json:"revokedReason"`
 	CostLimitInUsd         float64       `json:"costLimitInUsd"`
 	CostLimitInUsdOverTime float64       `json:"costLimitInUsdOverTime"`
 	CostLimitInUsdUnit     TimeUnit      `json:"costLimitInUsdUnit"`
@@ -98,10 +98,8 @@ type RequestKey struct {
 	CreatedAt              int64         `json:"createdAt"`
 	UpdatedAt              int64         `json:"updatedAt"`
 	Tags                   []string      `json:"tags"`
-	Revoked                *bool         `json:"revoked"`
 	KeyId                  string        `json:"keyId"`
 	Key                    string        `json:"key"`
-	Retrievable            *bool         `json:"retrievable"`
 	CostLimitInUsd         float64       `json:"costLimitInUsd"`
 	CostLimitInUsdOverTime float64       `json:"costLimitInUsdOverTime"`
 	CostLimitInUsdUnit     TimeUnit      `json:"costLimitInUsdUnit"`
@@ -122,14 +120,6 @@ func (rk *RequestKey) Validate() error {
 
 	if rk.UpdatedAt <= 0 {
 		invalid = append(invalid, "updatedAt")
-	}
-
-	if rk.Revoked == nil {
-		invalid = append(invalid, "revoked")
-	}
-
-	if rk.Retrievable == nil {
-		invalid = append(invalid, "retrievable")
 	}
 
 	if len(rk.Key) == 0 {
@@ -216,7 +206,7 @@ type ResponseKey struct {
 	KeyId                  string        `json:"keyId"`
 	Revoked                bool          `json:"revoked"`
 	Key                    string        `json:"key"`
-	Retrievable            bool          `json:"retrievable"`
+	RevokedReason          string        `json:"revokedReason"`
 	CostLimitInUsd         float64       `json:"costLimitInUsd"`
 	CostLimitInUsdOverTime float64       `json:"costLimitInUsdOverTime"`
 	CostLimitInUsdUnit     TimeUnit      `json:"costLimitInUsdUnit"`

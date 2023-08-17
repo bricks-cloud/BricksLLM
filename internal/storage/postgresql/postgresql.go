@@ -45,7 +45,7 @@ func (s *Store) CreateKeysTable() error {
 		revoked BOOLEAN NOT NULL,
 		key_id VARCHAR(255) PRIMARY KEY,
 		key VARCHAR(255) NOT NULL,
-		retrievable BOOLEAN NOT NULL,
+		revoked_reason VARCHAR(255) NOT NULL,
 		cost_limit_in_usd FLOAT8,
 		cost_limit_in_usd_over_time FLOAT8,
 		cost_limit_in_usd_unit VARCHAR(255),
@@ -99,7 +99,7 @@ func (s *Store) GetKeysByTag(tag string) ([]*key.ResponseKey, error) {
 			&k.Revoked,
 			&k.KeyId,
 			&k.Key,
-			&k.Retrievable,
+			&k.RevokedReason,
 			&k.CostLimitInUsd,
 			&k.CostLimitInUsdOverTime,
 			&k.CostLimitInUsdUnit,
@@ -136,7 +136,7 @@ func (s *Store) GetAllKeys() ([]*key.ResponseKey, error) {
 			&k.Revoked,
 			&k.KeyId,
 			&k.Key,
-			&k.Retrievable,
+			&k.RevokedReason,
 			&k.CostLimitInUsd,
 			&k.CostLimitInUsdOverTime,
 			&k.CostLimitInUsdUnit,
@@ -173,7 +173,7 @@ func (s *Store) GetUpdatedKeys(interval time.Duration) ([]*key.ResponseKey, erro
 			&k.Revoked,
 			&k.KeyId,
 			&k.Key,
-			&k.Retrievable,
+			&k.RevokedReason,
 			&k.CostLimitInUsd,
 			&k.CostLimitInUsdOverTime,
 			&k.CostLimitInUsdUnit,
@@ -220,9 +220,9 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 		counter++
 	}
 
-	if uk.Retrievable != nil {
-		values = append(values, uk.Retrievable)
-		fields = append(fields, fmt.Sprintf("retrievable = $%d", counter))
+	if len(uk.RevokedReason) != 0 {
+		values = append(values, uk.RevokedReason)
+		fields = append(fields, fmt.Sprintf("revoked_reason = $%d", counter))
 		counter++
 	}
 
@@ -276,7 +276,7 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 		&k.Revoked,
 		&k.KeyId,
 		&k.Key,
-		&k.Retrievable,
+		&k.RevokedReason,
 		&k.CostLimitInUsd,
 		&k.CostLimitInUsdOverTime,
 		&k.CostLimitInUsdUnit,
@@ -292,7 +292,7 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 
 func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 	query := `
-		INSERT INTO keys (name, created_at, updated_at, tags, revoked, key_id, key, retrievable, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl)
+		INSERT INTO keys (name, created_at, updated_at, tags, revoked, key_id, key, revoked_reason, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING *;
 	`
@@ -302,10 +302,10 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		rk.CreatedAt,
 		rk.UpdatedAt,
 		sliceToSqlStringArray(rk.Tags),
-		rk.Revoked,
+		false,
 		rk.KeyId,
 		rk.Key,
-		rk.Retrievable,
+		"",
 		rk.CostLimitInUsd,
 		rk.CostLimitInUsdOverTime,
 		rk.CostLimitInUsdUnit,
@@ -326,7 +326,7 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		&k.Revoked,
 		&k.KeyId,
 		&k.Key,
-		&k.Retrievable,
+		&k.RevokedReason,
 		&k.CostLimitInUsd,
 		&k.CostLimitInUsdOverTime,
 		&k.CostLimitInUsdUnit,

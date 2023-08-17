@@ -39,9 +39,6 @@ func (m *Manager) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 	rk.UpdatedAt = time.Now().Unix()
 	rk.Key = m.e.Encrypt(rk.Key)
 	rk.KeyId = util.NewUuid()
-	f := false
-
-	rk.Revoked = &f
 
 	if err := rk.Validate(); err != nil {
 		return nil, err
