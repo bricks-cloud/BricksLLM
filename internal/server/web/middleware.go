@@ -11,6 +11,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type RateLimitError interface {
+	Error() string
+	RateLimit()
+}
+
+type ExpirationError interface {
+	Error() string
+	Reason() string
+}
+
 type KeyMemStorage interface {
 	GetKey(hash string) *key.ResponseKey
 }
