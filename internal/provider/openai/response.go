@@ -20,7 +20,20 @@ type Choice struct {
 type ChatCompletionResponse struct {
 	Id      string   `json:"id"`
 	Object  string   `json:"object"`
+	Model   string   `json:"model"`
 	Created int64    `json:"created"`
 	Choices []Choice `json:"choices"`
 	Usage   Usage    `json:"usage"`
+}
+
+type ErrorContent struct {
+	Message         string `json:"message"`
+	Type            string `json:"type"`
+	Param           string `json:"param"`
+	Code            int    `json:"code"`
+	InternalMessage string `json:"internal_message"`
+}
+
+type ChatCompletionErrorResponse struct {
+	Error *ErrorContent `json:"error"`
 }
