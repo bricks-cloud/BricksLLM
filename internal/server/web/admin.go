@@ -32,7 +32,7 @@ type AdminServer struct {
 	m      KeyManager
 }
 
-func NewAdminServer(lg logger.Logger, m KeyManager) (*AdminServer, error) {
+func NewAdminServer(log logger.Logger, m KeyManager) (*AdminServer, error) {
 	router := gin.New()
 
 	router.GET("/api/key-management/keys", getGetKeysHandler(m))
@@ -45,13 +45,13 @@ func NewAdminServer(lg logger.Logger, m KeyManager) (*AdminServer, error) {
 		Handler: router,
 	}
 
-	lg.Info("GET    /api/key-management/keys is set up for retrieving keys using a query param called tag")
-	lg.Info("PUT    /api/key-management/keys is set up for creating a key")
-	lg.Info("PATCH  /api/key-management/keys/:id is set up for updating a key using an id")
-	lg.Info("DELETE /api/key-management/keys/:id is set up for deleting a key using an id")
+	log.Info("GET    /api/key-management/keys is set up for retrieving keys using a query param called tag")
+	log.Info("PUT    /api/key-management/keys is set up for creating a key")
+	log.Info("PATCH  /api/key-management/keys/:id is set up for updating a key using an id")
+	log.Info("DELETE /api/key-management/keys/:id is set up for deleting a key using an id")
 
 	return &AdminServer{
-		logger: lg,
+		logger: log,
 		server: srv,
 		m:      m,
 	}, nil
@@ -60,13 +60,17 @@ func NewAdminServer(lg logger.Logger, m KeyManager) (*AdminServer, error) {
 func (as *AdminServer) Run() {
 	go func() {
 		if err := as.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			as.logger.Fatalf("admin server listen: %s\n", err)
+			as.logger.Fatalf("error admin server listening: %v", err)
 		}
+
+		as.logger.Info("admin server listening at 8001")
 	}()
 }
 
 func (as *AdminServer) Shutdown(ctx context.Context) error {
 	if err := as.server.Shutdown(ctx); err != nil {
+		as.logger.Debugf("error shutting down admin server: %v", err)
+
 		return err
 	}
 
