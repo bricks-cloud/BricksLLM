@@ -30,20 +30,33 @@ type costEstimator interface {
 }
 
 type Validator struct {
-	cc  counterCache
-	scc storageCounterCache
-	ce  costEstimator
+	cc                    counterCache
+	scc                   storageCounterCache
+	ce                    costEstimator
+	openAiCostPrefix      string
+	openAiTotalCostPrefix string
+	rateLimitPrefix       string
 }
 
-func NewValidator(cc counterCache, scc storageCounterCache, ce costEstimator) *Validator {
+func NewValidator(
+	cc counterCache,
+	scc storageCounterCache,
+	ce costEstimator,
+	openAiCostPrefix string,
+	openAiTotalCostPrefix string,
+	rateLimitPrefix string,
+) *Validator {
 	return &Validator{
-		cc:  cc,
-		scc: scc,
-		ce:  ce,
+		cc:                    cc,
+		scc:                   scc,
+		ce:                    ce,
+		openAiCostPrefix:      openAiCostPrefix,
+		openAiTotalCostPrefix: openAiTotalCostPrefix,
+		rateLimitPrefix:       rateLimitPrefix,
 	}
 }
 
-func (v *Validator) Validate(k *key.ResponseKey, input string, model string) error {
+func (v *Validator) Validate(k *key.ResponseKey, promptCost float64, model string) error {
 	if k == nil {
 		return internal_errors.NewValidationError("empty api key")
 	}
@@ -56,17 +69,7 @@ func (v *Validator) Validate(k *key.ResponseKey, input string, model string) err
 		return internal_errors.NewExpirationError("api key expired", internal_errors.TtlExpiration)
 	}
 
-	tks, err := v.ce.EstimateTokens(model, input)
-	if err != nil {
-		return errors.New("failed to estimate existing tokens cost")
-	}
-
-	promptCost, err := v.ce.EstimatePromptTokenCost(tks, model)
-	if err != nil {
-		return errors.New("failed to estimate incoming prompt token cost")
-	}
-
-	err = v.validateRateLimitOverTime(k.KeyId, k.RateLimitOverTime, k.RateLimitUnit)
+	err := v.validateRateLimitOverTime(k.KeyId, k.RateLimitOverTime, k.RateLimitUnit)
 	if err != nil {
 		return err
 	}
@@ -104,13 +107,13 @@ func (v *Validator) validateRateLimitOverTime(keyId string, rateLimitOverTime in
 		return nil
 	}
 
-	c, err := v.cc.GetCounter(rateLimitPrefix, keyId, rateLimitUnit)
+	c, err := v.cc.GetCounter(v.rateLimitPrefix, keyId, rateLimitUnit)
 	if err != nil {
 		return errors.New("failed to get rate limit counter")
 	}
 
 	if c > int64(rateLimitOverTime) {
-		return internal_errors.NewValidationError(fmt.Sprintf("key exceeded rate limit %d requests per %s", rateLimitOverTime, rateLimitUnit))
+		return internal_errors.NewRateLimitError(fmt.Sprintf("key exceeded rate limit %d requests per %s", rateLimitOverTime, rateLimitUnit))
 	}
 
 	return nil
@@ -121,24 +124,24 @@ func (v *Validator) validateCostLimitOverTime(keyId string, costLimitOverTime fl
 		return nil
 	}
 
-	existingCostInMicroDollars, err := v.cc.GetCounter(openAiCostPrefix, keyId, costLimitUnit)
+	existingCostInMicroDollars, err := v.cc.GetCounter(v.openAiCostPrefix, keyId, costLimitUnit)
 	if err != nil {
 		return errors.New("failed to get cached token cost")
 	}
 
 	if convertDollarToMicroDollars(promptCost)+existingCostInMicroDollars > convertDollarToMicroDollars(costLimitOverTime) {
-		return internal_errors.NewValidationError(fmt.Sprintf("cost limit: %f has been reached for the current time period: %s", costLimitOverTime, costLimitUnit))
+		return internal_errors.NewRateLimitError(fmt.Sprintf("cost limit: %f has been reached for the current time period: %s", costLimitOverTime, costLimitUnit))
 	}
 
 	return nil
 }
 
 func convertDollarToMicroDollars(dollar float64) int64 {
-	return int64(dollar * 100)
+	return int64(dollar * 1000000)
 }
 
 func (v *Validator) validateCostLimit(keyId string, costLimit float64, promptCost float64) error {
-	existingTotalCost, err := v.scc.GetCounter(openAiTotalCostPrefix, keyId)
+	existingTotalCost, err := v.scc.GetCounter(v.openAiTotalCostPrefix, keyId)
 	if err != nil {
 		return errors.New("failed to get total token cost")
 	}
