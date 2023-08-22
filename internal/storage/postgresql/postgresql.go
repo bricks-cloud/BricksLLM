@@ -51,7 +51,7 @@ func (s *Store) CreateKeysTable() error {
 		cost_limit_in_usd_unit VARCHAR(255),
 		rate_limit_over_time INT,
 		rate_limit_unit VARCHAR(255),
-		ttl BIGINT
+		ttl VARCHAR(255)
 	)`
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -256,8 +256,8 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 		counter++
 	}
 
-	if uk.Ttl != 0 {
-		values = append(values, uk.Ttl.Milliseconds())
+	if len(uk.Ttl) != 0 {
+		values = append(values, uk.Ttl)
 		fields = append(fields, fmt.Sprintf("ttl = $%d", counter))
 		counter++
 	}
@@ -291,6 +291,23 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 }
 
 func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+	duplicated, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM keys WHERE $1 = key", rk.Key)
+	if err != nil {
+		return nil, err
+	}
+	defer duplicated.Close()
+
+	i := 0
+	for duplicated.Next() {
+		i++
+	}
+
+	if i > 0 {
+		return nil, NewDuplicationError("key can not be duplicated")
+	}
+
 	query := `
 		INSERT INTO keys (name, created_at, updated_at, tags, revoked, key_id, key, revoked_reason, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
@@ -311,10 +328,10 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		rk.CostLimitInUsdUnit,
 		rk.RateLimitOverTime,
 		rk.RateLimitUnit,
-		rk.Ttl.Milliseconds(),
+		rk.Ttl,
 	}
 
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	ctxTimeout, cancel = context.WithTimeout(context.Background(), s.wt)
 	defer cancel()
 
 	var k key.ResponseKey
