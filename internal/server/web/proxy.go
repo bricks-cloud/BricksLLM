@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/logger"
 	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
@@ -22,20 +23,18 @@ type recorder interface {
 	RecordKeySpend(keyId string, model string, promptTks int, completionTks int) error
 }
 
-func NewProxyServer(log logger.Logger, m KeyManager, ks keyStorage, kms keyMemStorage, e estimator, v validator, r recorder, credential string) (*ProxyServer, error) {
+func NewProxyServer(log logger.Logger, m KeyManager, ks keyStorage, kms keyMemStorage, e estimator, v validator, r recorder, credential string, enc encrypter) (*ProxyServer, error) {
 	router := gin.New()
-	router.Use(getKeyValidator(kms, e, v, ks, log))
+	router.Use(getKeyValidator(kms, e, v, ks, log, enc))
 
 	client := http.Client{}
 
-	router.POST("/api/providers/openai", getOpenAiProxyHandler(r, credential, client, kms, log))
+	router.POST("/api/providers/openai", getOpenAiProxyHandler(r, credential, client, kms, log, enc))
 
 	srv := &http.Server{
 		Addr:    ":8002",
 		Handler: router,
 	}
-
-	log.Info("POST   /api/providers/openai is set up for forwarding requests to openai")
 
 	return &ProxyServer{
 		logger: log,
@@ -43,81 +42,62 @@ func NewProxyServer(log logger.Logger, m KeyManager, ks keyStorage, kms keyMemSt
 	}, nil
 }
 
-func getOpenAiProxyHandler(r recorder, credential string, client http.Client, kms keyMemStorage, log logger.Logger) gin.HandlerFunc {
+func getOpenAiProxyHandler(r recorder, credential string, client http.Client, kms keyMemStorage, log logger.Logger, enc encrypter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		req, err := http.NewRequest(http.MethodPost, "https://api.openai.com/v1/chat/completions", c.Request.Body)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, &openai.ChatCompletionErrorResponse{
-				Error: &openai.ErrorContent{
-					Message: "[BricksLLM] failed to create openai http request",
-				},
-			})
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai http request")
 			return
 		}
 
 		split := strings.Split(c.Request.Header.Get("Authorization"), "Bearer ")
 		if len(split) < 2 || len(split[1]) == 0 {
-			c.JSON(http.StatusUnauthorized, &openai.ChatCompletionErrorResponse{
-				Error: &openai.ErrorContent{
-					Message: "[BricksLLM] bearer token is not present",
-				},
-			})
+			JSON(c, http.StatusUnauthorized, "[BricksLLM] bearer token is not present")
 			return
 		}
 
 		apiKey := split[1]
-		kc := kms.GetKey(apiKey)
+		hash := enc.Encrypt(apiKey)
+
+		kc := kms.GetKey(hash)
 		if kc == nil {
-			c.JSON(http.StatusUnauthorized, &openai.ChatCompletionErrorResponse{
-				Error: &openai.ErrorContent{
-					Message: "[BricksLLM] api key is not registered",
-				},
-			})
+			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
 			return
 		}
 
-		for name, values := range req.Header {
-			for _, value := range values {
-				req.Header.Add(name, value)
-			}
-		}
+		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", credential))
 
+		reqStart := time.Now()
 		res, err := client.Do(req)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, &openai.ChatCompletionErrorResponse{
-				Error: &openai.ErrorContent{
-					Message: "[BricksLLM] failed to send http request to openai",
-				},
-			})
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send http request to openai")
 			return
 		}
 		defer res.Body.Close()
+		log.Debugf("record openai request latency %dms", time.Now().Sub(reqStart).Milliseconds())
 
 		bytes, err := io.ReadAll(res.Body)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, &openai.ChatCompletionErrorResponse{
-				Error: &openai.ErrorContent{
-					Message: "[BricksLLM] failed to read openai response body",
-				},
-			})
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read openai response body")
 			return
 		}
 
-		chatRes := &openai.ChatCompletionResponse{}
-		err = json.Unmarshal(bytes, chatRes)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, &openai.ChatCompletionErrorResponse{
-				Error: &openai.ErrorContent{
-					Message: "[BricksLLM] failed to parse openai response",
-				},
-			})
-			return
-		}
+		if res.StatusCode == http.StatusOK {
+			chatRes := &openai.ChatCompletionResponse{}
+			err = json.Unmarshal(bytes, chatRes)
+			if err != nil {
+				JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to parse openai response")
+				return
+			}
 
-		err = r.RecordKeySpend(kc.KeyId, chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
-		if err != nil {
-			log.Debugf("failed to record key spend for key: %s :%v", kc.KeyId, err)
+			keySpendStart := time.Now()
+			err = r.RecordKeySpend(kc.KeyId, chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
+			if err != nil {
+				log.Debugf("failed to record key spend for key: %s :%v", kc.KeyId, err)
+			}
+
+			log.Debugf("record key spend latency %dms", time.Now().Sub(keySpendStart).Milliseconds())
 		}
 
 		for name, values := range res.Header {
@@ -126,18 +106,19 @@ func getOpenAiProxyHandler(r recorder, credential string, client http.Client, km
 			}
 		}
 
-		io.Copy(c.Writer, res.Body)
-		c.Status(res.StatusCode)
+		c.Data(res.StatusCode, "application/json", bytes)
 	}
 }
 
 func (ps *ProxyServer) Run() {
 	go func() {
+		ps.logger.Info("proxy server listening at 8002")
+		ps.logger.Info("POST   :8002/api/providers/openai is ready for forwarding requests to openai")
+
 		if err := ps.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			ps.logger.Fatalf("error proxy server listening: %v", err)
 			return
 		}
-		ps.logger.Info("proxy server listening at 8002")
 	}()
 
 }
