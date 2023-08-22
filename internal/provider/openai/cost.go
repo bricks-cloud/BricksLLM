@@ -60,13 +60,19 @@ var OpenAiPerThousandTokenCost = map[string]map[string]float64{
 	},
 }
 
-type CostEstimator struct {
-	tokenCostMap map[string]map[string]float64
+type tokenCounter interface {
+	Count(model string, input string) (int, error)
 }
 
-func NewCostEstimator(m map[string]map[string]float64) *CostEstimator {
+type CostEstimator struct {
+	tokenCostMap map[string]map[string]float64
+	tc           tokenCounter
+}
+
+func NewCostEstimator(m map[string]map[string]float64, tc tokenCounter) *CostEstimator {
 	return &CostEstimator{
 		tokenCostMap: m,
+		tc:           tc,
 	}
 }
 
@@ -79,7 +85,7 @@ func (ce *CostEstimator) EstimatePromptCost(model string, tks int) (float64, err
 
 	cost, ok := costMap[model]
 	if !ok {
-		return 0, errors.New("model is not present in the cost map provided")
+		return 0, fmt.Errorf("%s is not present in the cost map provided", model)
 	}
 
 	tksInFloat := float64(tks)
@@ -107,17 +113,20 @@ func (ce *CostEstimator) EstimateChatCompletionPromptCost(r *ChatCompletionReque
 		return 0, errors.New("model is not provided")
 	}
 
-	tks, err := countTotalTokens(r)
+	tks, err := countTotalTokens(r, ce.tc)
 	if err != nil {
 		return 0, err
 	}
-
 	return ce.EstimatePromptCost(r.Model, tks)
 }
 
-func countFunctionTokens(r *ChatCompletionRequest) (int, error) {
+func countFunctionTokens(r *ChatCompletionRequest, tc tokenCounter) (int, error) {
+	if len(r.Functions) == 0 {
+		return 0, nil
+	}
+
 	defs := formatFunctionDefinitions(r)
-	tks, err := EstimateTokens(r.Model, defs)
+	tks, err := tc.Count(r.Model, defs)
 	if err != nil {
 		return 0, err
 	}
@@ -153,7 +162,11 @@ func formatFunctionDefinitions(r *ChatCompletionRequest) string {
 	return strings.Join(lines, "\n")
 }
 
-func countMessageTokens(r *ChatCompletionRequest) (int, error) {
+func countMessageTokens(r *ChatCompletionRequest, tc tokenCounter) (int, error) {
+	if len(r.Messages) == 0 {
+		return 0, nil
+	}
+
 	result := 0
 	padded := false
 
@@ -164,40 +177,70 @@ func countMessageTokens(r *ChatCompletionRequest) (int, error) {
 			padded = true
 		}
 
-		tks, err := EstimateTokens(r.Model, content)
+		contentTks, err := tc.Count(r.Model, content)
 		if err != nil {
 			return 0, err
 		}
 
-		tks += 3
+		roleTks, err := tc.Count(r.Model, msg.Role)
+		if err != nil {
+			return 0, err
+		}
+
+		nameTks, err := tc.Count(r.Model, msg.Name)
+		if err != nil {
+			return 0, err
+		}
+
+		result += contentTks
+		result += roleTks
+		result += nameTks
+
+		result += 3
 		if len(msg.Name) != 0 {
-			tks += 1
+			result += 1
 		}
 
 		if msg.Role == "function" {
-			tks -= 2
+			result -= 2
 		}
 
 		if msg.FunctionCall != nil {
-			tks += 3
+			result += 3
 		}
-
-		result += tks
 	}
 
 	return result, nil
 }
 
-func countTotalTokens(r *ChatCompletionRequest) (int, error) {
-	mtks, err := countMessageTokens(r)
+func countTotalTokens(r *ChatCompletionRequest, tc tokenCounter) (int, error) {
+	if r == nil {
+		return 0, nil
+	}
+
+	tks := 3
+
+	ftks, err := countFunctionTokens(r, tc)
 	if err != nil {
 		return 0, err
 	}
 
-	ftks, err := countFunctionTokens(r)
+	mtks, err := countMessageTokens(r, tc)
 	if err != nil {
 		return 0, err
 	}
 
-	return ftks + mtks, err
+	systemExists := false
+	for _, msg := range r.Messages {
+		if msg.Role == "system" {
+			systemExists = true
+		}
+
+	}
+
+	if len(r.Functions) != 0 && systemExists {
+		tks -= 4
+	}
+
+	return tks + ftks + mtks, err
 }
