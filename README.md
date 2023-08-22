@@ -2,568 +2,236 @@
 <img src="./assets/bricks-logo.png" width="150" />
 </p>
 
-# **BricksLLM: A Declarative Approach To Building LLM Applications**
+# **BricksLLM: API gateway For running LLM applications in Production**
 
 <p align="center">
+   <a href='https://www.ycombinator.com/'><img alt='YCombinator S22' src='https://img.shields.io/badge/Y%20Combinator-2022-orange'/></a>
    <a href='http://makeapullrequest.com'><img alt='PRs Welcome' src='https://img.shields.io/badge/PRs-welcome-43AF11.svg?style=shields'/></a>
    <a href="https://discord.gg/dFvdt4wqWh"><img src="https://img.shields.io/badge/discord-BricksLLM-blue?logo=discord&labelColor=2EB67D" alt="Join BricksLLM on Discord"></a>
    <a href="https://github.com/bricks-cloud/bricks/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-red" alt="License"></a>
 </p>
 
-**BricksLLM** is a declarative Go framework that gives you building blocks to create reliable LLM workflows. Productionizing LLM is difficult due to the technology's probalistic nature. **BricksLLM** solves this issue by accelerating the developer development cycle and allowing developers to relentlessly test and improve their LLM applications continuously.
+**BricksLLM** is a cloud native API gateway written in Go. It provides the following features:
 
-* **Build**: Use BricksLLM building blocks to quickly build out your LLM backend.
-* **Test**: Unit test prompts and BricksLLM APIs in CI/CD.
-* **Version Control**: Version control your prompt strategies through declaractive configuration.
-* **Deploy**: Containerize and deploy BricksLLM anywhere.
-* **Monitor**: Out of the box detailed logging and monitoring.
-* **A/B Testing**: Fine tune your prompt strategies through A/B testing.
+* API key authentication
+* Rate limit
+* LLM spend limit
+* LLM input and output logging with privacy control(:construction:)
+* Statsd integration (:construction:)
+* LLM prompt AB testing (:construction:)
+* PII detection and masking (:construction:)
+* Support for more LLM models (:construction:)
 
-# Build your LLM Backend in 4 steps
-## 1. Set your OpenAI key
-Create a file called config.yaml, and set up OpenAI client.
-```yaml
-openai:
-  api_credential: ${OPENAI_KEY}
-```
+# Installation
+## Prerequisites
+* [go 1.19+](https://go.dev/dl/)
+* [Docker](https://www.docker.com/get-started/)
 
-## 2. Define your API and expected JSON request body
-```yaml
-routes:
-  - path: /hi
-    provider: openai
-    input:
-      person:
-        type: string
-```
-## 3. Embed the request data into the prompt
-```yaml
-routes:
-  - path: /hi
-    provider: openai
-    input:
-      person:
-        type: string
-    openai_config:
-      model: gpt-3.5-turbo
-      prompts:
-        - role: assistant
-          content: say hi to {{ person }}
+## Getting Started
+BricksLLM API gateway uses postgresql to store configurations, and redis for caching. Therefore, they are required for running BricksLLM.
+
+Setting up postgresql and redis via docker-compose.
+
+```bash
+docker-compose up -d
 ```
 
-## 4. Test your configured BricksLLM application
-Start the BricksLLM web server
+Setting up your OpenAI API credential
+```bash
+export OPENAI_API_KEY = "YOUR_OPENAI_API_CREDENTIAL"
 ```
-bricksllm -c config.yaml
-```
-Test your LLM workflow using ```curl```
-```
-curl -d '{"person":"Mike"}' -H "Content-Type: application/json" -X POST http://localhost:3000/hi
+
+Spinning up the proxy server by runnning
+```bash
+go run ./cmd/tool/main.go
 ```
 
 # Documentation
-## Install
-Grab a binary for your OS from [here](https://github.com/bricks-cloud/BricksLLM/releases). 
+## Environment variables
+> | Name | description | example
+> |---------------|-----------------------------------|----------|
+> | `OPENAI_API_KEY`         | OpenAI API Key| YOUR_API_KEY
+> | `POSTGRESQL_HOSTS`       | Hosts for Postgresql DB. Seperated by , | localhost
+> | `POSTGRESQL_USERNAME`         | Postgresql DB username| username
+> | `POSTGRESQL_PASSWORD`         | Postgresql DB password| password
+> | `POSTGRESQL_SSL_ENABLED`         | Postgresql SSL enabled| ```true```
+> | `POSTGRESQL_PORT`         | The port that Postgresql DB runs on| ```5432```
+> | `POSTGRESQL_READ_TIME_OUT`         | Timeout for Postgresql read operations | ```2s```
+> | `POSTGRESQL_WRITE_TIME_OUT`         | Timeout for Postgresql write operations | ```1s```
+> | `REDIS_READ_TIME_OUT`         | Timeout for Redis read operations | ```1s```
+> | `REDIS_READ_WRITE_OUT`         | Timeout for Redis write operations | ```500ms```
+> | `IN_MEMORY_DB_UPDATE_INTERVAL`         | The interval BricksLLM API gateway polls Postgresql DB for latest key configurations | ```10s```
 
-Or pull the docker image:
-```
-docker pull luyuanxin1995/bricksllm
-```
+## Configuration Endpoints
+The configuration server runs on Port ```8001```.
+<details>
+  <summary><code>GET</code> <code><b>/api/key-management/keys?tag={tag}</b></code></summary>
 
-## Run
-```
-bricksllm -c ./path/to/your/config.ymal
-```
+##### Description
+This endpoint is set up for retrieving key configurations using a query param called tag.
 
-With Docker Compose
-```yaml
-services:
-  bricksllm:
-    image: luyuanxin1995/bricksllm
-    volumes:
-     - ./path/to/your/config.yaml:/bricksllm.yaml
-    environment:
-      OPENAI_KEY: ${OPENAI_KEY}
-      API_KEY: ${API_KEY}
-    ports: ["8080:8080"]
-```
+##### Parameters
 
-With Docker
-```
-docker run --rm -v /path/to/your/config.yaml:/bricksllm.yaml luyuanxin1995/bricksllm
-```
+> | name   |  type      | data type      | description                                          |
+> |--------|------------|----------------|------------------------------------------------------|
+> | `tag` |  required  | string         | Identifier attached to a key configuration                  |
 
-## Overview
-Here is an example of BricksLLM config yaml.
+##### Error Response
 
-```yaml
-openai:
-  api_credential: ${OPENAI_KEY}
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `400`, `500`         | `application/json`                |
 
-routes:
-  - path: /travel
-    provider: openai
-    cors:
-      allowed_origins: ["*"]
-      allowed_credentials: true
-    input:
-      plan:
-        type: object
-        properties:
-          place:
-            type: string
-    openai_config:
-      model: gpt-3.5-turbo
-      prompts:
-        - role: assistant
-          content: say hi to {{ plan.place }}
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | ```number``` | 400            |
+> | title         | ```string``` | request body reader error             |
+> | type         | ```string``` | /errors/request-body-read             |
+> | detail         | ```string``` | something is wrong            |
+> | instance         | ```string``` | /api/key-management/keys            |
 
-  - path: /test
-    provider: openai
-    input:
-      name:
-        type: string
-    openai_config:
-      model: gpt-3.5-turbo
-      prompts:
-        - role: assistant
-          content: say hi to {{ name }}
+##### Response
 
-```
-### Core Components
-Each BricksLLM application has to have at least one route configuration
+```[]KeyConfiguration```
 
-```yaml
-routes:
-  - path: /travel
-    provider: openai
-    cors:
-      allowed_origins: ["*"]
-      allowed_credentials: true
-    input:
-      plan:
-        type: object
-        properties:
-          place:
-            type: string
-    openai_config:
-      model: gpt-3.5-turbo
-      prompts:
-        - role: assistant
-          content: say hi to {{ plan.place }}
-```
+Fields of KeyConfiguration
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | name | ```string``` | spike's developer key | Name of the API key. |
+> | createdAt | ```number``` | 1257894000 | Key configuration creation time in unix.  |
+> | updatedAt | ```number``` | 1257894000 | Key configuration update time in unix.  |
+> | revoked | ```boolean``` | true | Indicator for whether the key is revoked.  |
+> | revokedReason | ```string``` | The key has expired | Reason for why the key is revoked.  |
+> | tags | ```[]string``` | ["org-tag-12345"]             | Identifiers associated with the key. |
+> | keyId | ```string``` | 550e8400-e29b-41d4-a716-446655440000 | Unique identifier for the key.  |
+> | costLimitInUsd | ```number``` | 5.5 | Total spend limit of the API key.
+> | costLimitInUsdOverTime | ```string``` | 2 | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
+> | costLimitInUsdUnit | ```enum``` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `m`, `s`, `d`].      |
+> | rateLimitOverTime | ```string``` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitOverTime | ```string``` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitUnit | ```string``` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+> | ttl | ```string``` | 2d | time to live. |
 
-### Observability Components
-There are also observability components such as `logger` that let you control how BricksLLM exposes log data.
-
-```yaml
-logger:
-  api:
-    hide_ip: true
-    hide_headers: true
-  llm:
-    hide_headers: true
-    hide_response_content: true
-    hide_prompt_content: true
-```
-
-### Resource Components
-Resource components let you specify available resources that could be used in the core components
-
-```yaml
-openai:
-  api_credential: ${OPENAI_KEY}
-```
-
-## routes
-### Example
-```yaml
-routes:
-  - path: /travel
-    provider: openai
-    key_auth:
-      key: ${API_KEY}
-    cors:
-      allowed_origins: ["*"]
-      allowed_credentials: true
-    input:
-      plan:
-        type: object
-        properties:
-          place:
-            type: string
-    openai_config:
-      model: gpt-3.5-turbo
-      prompts:
-        - role: assistant
-          content: say hi to {{ plan.place }}
-```
-### Fields
-#### `routes` 
-##### Required: true
-##### Type: array
-A list of route configurations connected with LLM APIs.
-
-#### `routes[].path`
-##### Required: true
-##### Type: string
-A path specifies the resource that gets exposed to the client.
-
-```yaml
-routes:
-  - path: /weathers
-```
-
-#### `routes[].provider`
-##### Required: true
-##### Type: enum
-##### Options: [openai] 
-A provider is the name of the service that provides the LLM API. Right now, Bricks only supports OpenAI.
-
-#### `routes[].key_auth`
-##### Required: false
-##### Type: object
-Contains configurations for using API key authentication. If set up, BricksLLM would start checking API header `X-Api-Key` of incoming request for authentication and return ```401``` if the API call is unauthorized.
-
-#### `routes[].key_auth.key`
-##### Required: true
-##### Type: string
-A unique key to authenticate the API.
-
-#### `routes[].cors`
-##### Required: false
-##### Type: object
-The `cors` field is used to specify Cross-Origin Resource Sharing settings. It includes subfields for setting up CORS policies.
-
-#### `routes[].cors.allowed_origins`
-##### Required: true
-##### Type: array
-An array of strings specifying allowed origins for CORS.
-
-#### `routes[].cors.allowed_credentials`
-##### Required: true
-##### Type: boolean
-A boolean value specifying if CORS response can include credentials. It sets `Access-Control-Allow-Credentials` to `true` in server responses. You can read more about it [here](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Credentials).
-
-#### `routes[].input`
-##### Required: false
-##### Type: object
-The `input` field is used to specify the input JSON schema of the route.
-
-```yaml
-    input:
-      plan:
-        type: object
-        properties:
-          place:
-            type: string
-
-```
-This translates to the following JSON schema.
-
-```json
-{
-    "plan": {
-        "type": "",
-    }
-}
-```
-BricksLLM would use this schema to validate incoming HTTP requests. It would return `400` if expected fields in the request body are empty or the data type does not match the schema.
-
-#### `routes[].input[field_name].type`
-##### Required: false
-##### Type: enum
-##### Options: [string, boolean, object, number]
-The `type` field within input specifies the data type of the expected
-
-#### `routes[].input[field_name].properties`
-##### Required: true (Only if the field data type is `object`)
-##### Type: object
-The `properties` field specifies the schema of the `object` field.
-
-#### `routes[].openai_config`
-##### Required: false
-##### Type: object
-The `openai_config` field is used to specify the configuration details for OpenAI.
-
-#### `routes[].openai_config.api_credential`
-##### Required: true (Only required `openai.api_credential` is not specified)
-##### Type: string
-OpenAI API credential. If `openai.api_credential` is specified, the credential here will overwrite it in the API call to OpenAI.
-
-```yaml
-    openai_config:
-      model: gpt-3.5-turbo
-      api_credential: ${OPENAI_KEY}
-```
-
-:warning: **Store OpenAI key securely, and only use it as an environment variable.**
-
-#### `routes[].openai_config.model`
-##### Required: true
-##### Type: enum
-##### Options: [gpt-3.5-turbo, gpt-3.5-turbo-16k, gpt-3.5-turbo-0613, gpt-3.5-turbo-16k-0613, gpt-4, gpt-4-0613, gpt-4-32k, gpt-4-32k-0613]
-
-The `model` field specifies the version of the model to use. Right now, BricksLLM supports all `gpt-3.5` and `gpt-4` OpenAI models.
-
-#### `routes[].openai_config.prompts`
-##### Required: true
-##### Type: array
-An array of objects that define how the model should respond to input.
-
-#### `routes[].openai_config.prompts[].role`
-##### Required: true
-##### Type: enum
-##### Options: [assisstant, system, user] 
-The `role` field specifies the role the model should take when responding to input.
-
-#### `routes[].openai_config.prompts[].content`
-##### Required: true
-##### Type: string
-The `content` field specifies content of the prompt.
-
-## openai
-### Example
-```yaml
-openai:
-  api_credential: ${OPENAI_KEY}
-```
-
-### Fields
-#### `openai`
-##### Required: true
-##### Type: string
-It contains the configuration of OpenAI API.
-
-#### `openai.api_credential`
-##### Required: true
-##### Type: string
-OpenAI API credential. If `routes[].openai_config.api_credential` is specified, it will overwrite this credential in the OpenAI API call.
-
-:warning: **Store OpenAI key securely, and only use it as an environment variable.**
-
-## logger
-### Example
-```yaml
-logger:
-  api:
-    hide_ip: true
-    hide_headers: true
-  llm:
-    hide_headers: true
-    hide_response_content: true
-    hide_prompt_content: true
-```
-
-### Fields
-#### `logger`
-##### Required: `false`
-##### Type: object
-It contains the configuration of the logger.
-
-#### `logger.api`
-##### Required: false
-##### Type: object
-It contains the configuration for API log. Here is an example of the API log:
-```json
-{
-    "clientIp": "",
-    "instanceId": "fcfc0aa8-0f57-4d24-82f9-247b68e4dcaf",
-    "latency": {
-        "proxy": 886,
-        "bricksllm": 3,
-        "total": 889
-    },
-    "created_at": 1690773969,
-    "route": {
-        "path": "/travel",
-        "protocol": "http"
-    },
-    "response": {
-        "headers": {
-            "Access-Control-Allow-Credentials": [
-                "true"
-            ],
-            "Access-Control-Allow-Origin": [
-                "https://figma.com"
-            ]
-        },
-        "createdAt": 1690773970,
-        "status": 200,
-        "size": 295
-    },
-    "request": {
-        "headers": {
-            "Accept": [
-                "*/*"
-            ],
-            "Accept-Encoding": [
-                "gzip, deflate, br"
-            ],
-            "Connection": [
-                "keep-alive"
-            ],
-            "Content-Length": [
-                "50"
-            ],
-            "Content-Type": [
-                "application/json"
-            ],
-            "Origin": [
-                "https://figma.com"
-            ],
-            "Postman-Token": [
-                "d05b5651-542e-4a4d-9fa1-f00d005488ad"
-            ],
-            "User-Agent": [
-                "PostmanRuntime/7.32.2"
-            ]
-        },
-        "size": 50
-    },
-    "type": "api"
-}
-```
+</details>
 
 
-#### `logger.llm`
-##### Required: false
-##### Type: object
-It contains the configuration for LLM API log. Here is an example of the LLM API log. 
-```json
-{
-    "instanceId": "fcfc0aa8-0f57-4d24-82f9-247b68e4dcaf",
-    "type": "llm",
-    "token": {
-        "prompt_tokens": 12,
-        "completion_tokens": 10,
-        "total": 22
-    },
-    "response": {
-        "id": "chatcmpl-7iDpqAjqdAp1AeBT6ZVRpYrgrMQ3z",
-        "headers": {
-            "Access-Control-Allow-Origin": [
-                "*"
-            ],
-            "Alt-Svc": [
-                "h3=\":443\"; ma=86400"
-            ],
-            "Cache-Control": [
-                "no-cache, must-revalidate"
-            ],
-            "Cf-Cache-Status": [
-                "DYNAMIC"
-            ],
-            "Cf-Ray": [
-                "7ef2bcffd9dd173a-SJC"
-            ],
-            "Content-Type": [
-                "application/json"
-            ],
-            "Date": [
-                "Mon, 31 Jul 2023 03:26:10 GMT"
-            ],
-            "Openai-Model": [
-                "gpt-3.5-turbo-0613"
-            ],
-            "Openai-Organization": [
-                "acme"
-            ],
-            "Openai-Processing-Ms": [
-                "560"
-            ],
-            "Openai-Version": [
-                "2020-10-01"
-            ],
-            "Server": [
-                "cloudflare"
-            ],
-            "Strict-Transport-Security": [
-                "max-age=15724800; includeSubDomains"
-            ],
-            "X-Ratelimit-Limit-Requests": [
-                "3500"
-            ],
-            "X-Ratelimit-Limit-Tokens": [
-                "90000"
-            ],
-            "X-Ratelimit-Remaining-Requests": [
-                "3499"
-            ],
-            "X-Ratelimit-Remaining-Tokens": [
-                "89977"
-            ],
-            "X-Ratelimit-Reset-Requests": [
-                "17ms"
-            ],
-            "X-Ratelimit-Reset-Tokens": [
-                "14ms"
-            ],
-            "X-Request-Id": [
-                "200f64b5d1ad324c5293dba96132b31c"
-            ]
-        },
-        "created_at": 1690773970,
-        "size": 435,
-        "status": 200,
-        "choices": [
-            {
-                "role": "assistant",
-                "content": "Hi Beijing! How can I assist you today?",
-                "finish_reason": "stop"
-            }
-        ]
-    },
-    "request": {
-        "headers": {
-            "Content-Type": [
-                "application/json"
-            ]
-        },
-        "model": "gpt-3.5-turbo",
-        "messages": [
-            {
-                "role": "assistant",
-                "content": "say hi to beijing"
-            }
-        ],
-        "size": 89,
-        "created_at": 1690773969
-    },
-    "provider": "openai",
-    "estimated_cost": 0.038000000000000006,
-    "created_at": 1690773969,
-    "latency": 886
-}
-```
+<details>
+  <summary><code>PUT</code> <code><b>/api/key-management/keys</b></code></summary>
 
-#### `logger.api.hide_ip`
-##### Required: false
-##### Default: false
-##### Type: boolean
-This field prevents logger from logging the http request ip.
+##### Description
+This endpoint is set up for retrieving key configurations using a query param called tag.
 
-#### `logger.api.hide_headers`
-##### Required: false
-##### Default: false
-##### Type: boolean
-This field prevents logger from logging the http request and response headers.
+##### Request
+> | Field | type | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | name | required | ```string``` | spike's developer key | Name of the API key. |
+> | tags | optional | ```[]string``` | ["org-tag-12345"]             | Identifiers associated with the key. |
+> | key | required | ```string``` | abcdef12345 | API key |
+> | costLimitInUsd | optional | ```number``` | 5.5 | Total spend limit of the API key.
+> | costLimitInUsdOverTime | optional | ```string``` | 2 | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
+> | costLimitInUsdUnit | optional | ```enum``` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `m`, `s`, `d`].      |
+> | rateLimitOverTime | optional | ```string``` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitUnit | optional | ```enum``` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+> | ttl | optional | ```string``` | 2d | time to live. |
 
+##### Error Response
 
-#### `logger.llm.hide_headers`
-##### Required: false
-##### Default: false
-##### Type: boolean
-This field prevents logger from logging the upstream llm http request and llm response headers.
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `400`, `500`         | `application/json`                |
 
-#### `logger.llm.hide_response_content`
-##### Required: false
-##### Default: false
-##### Type: boolean
-This field prevents logger from logging the upstream llm http response content.
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | ```number``` | 400            |
+> | title         | ```string``` | request body reader error             |
+> | type         | ```string``` | /errors/request-body-read             |
+> | detail         | ```string``` | something is wrong            |
+> | instance         | ```string``` | /api/key-management/keys            |
 
-#### `logger.llm.hide_prompt_content`
-##### Required: false
-##### Default: false
-##### Type: boolean
-This field prevents logger from logging the upstream llm http request prompt content.
+##### Responses
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | name | ```string``` | spike's developer key | Name of the API key. |
+> | createdAt | ```number``` | 1257894000 | Key configuration creation time in unix.  |
+> | updatedAt | ```number``` | 1257894000 | Key configuration update time in unix.  |
+> | revoked | ```boolean``` | true | Indicator for whether the key is revoked.  |
+> | revokedReason | ```string``` | The key has expired | Reason for why the key is revoked.  |
+> | tags | ```[]string``` | ["org-tag-12345"]             | Identifiers associated with the key. |
+> | keyId | ```string``` | 550e8400-e29b-41d4-a716-446655440000 | Unique identifier for the key.  |
+> | costLimitInUsd | ```number``` | 5.5 | Total spend limit of the API key.
+> | costLimitInUsdOverTime | ```string``` | 2 | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
+> | costLimitInUsdUnit | ```enum``` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `m`, `s`, `d`].      |
+> | rateLimitOverTime | ```string``` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitOverTime | ```string``` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitUnit | ```string``` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+> | ttl | ```string``` | 2d | time to live. |
+
+</details>
+
+<details>
+  <summary><code>PATCH</code> <code><b>/api/key-management/keys/{keyId}</b></code></summary>
+
+##### Description
+This endpoint is set up for updating key configurations using key id.
+
+##### Parameters
+> | name   |  type      | data type      | description                                          |
+> |--------|------------|----------------|------------------------------------------------------|
+> | `keyId` |  required  | string         | Unique key configuration identifier.                  |
+
+##### Request
+> | Field | type | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | name | optional | ```string``` | spike's developer key | Name of the API key. |
+> | tags | optional | ```[]string``` | ["org-tag-12345"]             | Identifiers associated with the key. |
+> | revoked | optional |  ```boolean``` | true | Indicator for whether the key is revoked.  |
+> | revokedReason| optional | ```string``` | The key has expired | Reason for why the key is revoked.  |
+> | costLimitInUsdOverTime | optional | ```string``` | 2 | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
+> | costLimitInUsdUnit | optional | ```enum``` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `m`, `s`, `d`].      |
+> | rateLimitOverTime | optional | ```string``` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitUnit | optional | ```enum``` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+
+##### Error Response
+
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `400`, `500`         | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | ```number``` | 400            |
+> | title         | ```string``` | request body reader error             |
+> | type         | ```string``` | /errors/request-body-read             |
+> | detail         | ```string``` | something is wrong            |
+> | instance         | ```string``` | /api/key-management/keys            |
+
+##### Response
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | name | ```string``` | spike's developer key | Name of the API key. |
+> | createdAt | ```number``` | 1257894000 | Key configuration creation time in unix.  |
+> | updatedAt | ```number``` | 1257894000 | Key configuration update time in unix.  |
+> | revoked | ```boolean``` | true | Indicator for whether the key is revoked.  |
+> | revokedReason | ```string``` | The key has expired | Reason for why the key is revoked.  |
+> | tags | ```[]string``` | ["org-tag-12345"]             | Identifiers associated with the key. |
+> | keyId | ```string``` | 550e8400-e29b-41d4-a716-446655440000 | Unique identifier for the key.  |
+> | costLimitInUsd | ```number``` | 5.5 | Total spend limit of the API key.
+> | costLimitInUsdOverTime | ```string``` | 2 | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
+> | costLimitInUsdUnit | ```enum``` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `m`, `s`, `d`].      |
+> | rateLimitOverTime | ```string``` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitOverTime | ```string``` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitUnit | ```string``` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+> | ttl | ```string``` | 2d | time to live. |
+
+</details>
+
+## OpenAI Proxy
+The OpenAI proxy runs on Port ```8002```.
+
+<details>
+  <summary><code>POST</code> <code><b>/api/providers/openai</b></code></summary>
+
+##### Description
+This endpoint is set up for proxying OpenAI API requests. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/chat).
+
+</details>
