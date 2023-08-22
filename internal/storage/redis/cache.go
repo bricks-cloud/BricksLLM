@@ -16,8 +16,8 @@ type Cache struct {
 	rt     time.Duration
 }
 
-func NewCache(c *redis.Client, wt time.Duration, rt time.Duration) *Store {
-	return &Store{
+func NewCache(c *redis.Client, wt time.Duration, rt time.Duration) *Cache {
+	return &Cache{
 		client: c,
 		wt:     wt,
 		rt:     rt,
