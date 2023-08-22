@@ -1,10 +1,12 @@
 package web
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/logger"
@@ -38,51 +40,77 @@ type validator interface {
 	Validate(k *key.ResponseKey, promptCost float64, model string) error
 }
 
-const apiHeader string = "X-Api-Key"
+type encrypter interface {
+	Encrypt(secret string) string
+}
 
-func getKeyValidator(kms keyMemStorage, e estimator, v validator, ks keyStorage, log logger.Logger) gin.HandlerFunc {
+func JSON(c *gin.Context, code int, message string) {
+	c.JSON(code, &openai.ChatCompletionErrorResponse{
+		Error: &openai.ErrorContent{
+			Message: message,
+			Code:    code,
+		},
+	})
+}
+
+func getKeyValidator(kms keyMemStorage, e estimator, v validator, ks keyStorage, log logger.Logger, enc encrypter) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		start := time.Now()
 		if c == nil || c.Request == nil {
-			c.Status(http.StatusInternalServerError)
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] request is empty")
+			c.Abort()
 			return
 		}
 
 		split := strings.Split(c.Request.Header.Get("Authorization"), "Bearer ")
 		if len(split) < 2 || len(split[1]) == 0 {
-			c.Status(http.StatusUnauthorized)
+			JSON(c, http.StatusUnauthorized, "[BricksLLM] bearer token is not present")
+			c.Abort()
 			return
 		}
 
 		apiKey := split[1]
-		kc := kms.GetKey(apiKey)
+		hash := enc.Encrypt(apiKey)
+
+		getKeyStart := time.Now()
+		kc := kms.GetKey(hash)
 		if kc == nil {
-			c.Status(http.StatusUnauthorized)
+			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
+			c.Abort()
 			return
 		}
+		log.Debugf("get key latency %dms", time.Now().Sub(getKeyStart).Milliseconds())
 
-		bytes, err := io.ReadAll(c.Request.Body)
+		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, err.Error())
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] error when reading the request body")
+			c.Abort()
 			return
 		}
 
+		c.Request.Body = io.NopCloser(bytes.NewReader(body))
 		ccr := &openai.ChatCompletionRequest{}
-		err = json.Unmarshal(bytes, ccr)
+		err = json.Unmarshal(body, ccr)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, err.Error())
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] error when parsing the request body")
+			c.Abort()
 			return
 		}
 
+		estimationStart := time.Now()
 		cost, err := e.EstimateChatCompletionPromptCost(ccr)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, err.Error())
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] error when estimating completion prompt cost")
+			c.Abort()
 			return
 		}
 
+		log.Debugf("cost estimation latency %dms", time.Now().Sub(estimationStart).Milliseconds())
 		err = v.Validate(kc, cost, ccr.Model)
 		if err != nil {
 			if _, ok := err.(ValidationError); ok {
-				c.JSON(http.StatusUnauthorized, err.Error())
+				JSON(c, http.StatusUnauthorized, "[BricksLLM] api key has been revoked")
+				c.Abort()
 				return
 			}
 
@@ -96,17 +124,22 @@ func getKeyValidator(kms keyMemStorage, e estimator, v validator, ks keyStorage,
 					log.Debugf("error when updating revoking the api key %s: %v", kc.KeyId, err)
 				}
 
-				c.JSON(http.StatusUnauthorized, err.Error())
+				JSON(c, http.StatusUnauthorized, "[BricksLLM] key has expired")
+				c.Abort()
 				return
 			}
 
 			if _, ok := err.(rateLimitError); ok {
-				c.JSON(http.StatusTooManyRequests, err.Error())
+				JSON(c, http.StatusTooManyRequests, "[BricksLLM] too many requests")
+				c.Abort()
 				return
 			}
 
-			c.JSON(http.StatusInternalServerError, err.Error())
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] error when validating the api request")
+			c.Abort()
 			return
 		}
+
+		log.Debugf("key validation latency %dms", time.Now().Sub(start).Milliseconds())
 	}
 }
