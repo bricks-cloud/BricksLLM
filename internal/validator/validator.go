@@ -23,16 +23,9 @@ type storageCounterCache interface {
 	GetCounter(prefix string, keyId string) (int64, error)
 }
 
-type costEstimator interface {
-	EstimateTokens(model string, input string) (int, error)
-	EstimatePromptTokenCost(tks int, model string) (float64, error)
-	EstimateCompletionTokenCost(tks int, model string) (float64, error)
-}
-
 type Validator struct {
 	cc                    counterCache
 	scc                   storageCounterCache
-	ce                    costEstimator
 	openAiCostPrefix      string
 	openAiTotalCostPrefix string
 	rateLimitPrefix       string
@@ -41,7 +34,6 @@ type Validator struct {
 func NewValidator(
 	cc counterCache,
 	scc storageCounterCache,
-	ce costEstimator,
 	openAiCostPrefix string,
 	openAiTotalCostPrefix string,
 	rateLimitPrefix string,
@@ -49,7 +41,6 @@ func NewValidator(
 	return &Validator{
 		cc:                    cc,
 		scc:                   scc,
-		ce:                    ce,
 		openAiCostPrefix:      openAiCostPrefix,
 		openAiTotalCostPrefix: openAiTotalCostPrefix,
 		rateLimitPrefix:       rateLimitPrefix,
@@ -65,11 +56,12 @@ func (v *Validator) Validate(k *key.ResponseKey, promptCost float64, model strin
 		return internal_errors.NewValidationError("api key revoked")
 	}
 
-	if !v.validateTtl(k.CreatedAt, k.Ttl) {
+	parsed, err := time.ParseDuration(k.Ttl)
+	if !v.validateTtl(k.CreatedAt, parsed) {
 		return internal_errors.NewExpirationError("api key expired", internal_errors.TtlExpiration)
 	}
 
-	err := v.validateRateLimitOverTime(k.KeyId, k.RateLimitOverTime, k.RateLimitUnit)
+	err = v.validateRateLimitOverTime(k.KeyId, k.RateLimitOverTime, k.RateLimitUnit)
 	if err != nil {
 		return err
 	}
@@ -141,6 +133,10 @@ func convertDollarToMicroDollars(dollar float64) int64 {
 }
 
 func (v *Validator) validateCostLimit(keyId string, costLimit float64, promptCost float64) error {
+	if costLimit == 0 {
+		return nil
+	}
+
 	existingTotalCost, err := v.scc.GetCounter(v.openAiTotalCostPrefix, keyId)
 	if err != nil {
 		return errors.New("failed to get total token cost")
