@@ -13,10 +13,21 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/encrypter"
 	"github.com/bricks-cloud/bricksllm/internal/logger/zap"
 	"github.com/bricks-cloud/bricksllm/internal/manager"
+	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
+	"github.com/bricks-cloud/bricksllm/internal/recorder"
 	"github.com/bricks-cloud/bricksllm/internal/server/web"
 	"github.com/bricks-cloud/bricksllm/internal/storage/memdb"
 	"github.com/bricks-cloud/bricksllm/internal/storage/postgresql"
+	redisStorage "github.com/bricks-cloud/bricksllm/internal/storage/redis"
+	"github.com/bricks-cloud/bricksllm/internal/validator"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
+)
+
+const (
+	openAiCostPrefix      string = "openai-cost"
+	openAiTotalCostPrefix string = "openai-total-cost"
+	rateLimitPrefix       string = "rate-limit"
 )
 
 func main() {
@@ -62,22 +73,53 @@ func main() {
 	m := manager.NewManager(store, e)
 	as, err := web.NewAdminServer(lg, m)
 	if err != nil {
-		lg.Fatalf("error creating http server: %v", err)
+		lg.Fatalf("error creating admin http server: %v", err)
+	}
+
+	tc, err := openai.NewTokenCounter()
+	if err != nil {
+		lg.Fatalf("error creating token counter: %v", err)
 	}
 
 	as.Run()
+
+	c := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",                   // Replace with your Redis server address
+		Password: "eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81", // No password set
+		DB:       0,                                  // Use the default database
+	})
+
+	rc := redisStorage.NewCache(c, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
+	rs := redisStorage.NewStore(c, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
+	ce := openai.NewCostEstimator(openai.OpenAiPerThousandTokenCost, tc)
+	v := validator.NewValidator(rc, rs, openAiCostPrefix, openAiTotalCostPrefix, rateLimitPrefix)
+	rec := recorder.NewRecorder(rs, ce, openAiTotalCostPrefix)
+
+	ps, err := web.NewProxyServer(lg, m, store, memStore, ce, v, rec, cfg.OpenAiKey, e)
+	if err != nil {
+		lg.Fatalf("error creating proxy http server: %v", err)
+	}
+
+	ps.Run()
 
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	memStore.Stop()
+
 	lg.Infof("shutting down server...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := as.Shutdown(ctx); err != nil {
-		lg.Fatalf("server shutdown: %v", err)
+		lg.Debugf("admin server shutdown: %v", err)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := ps.Shutdown(ctx); err != nil {
+		lg.Debugf("proxy server shutdown: %v", err)
 	}
 
 	select {
