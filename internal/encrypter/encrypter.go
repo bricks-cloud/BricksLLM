@@ -5,14 +5,10 @@ import (
 	"encoding/hex"
 )
 
-type Encrypter struct {
-	key string
-}
+type Encrypter struct{}
 
-func NewEncrypter(key string) *Encrypter {
-	return &Encrypter{
-		key: key,
-	}
+func NewEncrypter() *Encrypter {
+	return &Encrypter{}
 }
 
 func (e *Encrypter) Encrypt(secret string) string {

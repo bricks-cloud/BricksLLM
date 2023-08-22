@@ -69,7 +69,7 @@ func main() {
 
 	memStore.Listen()
 
-	e := encrypter.NewEncrypter(cfg.EncryptionKey)
+	e := encrypter.NewEncrypter()
 	m := manager.NewManager(store, e)
 	as, err := web.NewAdminServer(lg, m)
 	if err != nil {
