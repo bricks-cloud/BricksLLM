@@ -9,17 +9,50 @@ import (
 	tiktoken_loader "github.com/pkoukk/tiktoken-go-loader"
 )
 
-func InitializeTokenEstimator() {
-	tiktoken.SetBpeLoader(tiktoken_loader.NewOfflineLoader())
+type encoder interface {
+	Encode(text string, allowedSpecial []string, disallowedSpecial []string) []int
 }
 
-func EstimateTokens(model string, input string) (int, error) {
-	tkm, err := tiktoken.EncodingForModel(model)
+type TokenCounter struct {
+	encoderMap map[string]encoder
+}
+
+func NewTokenCounter() (*TokenCounter, error) {
+	tiktoken.SetBpeLoader(tiktoken_loader.NewOfflineLoader())
+	e, err := tiktoken.GetEncoding("cl100k_base")
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	token := tkm.Encode(input, nil, nil)
+	return &TokenCounter{
+		encoderMap: map[string]encoder{
+			"gpt-4":                  e,
+			"gpt-4-0314":             e,
+			"gpt-4-0613":             e,
+			"gpt-4-32k":              e,
+			"gpt-4-32k-0613":         e,
+			"gpt-4-32k-0314":         e,
+			"gpt-3.5-turbo":          e,
+			"gpt-3.5-turbo-0301":     e,
+			"gpt-3.5-turbo-0613":     e,
+			"gpt-3.5-turbo-16k":      e,
+			"gpt-3.5-turbo-16k-0613": e,
+		},
+	}, nil
+}
+
+func (tc *TokenCounter) Count(model string, input string) (int, error) {
+	encoder, ok := tc.encoderMap[model]
+	if !ok {
+		encoder, err := tiktoken.EncodingForModel(model)
+		if err != nil {
+			return 0, err
+		}
+
+		tc.encoderMap[model] = encoder
+	}
+
+	token := encoder.Encode(input, nil, nil)
 	return len(token), nil
 }
 
