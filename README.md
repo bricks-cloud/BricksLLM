@@ -33,37 +33,38 @@ BricksLLM API gateway uses postgresql to store configurations, and redis for cac
 
 Setting up postgresql and redis via docker-compose.
 
-`bash
+```bash
 docker-compose up -d
-`
+```
 
-Setting up your OpenAI API credential
-`bash
+Setting up your OpenAI API credential.
+
+```bash
 export OPENAI_API_KEY = "YOUR_OPENAI_API_CREDENTIAL"
 export POSTGRESQL_USERNAME = "YOUR_POSTGRESQL_USERNAME"
 export POSTGRESQL_PASSWORD = "YOUR_POSTGRESQL_PASSWORD"
 export REDIS_PASSWORD = "YOUR_REDIS_PASSWORD"
-`
+```
 
 Spinning up the proxy server by runnning
-`bash
+```
 go run ./cmd/tool/main.go
-`
+```
 
 # Documentation
 ## Environment variables
-> | Name | type | description | default
-> |---------------|-----------------------------------|----------|
-> | `OPENAI_API_KEY`         | required | OpenAI API Key|
-> | `POSTGRESQL_HOSTS`       | optional | Hosts for Postgresql DB. Seperated by , | localhost
-> | `POSTGRESQL_USERNAME`         | required | Postgresql DB username|
-> | `POSTGRESQL_PASSWORD`         | required | Postgresql DB password|
+> | Name | type | description | default |
+> |---------------|-----------------------------------|----------|-|
+> | `OPENAI_API_KEY`         | required | OpenAI API Key |
+> | `POSTGRESQL_HOSTS`       | optional | Hosts for Postgresql DB. Seperated by , | localhost |
+> | `POSTGRESQL_USERNAME`         | required | Postgresql DB username |
+> | `POSTGRESQL_PASSWORD`         | required | Postgresql DB password |
 > | `POSTGRESQL_SSL_ENABLED`         | optional | Postgresql SSL enabled| `false`
 > | `POSTGRESQL_PORT`         | optional | The port that Postgresql DB runs on| `5432`
 > | `POSTGRESQL_READ_TIME_OUT`         | optional | Timeout for Postgresql read operations | `2s`
 > | `POSTGRESQL_WRITE_TIME_OUT`         | optional | Timeout for Postgresql write operations | `1s`
 > | `REDIS_PASSWORD`         | required | Password for |
-> | `REDIS_PORT`         | optional | Timeout for Redis read operations | 
+> | `REDIS_PORT`         | optional | Timeout for Redis read operations |
 > | `REDIS_READ_TIME_OUT`         | optional | Timeout for Redis read operations | `1s`
 > | `REDIS_WRITE_TIME_OUT`         | optional | Timeout for Redis write operations | `500ms`
 > | `IN_MEMORY_DB_UPDATE_INTERVAL`         | optional | The interval BricksLLM API gateway polls Postgresql DB for latest key configurations | `10s`
