@@ -12,10 +12,13 @@ type Config struct {
 	PostgresqlPassword       string        `env:"POSTGRESQL_PASSWORD"`
 	PostgresqlSslEnabled     bool          `env:"POSTGRESQL_SSL_ENABLED" envDefault:"false"`
 	PostgresqlPort           string        `env:"POSTGRESQL_PORT" envDefault:"5432"`
-	RedisReadTimeout         time.Duration `env:"REDIS_READ_TIME_OUT" envDefault:"2s"`
-	RedisWriteTimeout        time.Duration `env:"REDIS_WRITE_TIME_OUT" envDefault:"1s"`
-	PostgresqlReadTimeout    time.Duration `env:"POSTGRESQL_READ_TIME_OUT" envDefault:"5s"`
-	PostgresqlWriteTimeout   time.Duration `env:"POSTGRESQL_WRITE_TIME_OUT" envDefault:"5s"`
+	RedisHosts               string        `env:"REDIS_HOSTS" envSeparator:":" envDefault:"localhost"`
+	RedisPort                string        `env:"REDIS_PORT" envDefault:"6379"`
+	RedisPassword            string        `env:"REDIS_PASSWORD"`
+	RedisReadTimeout         time.Duration `env:"REDIS_READ_TIME_OUT" envDefault:"1s"`
+	RedisWriteTimeout        time.Duration `env:"REDIS_WRITE_TIME_OUT" envDefault:"500ms"`
+	PostgresqlReadTimeout    time.Duration `env:"POSTGRESQL_READ_TIME_OUT" envDefault:"2s"`
+	PostgresqlWriteTimeout   time.Duration `env:"POSTGRESQL_WRITE_TIME_OUT" envDefault:"1s"`
 	InMemoryDbUpdateInterval time.Duration `env:"IN_MEMORY_DB_UPDATE_INTERVAL" envDefault:"10s"`
 	OpenAiKey                string        `env:"OPENAI_API_KEY,required"`
 }

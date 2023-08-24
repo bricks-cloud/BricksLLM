@@ -84,9 +84,9 @@ func main() {
 	as.Run()
 
 	c := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",                   // Replace with your Redis server address
-		Password: "eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81", // No password set
-		DB:       0,                                  // Use the default database
+		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
+		Password: cfg.RedisPassword,
+		DB:       0,
 	})
 
 	rc := redisStorage.NewCache(c, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
