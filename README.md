@@ -11,7 +11,7 @@
    <a href="https://github.com/bricks-cloud/bricks/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-red" alt="License"></a>
 </p>
 
-**BricksLLM** is a cloud native AI gateway written in Go. Currently it is a proxy for OpenAI. The main feature of the proxy is letting you create API keys that has a rate limit, cost limit and ttl that you could use in both development and production use cases to achieve fine-grained access control that is not provided by OpenAI at the moment. The proxy is compatible with OpenAI API and its SDKs. 
+**BricksLLM** is a cloud native AI gateway written in Go. Currently, it serves as a proxy only for OpenAI. The main feature of the gateway is letting you create API keys that has a rate limit, cost limit and ttl that you could use in both development and production use cases to achieve fine-grained access control that is not provided by OpenAI at the moment. The proxy is compatible with OpenAI API and its SDKs. 
 
 The vision of BricksLLM is to support many more large language models such as LLama2, Claude, PaLM2 etc, and streamline LLM operations.
 
@@ -238,7 +238,7 @@ This endpoint is set up for updating key configurations using key id.
 The OpenAI proxy runs on Port `8002`.
 
 <details>
-  <summary><code>POST</code> <code><b>/api/providers/openai</b></code></summary>
+  <summary><code>POST</code> <code><b>/api/providers/openai/chat/completions</b></code></summary>
 
 ##### Description
 This endpoint is set up for proxying OpenAI API requests. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/chat).

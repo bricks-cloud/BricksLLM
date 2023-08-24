@@ -29,7 +29,7 @@ func NewProxyServer(log logger.Logger, m KeyManager, ks keyStorage, kms keyMemSt
 
 	client := http.Client{}
 
-	router.POST("/api/providers/openai", getOpenAiProxyHandler(r, credential, client, kms, log, enc))
+	router.POST("/api/providers/openai/chat/completions", getOpenAiProxyHandler(r, credential, client, kms, log, enc))
 
 	srv := &http.Server{
 		Addr:    ":8002",
