@@ -2,7 +2,7 @@
 <img src="./assets/bricks-logo.png" width="150" />
 </p>
 
-# **BricksLLM: API gateway For running LLM applications in Production**
+# **BricksLLM: AI Gateway For Putting LLM In Production**
 
 <p align="center">
    <a href='https://www.ycombinator.com/'><img alt='YCombinator S22' src='https://img.shields.io/badge/Y%20Combinator-2022-orange'/></a>
@@ -11,16 +11,17 @@
    <a href="https://github.com/bricks-cloud/bricks/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-red" alt="License"></a>
 </p>
 
-**BricksLLM** is a cloud native API gateway written in Go. It provides the following features:
+**BricksLLM** is a cloud native AI gateway written in Go. Currently it is a proxy for OpenAI. The main feature of the proxy is letting you create API keys that has a rate limit, cost limit and ttl that you could use in both development and production use cases to achieve fine-grained access control that is not provided by OpenAI at the moment. The proxy is compatible with OpenAI API and its SDKs. 
 
-* API key authentication
-* Rate limit
-* LLM spend limit
-* LLM input and output logging with privacy control(:construction:)
-* Statsd integration (:construction:)
-* LLM prompt AB testing (:construction:)
-* PII detection and masking (:construction:)
-* Support for more LLM models (:construction:)
+The vision of BricksLLM is to support many more large language models such as LLama2, Claude, PaLM2 etc, and streamline LLM operations.
+
+## Roadmap
+* [x] Access control via API key with rate limit, cost limit and ttl
+* Statsd integration
+* Logging integration
+* Routes configuration
+* PII detection and masking
+
 
 # Installation
 ## Prerequisites
@@ -39,6 +40,9 @@ docker-compose up -d
 Setting up your OpenAI API credential
 ```bash
 export OPENAI_API_KEY = "YOUR_OPENAI_API_CREDENTIAL"
+export POSTGRESQL_USERNAME = "YOUR_POSTGRESQL_USERNAME"
+export POSTGRESQL_PASSWORD = "YOUR_POSTGRESQL_PASSWORD"
+export REDIS_PASSWORD = "YOUR_REDIS_PASSWORD"
 ```
 
 Spinning up the proxy server by runnning
@@ -48,19 +52,21 @@ go run ./cmd/tool/main.go
 
 # Documentation
 ## Environment variables
-> | Name | description | example
+> | Name | type | description | default
 > |---------------|-----------------------------------|----------|
-> | `OPENAI_API_KEY`         | OpenAI API Key| YOUR_API_KEY
-> | `POSTGRESQL_HOSTS`       | Hosts for Postgresql DB. Seperated by , | localhost
-> | `POSTGRESQL_USERNAME`         | Postgresql DB username| username
-> | `POSTGRESQL_PASSWORD`         | Postgresql DB password| password
-> | `POSTGRESQL_SSL_ENABLED`         | Postgresql SSL enabled| ```true```
-> | `POSTGRESQL_PORT`         | The port that Postgresql DB runs on| ```5432```
-> | `POSTGRESQL_READ_TIME_OUT`         | Timeout for Postgresql read operations | ```2s```
-> | `POSTGRESQL_WRITE_TIME_OUT`         | Timeout for Postgresql write operations | ```1s```
-> | `REDIS_READ_TIME_OUT`         | Timeout for Redis read operations | ```1s```
-> | `REDIS_READ_WRITE_OUT`         | Timeout for Redis write operations | ```500ms```
-> | `IN_MEMORY_DB_UPDATE_INTERVAL`         | The interval BricksLLM API gateway polls Postgresql DB for latest key configurations | ```10s```
+> | `OPENAI_API_KEY`         | required | OpenAI API Key|
+> | `POSTGRESQL_HOSTS`       | optional | Hosts for Postgresql DB. Seperated by , | localhost
+> | `POSTGRESQL_USERNAME`         | required | Postgresql DB username|
+> | `POSTGRESQL_PASSWORD`         | required | Postgresql DB password|
+> | `POSTGRESQL_SSL_ENABLED`         | optional | Postgresql SSL enabled| ```false```
+> | `POSTGRESQL_PORT`         | optional | The port that Postgresql DB runs on| ```5432```
+> | `POSTGRESQL_READ_TIME_OUT`         | optional | Timeout for Postgresql read operations | ```2s```
+> | `POSTGRESQL_WRITE_TIME_OUT`         | optional | Timeout for Postgresql write operations | ```1s```
+> | `REDIS_PASSWORD`         | required | Password for |
+> | `REDIS_PORT`         | optional | Timeout for Redis read operations | 
+> | `REDIS_READ_TIME_OUT`         | optional | Timeout for Redis read operations | ```1s```
+> | `REDIS_WRITE_TIME_OUT`         | optional | Timeout for Redis write operations | ```500ms```
+> | `IN_MEMORY_DB_UPDATE_INTERVAL`         | optional | The interval BricksLLM API gateway polls Postgresql DB for latest key configurations | ```10s```
 
 ## Configuration Endpoints
 The configuration server runs on Port ```8001```.
@@ -92,7 +98,9 @@ This endpoint is set up for retrieving key configurations using a query param ca
 
 ##### Response
 
-```[]KeyConfiguration```
+> | Response Body |
+> |---------------|
+> | ```[]KeyConfiguration``` |
 
 Fields of KeyConfiguration
 > | Field | type | example                      | description |
