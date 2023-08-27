@@ -45,7 +45,7 @@ func (s *Store) CreateKeysTable() error {
 		revoked BOOLEAN NOT NULL,
 		key_id VARCHAR(255) PRIMARY KEY,
 		key VARCHAR(255) NOT NULL,
-		revoked_reason VARCHAR(255) NOT NULL,
+		revoked_reason VARCHAR(255),
 		cost_limit_in_usd FLOAT8,
 		cost_limit_in_usd_over_time FLOAT8,
 		cost_limit_in_usd_unit VARCHAR(255),
@@ -56,7 +56,6 @@ func (s *Store) CreateKeysTable() error {
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()
-
 	_, err := s.db.ExecContext(ctxTimeout, createTableQuery)
 	if err != nil {
 		return err
