@@ -127,10 +127,5 @@ func main() {
 		lg.Infof("timeout of 5 seconds")
 	}
 
-	err = store.DropKeysTable()
-	if err != nil {
-		lg.Fatalf("error dropping keys table: %v", err)
-	}
-
 	lg.Infof("server exited")
 }
