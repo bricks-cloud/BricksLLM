@@ -238,7 +238,7 @@ This endpoint is set up for updating key configurations using key id.
 The OpenAI proxy runs on Port `8002`.
 
 <details>
-  <summary><code>POST</code> <code><b>/api/providers/openai/chat/completions</b></code></summary>
+  <summary><code>POST</code> <code><b>/api/providers/openai/v1/chat/completions</b></code></summary>
 
 ##### Description
 This endpoint is set up for proxying OpenAI API requests. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/chat).
