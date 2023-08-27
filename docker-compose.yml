@@ -18,6 +18,14 @@ services:
       - '5432:5432'
     volumes: 
       - db:/var/lib/postgresql/data
+  bricksllm:
+    image: luyuanxin1995/bricksllm:latest
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      POSTGRESQL_USERNAME: postgres
+      POSTGRESQL_PASSWORD: postgres
+      REDIS_PASSWORD: eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+    ports: ["8001:8001", "8002:8002"]
 volumes:
   cache:
     driver: local

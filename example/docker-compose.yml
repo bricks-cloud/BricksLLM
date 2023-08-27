@@ -1,9 +1,0 @@
-services:
-  bricksllm:
-    image: luyuanxin1995/bricksllm
-    volumes:
-     - ./bricksllm.yaml:/bricksllm.yaml
-    environment:
-      OPENAI_KEY: ${OPENAI_KEY}
-      API_KEY: ${API_KEY}
-    ports: ["8080:8080"]
