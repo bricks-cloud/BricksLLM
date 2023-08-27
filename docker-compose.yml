@@ -1,14 +1,14 @@
 version: '3.8'
 services:
-  cache:
+  redis:
     image: redis:6.2-alpine
     restart: always
     ports:
       - '6379:6379'
     command: redis-server --save 20 1 --loglevel warning --requirepass eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
     volumes: 
-      - cache:/data
-  db:
+      - redis:/data
+  postgresql:
     image: postgres:14.1-alpine
     restart: always
     environment:
@@ -17,17 +17,24 @@ services:
     ports:
       - '5432:5432'
     volumes: 
-      - db:/var/lib/postgresql/data
+      - postgresql:/var/lib/postgresql/data
   bricksllm:
-    image: luyuanxin1995/bricksllm:latest
+    depends_on: 
+      - redis
+      - postgresql
+    image: luyuanxin1995/bricksllm
     environment:
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      POSTGRESQL_USERNAME: postgres
-      POSTGRESQL_PASSWORD: postgres
-      REDIS_PASSWORD: eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
-    ports: ["8001:8001", "8002:8002"]
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - POSTGRESQL_USERNAME=postgres
+      - POSTGRESQL_PASSWORD=postgres
+      - REDIS_PASSWORD=eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+      - POSTGRESQL_HOSTS=postgresql
+      - REDIS_HOSTS=redis
+    ports:
+      - '8001:8001'
+      - '8002:8002'
 volumes:
-  cache:
+  redis:
     driver: local
-  db:
+  postgresql:
     driver: local

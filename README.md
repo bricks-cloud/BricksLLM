@@ -17,38 +17,73 @@ The vision of BricksLLM is to support many more large language models such as LL
 
 ## Roadmap
 - [x] Access control via API key with rate limit, cost limit and ttl
-- Statsd integration
-- Logging integration
-- Routes configuration
-- PII detection and masking
-
-
-# Installation
-## Prerequisites
-- [go 1.19+](https://go.dev/dl/)
-- [Docker](https://www.docker.com/get-started/)
+- :construction: Statsd integration
+- :construction: Logging integration
+- :construction: Routes configuration
+- :construction: PII detection and masking
 
 ## Getting Started
-BricksLLM API gateway uses postgresql to store configurations, and redis for caching. Therefore, they are required for running BricksLLM.
+BricksLLM AI gateway uses postgresql to store configurations, and redis for caching. Therefore, they are required for running BricksLLM.
 
-Setting up postgresql and redis via docker-compose.
+### With docker-compose
+
+Prerequisites
+- [Docker](https://www.docker.com/get-started/)
+  
+Fatest way to get the gateway running is through docker-compose. First set up your `OPENAI_AI_KEY` env variable.
 
 ```bash
-docker-compose up -d
+export OPENAI_API_KEY=YOUR_OPENAI_API_CREDENTIAL
 ```
 
-Setting up your OpenAI API credential.
+Create docker-compose.yml with the following
+```yaml
+version: '3.8'
+services:
+  redis:
+    image: redis:6.2-alpine
+    restart: always
+    ports:
+      - '6379:6379'
+    command: redis-server --save 20 1 --loglevel warning --requirepass eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+    volumes: 
+      - redis:/data
+  postgresql:
+    image: postgres:14.1-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - '5432:5432'
+    volumes: 
+      - postgresql:/var/lib/postgresql/data
+  bricksllm:
+    depends_on: 
+      - redis
+      - postgresql
+    image: luyuanxin1995/bricksllm
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - POSTGRESQL_USERNAME=postgres
+      - POSTGRESQL_PASSWORD=postgres
+      - REDIS_PASSWORD=eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+      - POSTGRESQL_HOSTS=postgresql
+      - REDIS_HOSTS=redis
+    ports:
+      - '8001:8001'
+      - '8002:8002'
+volumes:
+  redis:
+    driver: local
+  postgresql:
+    driver: local
+```
+
+Run the following command in the same directory as docker-compose.yml
 
 ```bash
-export OPENAI_API_KEY = "YOUR_OPENAI_API_CREDENTIAL"
-export POSTGRESQL_USERNAME = "YOUR_POSTGRESQL_USERNAME"
-export POSTGRESQL_PASSWORD = "YOUR_POSTGRESQL_PASSWORD"
-export REDIS_PASSWORD = "YOUR_REDIS_PASSWORD"
-```
-
-Spinning up the proxy server by runnning
-```
-go run ./cmd/tool/main.go
+docker-compose up
 ```
 
 # Documentation
