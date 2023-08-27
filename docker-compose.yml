@@ -33,6 +33,8 @@ services:
     ports:
       - '8001:8001'
       - '8002:8002'
+    command:
+      - '-m=dev'
 volumes:
   redis:
     driver: local
