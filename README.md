@@ -100,8 +100,8 @@ docker-compose up
 > | `POSTGRESQL_PORT`         | optional | The port that Postgresql DB runs on| `5432`
 > | `POSTGRESQL_READ_TIME_OUT`         | optional | Timeout for Postgresql read operations | `2s`
 > | `POSTGRESQL_WRITE_TIME_OUT`         | optional | Timeout for Postgresql write operations | `1s`
-> | `REDIS_HOSTS`         | required | Host for Redis. Seperated by , |
-> | `REDIS_PASSWORD`         | required | Redis Password | `localhost`
+> | `REDIS_HOSTS`         | required | Host for Redis. Seperated by , | `localhost`
+> | `REDIS_PASSWORD`         | required | Redis Password |
 > | `REDIS_PORT`         | optional | The port that Redis DB runs on | `6379`
 > | `REDIS_READ_TIME_OUT`         | optional | Timeout for Redis read operations | `1s`
 > | `REDIS_WRITE_TIME_OUT`         | optional | Timeout for Redis write operations | `500ms`
