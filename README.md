@@ -16,11 +16,11 @@
 The vision of BricksLLM is to support many more large language models such as LLama2, Claude, PaLM2 etc, and streamline LLM operations.
 
 ## Roadmap
-- [x] Access control via API key with rate limit, cost limit and ttl  
-:construction: Statsd integration  
-:construction: Logging integration  
-:construction: Routes configuration  
-:construction: PII detection and masking
+- [x] Access control via API key with rate limit, cost limit and ttl
+- [ ] Statsd integration :construction:
+- [ ] Logging integration :construction:
+- [ ] Routes configuration :construction:
+- [ ] PII detection and masking :construction:
 
 ## Getting Started
 BricksLLM AI gateway uses postgresql to store configurations, and redis for caching. Therefore, they are required for running BricksLLM.
@@ -93,15 +93,16 @@ docker-compose up
 > | Name | type | description | default |
 > |---------------|-----------------------------------|----------|-|
 > | `OPENAI_API_KEY`         | required | OpenAI API Key |
-> | `POSTGRESQL_HOSTS`       | optional | Hosts for Postgresql DB. Seperated by , | localhost |
+> | `POSTGRESQL_HOSTS`       | optional | Hosts for Postgresql DB. Seperated by , | `localhost` |
 > | `POSTGRESQL_USERNAME`         | required | Postgresql DB username |
 > | `POSTGRESQL_PASSWORD`         | required | Postgresql DB password |
 > | `POSTGRESQL_SSL_ENABLED`         | optional | Postgresql SSL enabled| `false`
 > | `POSTGRESQL_PORT`         | optional | The port that Postgresql DB runs on| `5432`
 > | `POSTGRESQL_READ_TIME_OUT`         | optional | Timeout for Postgresql read operations | `2s`
 > | `POSTGRESQL_WRITE_TIME_OUT`         | optional | Timeout for Postgresql write operations | `1s`
-> | `REDIS_PASSWORD`         | required | Password for |
-> | `REDIS_PORT`         | optional | Timeout for Redis read operations |
+> | `REDIS_HOSTS`         | required | Host for Redis. Seperated by , |
+> | `REDIS_PASSWORD`         | required | Redis Password | `localhost`
+> | `REDIS_PORT`         | optional | The port that Redis DB runs on | `6379`
 > | `REDIS_READ_TIME_OUT`         | optional | Timeout for Redis read operations | `1s`
 > | `REDIS_WRITE_TIME_OUT`         | optional | Timeout for Redis write operations | `500ms`
 > | `IN_MEMORY_DB_UPDATE_INTERVAL`         | optional | The interval BricksLLM API gateway polls Postgresql DB for latest key configurations | `10s`
