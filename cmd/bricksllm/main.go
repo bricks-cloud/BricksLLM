@@ -32,6 +32,8 @@ const (
 
 func main() {
 	modePtr := flag.String("m", "dev", "select the mode that bricksllm runs in")
+	flag.Parse()
+
 	lg := zap.NewLogger(*modePtr)
 
 	gin.SetMode(gin.ReleaseMode)
