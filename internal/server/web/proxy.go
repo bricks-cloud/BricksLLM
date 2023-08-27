@@ -112,8 +112,8 @@ func getOpenAiProxyHandler(r recorder, credential string, client http.Client, km
 
 func (ps *ProxyServer) Run() {
 	go func() {
-		ps.logger.Info(`proxy server listening at 8002\n
-		POST  /api/providers/openai/v1/chat/completions is ready for forwarding requests to openai`)
+		ps.logger.Info("proxy server listening at 8002")
+		ps.logger.Info("PORT 8002 POST /api/providers/openai/v1/chat/completions is ready for forwarding requests to openai")
 
 		if err := ps.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			ps.logger.Fatalf("error proxy server listening: %v", err)

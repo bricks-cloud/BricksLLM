@@ -54,12 +54,10 @@ func NewAdminServer(log logger.Logger, m KeyManager) (*AdminServer, error) {
 
 func (as *AdminServer) Run() {
 	go func() {
-		as.logger.Info(`admin server listening at 8001\n
-		GET    /api/key-management/keys is set up for retrieving keys using a query param called tag\n
-		GET    /api/key-management/keys is set up for retrieving keys using a query param called tag\n
-		PUT    /api/key-management/keys is set up for creating a key\n
-		PATCH  /api/key-management/keys/:id is set up for updating a key using an id\n
-		DELETE /api/key-management/keys/:id is set up for deleting a key using an id`)
+		as.logger.Info("admin server listening at 8001")
+		as.logger.Info("PORT 8001 GET   /api/key-management/keys is set up for retrieving keys using a query param called tag")
+		as.logger.Info("PORT 8001 PUT   /api/key-management/keys is set up for creating a key")
+		as.logger.Info("PORT 8001 PATCH /api/key-management/keys/:id is set up for updating a key using an id")
 
 		if err := as.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			as.logger.Fatalf("error admin server listening: %v", err)
