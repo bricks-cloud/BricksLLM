@@ -16,11 +16,11 @@
 The vision of BricksLLM is to support many more large language models such as LLama2, Claude, PaLM2 etc, and streamline LLM operations.
 
 ## Roadmap
-- [x] Access control via API key with rate limit, cost limit and ttl
-- :construction: Statsd integration
-- :construction: Logging integration
-- :construction: Routes configuration
-- :construction: PII detection and masking
+- [x] Access control via API key with rate limit, cost limit and ttl  
+:construction: Statsd integration  
+:construction: Logging integration  
+:construction: Routes configuration  
+:construction: PII detection and masking
 
 ## Getting Started
 BricksLLM AI gateway uses postgresql to store configurations, and redis for caching. Therefore, they are required for running BricksLLM.
