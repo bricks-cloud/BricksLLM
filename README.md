@@ -35,18 +35,16 @@ git clone https://github.com/bricks-cloud/BricksLLM-Docker
 cd BricksLLM-Docker
 ```
 
-### Step 3 - Deploy BricksLLM with Postgresql and Redis
+### Step 3 - Export your OpenAI API Key as environment variable
+```bash
+export OPENAI_API_KEY=YOUR_OPENAI_API_KEY
+```
+
+### Step 4 - Deploy BricksLLM with Postgresql and Redis
 ```bash
 docker-compose up
 ```
 You can run this in detach mode use the -d flag: `docker-compose up -d`
-
-
-### With docker-compose
-Prerequisites
-- [Docker](https://www.docker.com/get-started/)
-  
-Fatest way to get the gateway running is through docker-compose. First set up your `OPENAI_AI_KEY` env variable.
 
 # Documentation
 ## Environment variables
