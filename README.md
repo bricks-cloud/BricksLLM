@@ -23,70 +23,30 @@ The vision of BricksLLM is to support many more large language models such as LL
 - [ ] PII detection and masking :construction:
 
 ## Getting Started
-BricksLLM AI gateway uses postgresql to store configurations, and redis for caching. Therefore, they are required for running BricksLLM.
+The easiest way to get started with BricksLLM is through BricksLLM-Docker.
+
+### Step 1 - Clone BricksLLM-Docker repository
+```bash
+git clone https://github.com/bricks-cloud/BricksLLM-Docker
+```
+
+### Step 2 - Change to BricksLLM-Docker directory
+```bash
+cd BricksLLM-Docker
+```
+
+### Step 3 - Deploy BricksLLM with Postgresql and Redis
+```bash
+docker-compose up
+```
+You can run this in detach mode use the -d flag: `docker-compose up -d`
+
 
 ### With docker-compose
-
 Prerequisites
 - [Docker](https://www.docker.com/get-started/)
   
 Fatest way to get the gateway running is through docker-compose. First set up your `OPENAI_AI_KEY` env variable.
-
-```bash
-export OPENAI_API_KEY=YOUR_OPENAI_API_CREDENTIAL
-```
-
-Create docker-compose.yml with the following
-```yaml
-version: '3.8'
-services:
-  redis:
-    image: redis:6.2-alpine
-    restart: always
-    ports:
-      - '6379:6379'
-    command: redis-server --save 20 1 --loglevel warning --requirepass eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
-    volumes: 
-      - redis:/data
-  postgresql:
-    image: postgres:14.1-alpine
-    restart: always
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-    ports:
-      - '5432:5432'
-    volumes: 
-      - postgresql:/var/lib/postgresql/data
-  bricksllm:
-    depends_on: 
-      - redis
-      - postgresql
-    image: luyuanxin1995/bricksllm
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - POSTGRESQL_USERNAME=postgres
-      - POSTGRESQL_PASSWORD=postgres
-      - REDIS_PASSWORD=eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
-      - POSTGRESQL_HOSTS=postgresql
-      - REDIS_HOSTS=redis
-    ports:
-      - '8001:8001'
-      - '8002:8002'
-    command:
-      - '-m=dev'
-volumes:
-  redis:
-    driver: local
-  postgresql:
-    driver: local
-```
-
-Run the following command in the same directory as docker-compose.yml
-
-```bash
-docker-compose up
-```
 
 # Documentation
 ## Environment variables
