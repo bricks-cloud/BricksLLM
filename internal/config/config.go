@@ -19,7 +19,7 @@ type Config struct {
 	RedisWriteTimeout        time.Duration `env:"REDIS_WRITE_TIME_OUT" envDefault:"500ms"`
 	PostgresqlReadTimeout    time.Duration `env:"POSTGRESQL_READ_TIME_OUT" envDefault:"2s"`
 	PostgresqlWriteTimeout   time.Duration `env:"POSTGRESQL_WRITE_TIME_OUT" envDefault:"1s"`
-	InMemoryDbUpdateInterval time.Duration `env:"IN_MEMORY_DB_UPDATE_INTERVAL" envDefault:"10s"`
+	InMemoryDbUpdateInterval time.Duration `env:"IN_MEMORY_DB_UPDATE_INTERVAL" envDefault:"1s"`
 	OpenAiKey                string        `env:"OPENAI_API_KEY,required"`
 }
 
