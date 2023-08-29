@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/logger"
 	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	"github.com/gin-gonic/gin"
@@ -20,12 +21,12 @@ type ProxyServer struct {
 }
 
 type recorder interface {
-	RecordKeySpend(keyId string, model string, promptTks int, completionTks int) error
+	RecordKeySpend(keyId string, model string, promptTks int, completionTks int, costLimitUnit key.TimeUnit) error
 }
 
-func NewProxyServer(log logger.Logger, m KeyManager, ks keyStorage, kms keyMemStorage, e estimator, v validator, r recorder, credential string, enc encrypter) (*ProxyServer, error) {
+func NewProxyServer(log logger.Logger, m KeyManager, ks keyStorage, kms keyMemStorage, e estimator, v validator, r recorder, credential string, enc encrypter, rlm rateLimitManager) (*ProxyServer, error) {
 	router := gin.New()
-	router.Use(getKeyValidator(kms, e, v, ks, log, enc))
+	router.Use(getKeyValidator(kms, e, v, ks, log, enc, rlm))
 
 	client := http.Client{}
 
@@ -92,7 +93,7 @@ func getOpenAiProxyHandler(r recorder, credential string, client http.Client, km
 			}
 
 			keySpendStart := time.Now()
-			err = r.RecordKeySpend(kc.KeyId, chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
+			err = r.RecordKeySpend(kc.KeyId, chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens, kc.CostLimitInUsdUnit)
 			if err != nil {
 				log.Debugf("failed to record key spend for key: %s :%v", kc.KeyId, err)
 			}
