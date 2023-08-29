@@ -23,7 +23,7 @@ The vision of BricksLLM is to support many more large language models such as LL
 - [ ] PII detection and masking :construction:
 
 ## Getting Started
-The easiest way to get started with BricksLLM is through BricksLLM-Docker.
+The easiest way to get started with BricksLLM is through [BricksLLM-Docker](https://github.com/bricks-cloud/BricksLLM-Docker).
 
 ### Step 1 - Clone BricksLLM-Docker repository
 ```bash
@@ -115,7 +115,7 @@ Fields of KeyConfiguration
 > | rateLimitOverTime | `string` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitOverTime | `string` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | `string` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
-> | ttl | `string` | 2d | time to live. |
+> | ttl | `string` | 2d | time to live. Available units are [`s`, `m`, `h`] |
 
 </details>
 
@@ -134,10 +134,11 @@ This endpoint is set up for retrieving key configurations using a query param ca
 > | key | required | `string` | abcdef12345 | API key |
 > | costLimitInUsd | optional | `number` | 5.5 | Total spend limit of the API key.
 > | costLimitInUsdOverTime | optional | `string` | 2 | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
-> | costLimitInUsdUnit | optional | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `m`, `s`, `d`].      |
+> | costLimitInUsdUnit | optional | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `d`].      |
 > | rateLimitOverTime | optional | `string` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | optional | `enum` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
-> | ttl | optional | `string` | 2d | time to live. |
+> | ttl | optional | `string` | 2d | time to live. Available units are [`s`, `m`, `h`] |
+
 
 ##### Error Response
 
@@ -165,11 +166,11 @@ This endpoint is set up for retrieving key configurations using a query param ca
 > | keyId | `string` | 550e8400-e29b-41d4-a716-446655440000 | Unique identifier for the key.  |
 > | costLimitInUsd | `number` | 5.5 | Total spend limit of the API key.
 > | costLimitInUsdOverTime | `string` | 2 | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
-> | costLimitInUsdUnit | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `m`, `s`, `d`].      |
+> | costLimitInUsdUnit | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `d`].      |
 > | rateLimitOverTime | `string` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitOverTime | `string` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | `string` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
-> | ttl | `string` | 2d | time to live. |
+> | ttl | `string` | 2d | time to live. Available units are [`s`, `m`, `h`] |
 
 </details>
 
@@ -192,7 +193,7 @@ This endpoint is set up for updating key configurations using key id.
 > | revoked | optional |  `boolean` | true | Indicator for whether the key is revoked.  |
 > | revokedReason| optional | `string` | The key has expired | Reason for why the key is revoked.  |
 > | costLimitInUsdOverTime | optional | `string` | 2 | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
-> | costLimitInUsdUnit | optional | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `m`, `s`, `d`].      |
+> | costLimitInUsdUnit | optional | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `d`].      |
 > | rateLimitOverTime | optional | `string` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | optional | `enum` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
 
@@ -222,11 +223,11 @@ This endpoint is set up for updating key configurations using key id.
 > | keyId | `string` | 550e8400-e29b-41d4-a716-446655440000 | Unique identifier for the key.  |
 > | costLimitInUsd | `number` | 5.5 | Total spend limit of the API key.
 > | costLimitInUsdOverTime | `string` | 2 | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
-> | costLimitInUsdUnit | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `m`, `s`, `d`].      |
+> | costLimitInUsdUnit | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `d`].      |
 > | rateLimitOverTime | `string` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitOverTime | `string` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | `string` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
-> | ttl | `string` | 2d | time to live. |
+> | ttl | `string` | 2d | time to live. Available units are [`s`, `m`, `h`] |
 
 </details>
 
