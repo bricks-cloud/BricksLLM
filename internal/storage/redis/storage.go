@@ -21,28 +21,33 @@ func NewStore(c *redis.Client, wt time.Duration, rt time.Duration) *Store {
 	}
 }
 
-func (s *Store) IncrementCounter(prefix string, keyId string, incr int64) error {
-	redisKey := prefix + "-" + keyId
+func (s *Store) IncrementCounter(keyId string, incr int64) error {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()
 
-	return s.client.IncrBy(ctxTimeout, redisKey, incr).Err()
+	return s.client.IncrBy(ctxTimeout, keyId, incr).Err()
 }
 
-func (s *Store) DeleteCounter(prefix string, keyId string) error {
-	redisKey := prefix + "-" + keyId
+func (s *Store) DeleteCounter(keyId string) error {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()
 
-	return s.client.Del(ctxTimeout, redisKey).Err()
+	return s.client.Del(ctxTimeout, keyId).Err()
 }
 
-func (s *Store) GetCounter(prefix string, keyId string) (int64, error) {
+func (s *Store) GetCounter(keyId string) (int64, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
-	redisKey := prefix + "-" + keyId
-	val := s.client.Get(ctxTimeout, redisKey)
+	val := s.client.Get(ctxTimeout, keyId)
+	result, err := val.Int64()
+	if err == nil {
+		return result, nil
+	}
 
-	return val.Int64()
+	if err == redis.Nil {
+		return 0, nil
+	}
+
+	return 0, err
 }

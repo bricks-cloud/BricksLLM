@@ -24,38 +24,38 @@ func NewCache(c *redis.Client, wt time.Duration, rt time.Duration) *Cache {
 	}
 }
 
-func (c *Cache) IncrementCounter(prefix string, keyId string, rateLimitUnit key.TimeUnit, incr int64) error {
+func (c *Cache) IncrementCounter(keyId string, timeUnit key.TimeUnit, incr int64) error {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), c.wt)
 	defer cancel()
 
-	redisKey := prefix + "-" + keyId
-	ts, err := getCounterTimeStamp(rateLimitUnit)
+	ts, err := getCounterTimeStamp(timeUnit)
 	if err != nil {
 		return err
 	}
 
-	err = c.client.HIncrBy(ctxTimeout, redisKey, strconv.FormatInt(ts, 10), incr).Err()
+	err = c.client.HIncrBy(ctxTimeout, keyId, strconv.FormatInt(ts, 10), incr).Err()
 	if err != nil {
 		return err
 	}
 
 	ctxTimeout, cancel = context.WithTimeout(context.Background(), c.rt)
 	defer cancel()
-	dur := c.client.TTL(ctxTimeout, redisKey)
+	dur := c.client.TTL(ctxTimeout, keyId)
 	err = dur.Err()
 	if err != nil {
 		return err
 	}
 
-	if dur.Val() == -2 {
-		ttl, err := getCounterTtl(rateLimitUnit)
+	val := dur.Val()
+	if val < 0 {
+		ttl, err := getCounterTtl(timeUnit)
 		if err != nil {
 			return err
 		}
 
 		ctxTimeout, cancel = context.WithTimeout(context.Background(), c.wt)
 		defer cancel()
-		err = c.client.Expire(ctxTimeout, redisKey, ttl).Err()
+		err = c.client.Expire(ctxTimeout, keyId, ttl).Err()
 		if err != nil {
 			return err
 		}
@@ -96,14 +96,14 @@ func getCounterTimeStamp(rateLimitUnit key.TimeUnit) (int64, error) {
 	return 0, fmt.Errorf("cannot recognize rate limit time unit %v", rateLimitUnit)
 }
 
-func (c *Cache) GetCounter(prefix string, keyId string, rateLimitUnit key.TimeUnit) (int64, error) {
+func (c *Cache) GetCounter(keyId string, rateLimitUnit key.TimeUnit) (int64, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), c.rt)
 	defer cancel()
 
-	redisKey := prefix + "-" + keyId
-	strSlices := c.client.HVals(ctxTimeout, redisKey)
+	strSlices := c.client.HVals(ctxTimeout, keyId)
 	err := strSlices.Err()
-	if err != nil {
+
+	if err != nil && err != redis.Nil {
 		return 0, err
 	}
 

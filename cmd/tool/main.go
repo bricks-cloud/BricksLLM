@@ -24,14 +24,10 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-const (
-	openAiCostPrefix      string = "openai-cost"
-	openAiTotalCostPrefix string = "openai-total-cost"
-	rateLimitPrefix       string = "rate-limit"
-)
-
 func main() {
 	modePtr := flag.String("m", "dev", "select the mode that bricksllm runs in")
+	flag.Parse()
+
 	lg := zap.NewLogger(*modePtr)
 
 	gin.SetMode(gin.ReleaseMode)
@@ -83,19 +79,51 @@ func main() {
 
 	as.Run()
 
-	c := redis.NewClient(&redis.Options{
+	rateLimitRedisCache := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
 		Password: cfg.RedisPassword,
 		DB:       0,
 	})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := rateLimitRedisCache.Ping(ctx).Err(); err != nil {
+		lg.Fatalf("error connecting to rate limit redis cache: %v", err)
+	}
 
-	rc := redisStorage.NewCache(c, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
-	rs := redisStorage.NewStore(c, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
+	costLimitRedisCache := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
+		Password: cfg.RedisPassword,
+		DB:       1,
+	})
+
+	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := costLimitRedisCache.Ping(ctx).Err(); err != nil {
+		lg.Fatalf("error connecting to cost limit redis cache: %v", err)
+	}
+
+	costLimitRedisStorage := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
+		Password: cfg.RedisPassword,
+		DB:       2,
+	})
+
+	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := costLimitRedisStorage.Ping(ctx).Err(); err != nil {
+		lg.Fatalf("error connecting to cost limit redis storage: %v", err)
+	}
+
+	rateLimitCache := redisStorage.NewCache(rateLimitRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
+	costLimitCache := redisStorage.NewCache(costLimitRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
+	costLimitStorage := redisStorage.NewStore(costLimitRedisStorage, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
+
 	ce := openai.NewCostEstimator(openai.OpenAiPerThousandTokenCost, tc)
-	v := validator.NewValidator(rc, rs, openAiCostPrefix, openAiTotalCostPrefix, rateLimitPrefix)
-	rec := recorder.NewRecorder(rs, ce, openAiTotalCostPrefix)
+	v := validator.NewValidator(costLimitCache, rateLimitCache, costLimitStorage)
+	rec := recorder.NewRecorder(costLimitStorage, costLimitCache, ce)
+	rlm := manager.NewRateLimitManager(rateLimitCache)
 
-	ps, err := web.NewProxyServer(lg, m, store, memStore, ce, v, rec, cfg.OpenAiKey, e)
+	ps, err := web.NewProxyServer(lg, m, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm)
 	if err != nil {
 		lg.Fatalf("error creating proxy http server: %v", err)
 	}
@@ -110,7 +138,7 @@ func main() {
 
 	lg.Infof("shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := as.Shutdown(ctx); err != nil {
 		lg.Debugf("admin server shutdown: %v", err)
