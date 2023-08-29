@@ -9,41 +9,33 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/key"
 )
 
-const (
-	openAiCostPrefix      string = "openai-cost"
-	openAiTotalCostPrefix string = "openai-total-cost"
-	rateLimitPrefix       string = "rate-limit"
-)
-
-type counterCache interface {
-	GetCounter(prefix string, keyId string, rateLimitUnit key.TimeUnit) (int64, error)
+type costLimitCache interface {
+	GetCounter(keyId string, rateLimitUnit key.TimeUnit) (int64, error)
 }
 
-type storageCounterCache interface {
-	GetCounter(prefix string, keyId string) (int64, error)
+type rateLimitCache interface {
+	GetCounter(keyId string, rateLimitUnit key.TimeUnit) (int64, error)
+}
+
+type costLimitStorage interface {
+	GetCounter(keyId string) (int64, error)
 }
 
 type Validator struct {
-	cc                    counterCache
-	scc                   storageCounterCache
-	openAiCostPrefix      string
-	openAiTotalCostPrefix string
-	rateLimitPrefix       string
+	clc costLimitCache
+	rlc rateLimitCache
+	cls costLimitStorage
 }
 
 func NewValidator(
-	cc counterCache,
-	scc storageCounterCache,
-	openAiCostPrefix string,
-	openAiTotalCostPrefix string,
-	rateLimitPrefix string,
+	clc costLimitCache,
+	rlc rateLimitCache,
+	cls costLimitStorage,
 ) *Validator {
 	return &Validator{
-		cc:                    cc,
-		scc:                   scc,
-		openAiCostPrefix:      openAiCostPrefix,
-		openAiTotalCostPrefix: openAiTotalCostPrefix,
-		rateLimitPrefix:       rateLimitPrefix,
+		clc: clc,
+		rlc: rlc,
+		cls: cls,
 	}
 }
 
@@ -99,12 +91,12 @@ func (v *Validator) validateRateLimitOverTime(keyId string, rateLimitOverTime in
 		return nil
 	}
 
-	c, err := v.cc.GetCounter(v.rateLimitPrefix, keyId, rateLimitUnit)
+	c, err := v.rlc.GetCounter(keyId, rateLimitUnit)
 	if err != nil {
 		return errors.New("failed to get rate limit counter")
 	}
 
-	if c > int64(rateLimitOverTime) {
+	if c+1 > int64(rateLimitOverTime) {
 		return internal_errors.NewRateLimitError(fmt.Sprintf("key exceeded rate limit %d requests per %s", rateLimitOverTime, rateLimitUnit))
 	}
 
@@ -116,12 +108,12 @@ func (v *Validator) validateCostLimitOverTime(keyId string, costLimitOverTime fl
 		return nil
 	}
 
-	existingCostInMicroDollars, err := v.cc.GetCounter(v.openAiCostPrefix, keyId, costLimitUnit)
+	cachedCost, err := v.clc.GetCounter(keyId, costLimitUnit)
 	if err != nil {
 		return errors.New("failed to get cached token cost")
 	}
 
-	if convertDollarToMicroDollars(promptCost)+existingCostInMicroDollars > convertDollarToMicroDollars(costLimitOverTime) {
+	if convertDollarToMicroDollars(promptCost)+cachedCost > convertDollarToMicroDollars(costLimitOverTime) {
 		return internal_errors.NewRateLimitError(fmt.Sprintf("cost limit: %f has been reached for the current time period: %s", costLimitOverTime, costLimitUnit))
 	}
 
@@ -137,7 +129,7 @@ func (v *Validator) validateCostLimit(keyId string, costLimit float64, promptCos
 		return nil
 	}
 
-	existingTotalCost, err := v.scc.GetCounter(v.openAiTotalCostPrefix, keyId)
+	existingTotalCost, err := v.cls.GetCounter(keyId)
 	if err != nil {
 		return errors.New("failed to get total token cost")
 	}
