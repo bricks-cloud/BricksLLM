@@ -5,7 +5,7 @@ import "errors"
 type ChatCompletionRequest struct {
 	Model     string           `json:"model"`
 	Messages  []RequestMessage `json:"messages"`
-	Functions []Function       `json:"functions"`
+	Functions []Function       `json:"functions,omitempty"`
 }
 
 type ChatCompletionErrorContent struct {
@@ -14,30 +14,30 @@ type ChatCompletionErrorContent struct {
 }
 
 type FunctionCall struct {
-	Name      string `json:"name"`
-	Arguments string `json:"arguments"`
+	Name      string `json:"name,omitempty"`
+	Arguments string `json:"arguments,omitempty"`
 }
 
 type RequestMessage struct {
-	Name         string        `json:"name"`
-	FunctionCall *FunctionCall `json:"function_call"`
-	Role         string        `json:"role"`
-	Content      string        `json:"content"`
+	Name         string        `json:"name,omitempty"`
+	FunctionCall *FunctionCall `json:"function_call,omitempty"`
+	Role         string        `json:"role,omitempty"`
+	Content      string        `json:"content,omitempty"`
 }
 
 type Function struct {
-	Name        string           `json:"name"`
-	Description string           `json:"description"`
-	Parameters  *FuntionCallProp `json:"parameters"`
+	Name        string           `json:"name,omitempty"`
+	Description string           `json:"description,omitempty"`
+	Parameters  *FuntionCallProp `json:"parameters,omitempty"`
 }
 
 type FuntionCallProp struct {
-	Description string                 `json:"description"`
-	PropType    string                 `json:"type"`
-	Enum        []string               `json:"enum"`
-	Items       interface{}            `json:"items"`
-	Required    []string               `json:"required"`
-	Properties  map[string]interface{} `json:"properties"`
+	Description string                 `json:"description,omitempty"`
+	PropType    string                 `json:"type,omitempty"`
+	Enum        []string               `json:"enum,omitempty"`
+	Items       interface{}            `json:"items,omitempty"`
+	Required    []string               `json:"required,omitempty"`
+	Properties  map[string]interface{} `json:"properties,omitempty"`
 }
 
 func (p *FuntionCallProp) GetDescription() string {
