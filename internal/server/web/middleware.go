@@ -40,6 +40,10 @@ type validator interface {
 	Validate(k *key.ResponseKey, promptCost float64, model string) error
 }
 
+type rateLimitManager interface {
+	Increment(keyId string, timeUnit key.TimeUnit) error
+}
+
 type encrypter interface {
 	Encrypt(secret string) string
 }
@@ -53,7 +57,7 @@ func JSON(c *gin.Context, code int, message string) {
 	})
 }
 
-func getKeyValidator(kms keyMemStorage, e estimator, v validator, ks keyStorage, log logger.Logger, enc encrypter) gin.HandlerFunc {
+func getKeyValidator(kms keyMemStorage, e estimator, v validator, ks keyStorage, log logger.Logger, enc encrypter, rlm rateLimitManager) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		if c == nil || c.Request == nil {
@@ -117,7 +121,8 @@ func getKeyValidator(kms keyMemStorage, e estimator, v validator, ks keyStorage,
 			if _, ok := err.(expirationError); ok {
 				truePtr := true
 				_, err = ks.UpdateKey(kc.KeyId, &key.UpdateKey{
-					Revoked: &truePtr,
+					Revoked:       &truePtr,
+					RevokedReason: "Key has expired or exceeded set spend limit",
 				})
 
 				if err != nil {
@@ -138,6 +143,14 @@ func getKeyValidator(kms keyMemStorage, e estimator, v validator, ks keyStorage,
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] error when validating the api request")
 			c.Abort()
 			return
+		}
+
+		if len(kc.RateLimitUnit) != 0 {
+			if err := rlm.Increment(kc.KeyId, kc.RateLimitUnit); err != nil {
+				JSON(c, http.StatusInternalServerError, "[BricksLLM] unable to record rate limit")
+				c.Abort()
+				return
+			}
 		}
 
 		log.Debugf("key validation latency %dms", time.Now().Sub(start).Milliseconds())
