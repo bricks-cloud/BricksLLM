@@ -28,10 +28,10 @@ type ChatCompletionResponse struct {
 
 type ErrorContent struct {
 	Message         string `json:"message"`
-	Type            string `json:"type"`
-	Param           string `json:"param"`
-	Code            int    `json:"code"`
-	InternalMessage string `json:"internal_message"`
+	Type            string `json:"type,omitempty"`
+	Param           string `json:"param,omitempty"`
+	Code            int    `json:"code,omitempty"`
+	InternalMessage string `json:"internal_message,omitempty"`
 }
 
 type ChatCompletionErrorResponse struct {
