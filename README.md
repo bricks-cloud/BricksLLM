@@ -46,15 +46,48 @@ docker-compose up
 ```
 You can run this in detach mode use the -d flag: `docker-compose up -d`
 
+### Congradulations you are done!!!
+Use the following command to create your first OpenAI API Key `my-secret-key` with a 2 requests per minute rate limit and a spend limit of total 25 cents.
+```bash
+curl -X PUT http://localhost:8001/api/key-management/keys \
+   -H "Content-Type: application/json" \
+   -d '{
+	        "name": "My Development Key",
+	        "key": "my-secret-key",
+	        "tags": ["mykey"],
+          "rateLimitOverTime": 2,
+          "rateLimitUnit": "m",
+          "costLimitInUsed": 0.25
+      }'   
+```
+You can test your newly created OpenAI API Key by calling the BricksLLM OpenAI proxy
+```bash
+curl -X POST http://localhost:8002/api/providers/openai/v1/chat/completions \
+   -H "Authorization: Bearer my-secret-key" \
+   -H "Content-Type: application/json" \
+   -d '{
+          "model": "gpt-3.5-turbo",
+          "messages": [
+              {
+                  "role": "system",
+                  "content": "hi"
+              }
+          ]
+      }'
+```
+
+
+
 # Documentation
 ## Environment variables
 > | Name | type | description | default |
 > |---------------|-----------------------------------|----------|-|
 > | `OPENAI_API_KEY`         | required | OpenAI API Key |
 > | `POSTGRESQL_HOSTS`       | optional | Hosts for Postgresql DB. Seperated by , | `localhost` |
+> | `POSTGRESQL_DB_NAME`       | optional | Name for Postgresql DB. |
 > | `POSTGRESQL_USERNAME`         | required | Postgresql DB username |
 > | `POSTGRESQL_PASSWORD`         | required | Postgresql DB password |
-> | `POSTGRESQL_SSL_ENABLED`         | optional | Postgresql SSL enabled| `false`
+> | `POSTGRESQL_SSL_MODE`         | optional | Postgresql SSL mode| `disable`
 > | `POSTGRESQL_PORT`         | optional | The port that Postgresql DB runs on| `5432`
 > | `POSTGRESQL_READ_TIME_OUT`         | optional | Timeout for Postgresql read operations | `2s`
 > | `POSTGRESQL_WRITE_TIME_OUT`         | optional | Timeout for Postgresql write operations | `1s`
