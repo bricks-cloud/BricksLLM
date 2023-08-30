@@ -8,9 +8,10 @@ import (
 
 type Config struct {
 	PostgresqlHosts          string        `env:"POSTGRESQL_HOSTS" envSeparator:":" envDefault:"localhost"`
+	PostgresqlDbName         string        `env:"POSTGRESQL_DB_NAME"`
 	PostgresqlUsername       string        `env:"POSTGRESQL_USERNAME"`
 	PostgresqlPassword       string        `env:"POSTGRESQL_PASSWORD"`
-	PostgresqlSslEnabled     bool          `env:"POSTGRESQL_SSL_ENABLED" envDefault:"false"`
+	PostgresqlSslMode        string        `env:"POSTGRESQL_SSL_MODE" envDefault:"disable"`
 	PostgresqlPort           string        `env:"POSTGRESQL_PORT" envDefault:"5432"`
 	RedisHosts               string        `env:"REDIS_HOSTS" envSeparator:":" envDefault:"localhost"`
 	RedisPort                string        `env:"REDIS_PORT" envDefault:"6379"`

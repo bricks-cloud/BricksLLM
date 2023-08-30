@@ -37,13 +37,8 @@ func main() {
 		lg.Fatalf("cannot parse environment variables: %v", err)
 	}
 
-	sslModeSuffix := ""
-	if !cfg.PostgresqlSslEnabled {
-		sslModeSuffix = "?sslmode=disable"
-	}
-
 	store, err := postgresql.NewStore(
-		fmt.Sprintf("postgresql://%s:%s@%s:%s/postgres%s", cfg.PostgresqlUsername, cfg.PostgresqlUsername, cfg.PostgresqlHosts, cfg.PostgresqlPort, sslModeSuffix),
+		fmt.Sprintf("postgresql://%s?sslmode=%s&user=%s&password=%s&host=%s&port=%s", cfg.PostgresqlDbName, cfg.PostgresqlSslMode, cfg.PostgresqlUsername, cfg.PostgresqlPassword, cfg.PostgresqlHosts, cfg.PostgresqlPort),
 		lg,
 		cfg.PostgresqlWriteTimeout,
 		cfg.PostgresqlReadTimeout,
