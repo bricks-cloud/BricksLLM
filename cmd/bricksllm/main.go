@@ -38,7 +38,7 @@ func main() {
 	}
 
 	store, err := postgresql.NewStore(
-		fmt.Sprintf("postgresql://%s?sslmode=%s&user=%s&password=%s&host=%s&port=%s", cfg.PostgresqlDbName, cfg.PostgresqlSslMode, cfg.PostgresqlUsername, cfg.PostgresqlPassword, cfg.PostgresqlHosts, cfg.PostgresqlPort),
+		fmt.Sprintf("postgresql:///%s?sslmode=%s&user=%s&password=%s&host=%s&port=%s", cfg.PostgresqlDbName, cfg.PostgresqlSslMode, cfg.PostgresqlUsername, cfg.PostgresqlPassword, cfg.PostgresqlHosts, cfg.PostgresqlPort),
 		lg,
 		cfg.PostgresqlWriteTimeout,
 		cfg.PostgresqlReadTimeout,

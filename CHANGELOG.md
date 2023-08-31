@@ -1,3 +1,7 @@
+## 0.0.4 - 2023-08-30
+### Fixed
+- Fix PostgreSQL connection URI format issue
+
 ## 0.0.3 - 2023-08-30
 ### Fixed
 - Updated PostgreSQL connection URI to be more versatile
