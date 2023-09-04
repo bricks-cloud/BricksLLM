@@ -17,8 +17,8 @@ The vision of BricksLLM is to support many more large language models such as LL
 
 ## Roadmap
 - [x] Access control via API key with rate limit, cost limit and ttl
+- [x] Logging integration
 - [ ] Statsd integration :construction:
-- [ ] Logging integration :construction:
 - [ ] Routes configuration :construction:
 - [ ] PII detection and masking :construction:
 
