@@ -57,9 +57,8 @@ func JSON(c *gin.Context, code int, message string) {
 	})
 }
 
-func getKeyValidator(kms keyMemStorage, e estimator, v validator, ks keyStorage, log logger.Logger, enc encrypter, rlm rateLimitManager) gin.HandlerFunc {
+func getKeyValidator(kms keyMemStorage, prod, private bool, e estimator, v validator, ks keyStorage, log logger.Logger, enc encrypter, rlm rateLimitManager) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		start := time.Now()
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] request is empty")
 			c.Abort()
@@ -76,17 +75,18 @@ func getKeyValidator(kms keyMemStorage, e estimator, v validator, ks keyStorage,
 		apiKey := split[1]
 		hash := enc.Encrypt(apiKey)
 
-		getKeyStart := time.Now()
 		kc := kms.GetKey(hash)
 		if kc == nil {
 			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
 			c.Abort()
 			return
 		}
-		log.Debugf("get key latency %dms", time.Now().Sub(getKeyStart).Milliseconds())
 
+		c.Set("keyId", kc.KeyId)
+		id := c.GetString(correlationId)
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
+			logError(log, "error when reading request body", prod, id, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] error when reading the request body")
 			c.Abort()
 			return
@@ -96,14 +96,18 @@ func getKeyValidator(kms keyMemStorage, e estimator, v validator, ks keyStorage,
 		ccr := &openai.ChatCompletionRequest{}
 		err = json.Unmarshal(body, ccr)
 		if err != nil {
+			logError(log, "error when unmarshalling json", prod, id, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] error when parsing the request body")
 			c.Abort()
 			return
 		}
 
+		logRequest(log, prod, private, id, ccr)
+
 		estimationStart := time.Now()
 		cost, err := e.EstimateChatCompletionPromptCost(ccr)
 		if err != nil {
+			logError(log, "error when estimating prompt cost", prod, id, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] error when estimating completion prompt cost")
 			c.Abort()
 			return
@@ -140,6 +144,7 @@ func getKeyValidator(kms keyMemStorage, e estimator, v validator, ks keyStorage,
 				return
 			}
 
+			logError(log, "error when validating api key", prod, id, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] error when validating the api request")
 			c.Abort()
 			return
@@ -147,12 +152,11 @@ func getKeyValidator(kms keyMemStorage, e estimator, v validator, ks keyStorage,
 
 		if len(kc.RateLimitUnit) != 0 {
 			if err := rlm.Increment(kc.KeyId, kc.RateLimitUnit); err != nil {
+				logError(log, "error when incrementing rate limit counter", prod, id, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] unable to record rate limit")
 				c.Abort()
 				return
 			}
 		}
-
-		log.Debugf("key validation latency %dms", time.Now().Sub(start).Milliseconds())
 	}
 }

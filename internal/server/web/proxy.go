@@ -12,7 +12,14 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/logger"
 	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+)
+
+const (
+	correlationId string = "correlationId"
 )
 
 type ProxyServer struct {
@@ -24,13 +31,17 @@ type recorder interface {
 	RecordKeySpend(keyId string, model string, promptTks int, completionTks int, costLimitUnit key.TimeUnit) error
 }
 
-func NewProxyServer(log logger.Logger, m KeyManager, ks keyStorage, kms keyMemStorage, e estimator, v validator, r recorder, credential string, enc encrypter, rlm rateLimitManager) (*ProxyServer, error) {
+func NewProxyServer(log logger.Logger, mode, privacyMode string, m KeyManager, ks keyStorage, kms keyMemStorage, e estimator, v validator, r recorder, credential string, enc encrypter, rlm rateLimitManager) (*ProxyServer, error) {
 	router := gin.New()
-	router.Use(getKeyValidator(kms, e, v, ks, log, enc, rlm))
+	prod := mode == "production"
+	private := mode == "strict"
+
+	router.Use(getProxyLogger(log, "proxy", prod))
+	router.Use(getKeyValidator(kms, prod, private, e, v, ks, log, enc, rlm))
 
 	client := http.Client{}
 
-	router.POST("/api/providers/openai/v1/chat/completions", getOpenAiProxyHandler(r, credential, client, kms, log, enc))
+	router.POST("/api/providers/openai/v1/chat/completions", getOpenAiProxyHandler(r, prod, private, credential, client, kms, log, enc))
 
 	srv := &http.Server{
 		Addr:    ":8002",
@@ -43,10 +54,17 @@ func NewProxyServer(log logger.Logger, m KeyManager, ks keyStorage, kms keyMemSt
 	}, nil
 }
 
-func getOpenAiProxyHandler(r recorder, credential string, client http.Client, kms keyMemStorage, log logger.Logger, enc encrypter) gin.HandlerFunc {
+func getOpenAiProxyHandler(r recorder, prod, private bool, credential string, client http.Client, kms keyMemStorage, log logger.Logger, enc encrypter) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if c == nil || c.Request == nil {
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
+			return
+		}
+
 		req, err := http.NewRequest(http.MethodPost, "https://api.openai.com/v1/chat/completions", c.Request.Body)
+		id := c.GetString(correlationId)
 		if err != nil {
+			logError(log, "error when creating openai http request", prod, id, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai http request")
 			return
 		}
@@ -69,17 +87,17 @@ func getOpenAiProxyHandler(r recorder, credential string, client http.Client, km
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", credential))
 
-		reqStart := time.Now()
 		res, err := client.Do(req)
 		if err != nil {
+			logError(log, "error when sending http request to openai", prod, id, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send http request to openai")
 			return
 		}
 		defer res.Body.Close()
-		log.Debugf("record openai request latency %dms", time.Now().Sub(reqStart).Milliseconds())
 
 		bytes, err := io.ReadAll(res.Body)
 		if err != nil {
+			logError(log, "error when reading openai http response body", prod, id, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read openai response body")
 			return
 		}
@@ -88,17 +106,17 @@ func getOpenAiProxyHandler(r recorder, credential string, client http.Client, km
 			chatRes := &openai.ChatCompletionResponse{}
 			err = json.Unmarshal(bytes, chatRes)
 			if err != nil {
+				logError(log, "error when unmarshalling openai http response body", prod, id, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to parse openai response")
 				return
 			}
 
-			keySpendStart := time.Now()
+			logResponse(log, prod, private, id, chatRes)
+
 			err = r.RecordKeySpend(kc.KeyId, chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens, kc.CostLimitInUsdUnit)
 			if err != nil {
-				log.Debugf("failed to record key spend for key: %s :%v", kc.KeyId, err)
+				logError(log, "error when recording openai spend", prod, id, err)
 			}
-
-			log.Debugf("record key spend latency %dms", time.Now().Sub(keySpendStart).Milliseconds())
 		}
 
 		for name, values := range res.Header {
@@ -114,14 +132,232 @@ func getOpenAiProxyHandler(r recorder, credential string, client http.Client, km
 func (ps *ProxyServer) Run() {
 	go func() {
 		ps.logger.Info("proxy server listening at 8002")
-		ps.logger.Info("PORT 8002 POST /api/providers/openai/v1/chat/completions is ready for forwarding requests to openai")
+		ps.logger.Info("PORT 8002 | POST | /api/providers/openai/v1/chat/completions is ready for forwarding requests to openai")
 
 		if err := ps.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			ps.logger.Fatalf("error proxy server listening: %v", err)
 			return
 		}
 	}()
+}
 
+func logResponse(log logger.Logger, prod, private bool, cid string, r *openai.ChatCompletionResponse) {
+	if prod {
+		log.Info("open ai response",
+			zap.Time("createdAt", time.Now()),
+			zap.String(correlationId, cid),
+			zap.Object("response", zapcore.ObjectMarshalerFunc(
+				func(enc zapcore.ObjectEncoder) error {
+					enc.AddString("id", r.Id)
+					enc.AddString("object", r.Object)
+					enc.AddInt64("created", r.Created)
+					enc.AddString("model", r.Model)
+					enc.AddArray("choices", zapcore.ArrayMarshalerFunc(
+						func(enc zapcore.ArrayEncoder) error {
+							for _, c := range r.Choices {
+								enc.AppendObject(zapcore.ObjectMarshalerFunc(
+									func(enc zapcore.ObjectEncoder) error {
+										enc.AddInt("index", c.Index)
+										enc.AddObject("message", zapcore.ObjectMarshalerFunc(
+											func(enc zapcore.ObjectEncoder) error {
+												enc.AddString("role", c.Message.Role)
+												if !private {
+													enc.AddString("content", c.Message.Content)
+												}
+												return nil
+											},
+										))
+
+										enc.AddString("finish_reason", c.FinishReason)
+										return nil
+									},
+								))
+							}
+							return nil
+						},
+					))
+
+					enc.AddObject("usage", zapcore.ObjectMarshalerFunc(
+						func(enc zapcore.ObjectEncoder) error {
+							return nil
+						},
+					))
+					return nil
+				},
+			)),
+		)
+	}
+}
+
+func logRequest(log logger.Logger, prod, private bool, id string, r *openai.ChatCompletionRequest) {
+	if prod {
+		log.Info("open ai request",
+			zap.Time("createdAt", time.Now()),
+			zap.String(correlationId, id),
+			zap.Object("request", zapcore.ObjectMarshalerFunc(
+				func(enc zapcore.ObjectEncoder) error {
+					enc.AddString("model", r.Model)
+
+					if len(r.Messages) != 0 {
+						enc.AddArray("messages", zapcore.ArrayMarshalerFunc(
+							func(enc zapcore.ArrayEncoder) error {
+								for _, m := range r.Messages {
+									err := enc.AppendObject(zapcore.ObjectMarshalerFunc(
+										func(enc zapcore.ObjectEncoder) error {
+											enc.AddString("name", m.Name)
+											enc.AddString("role", m.Role)
+
+											if m.FunctionCall != nil {
+												enc.AddObject("function_call", zapcore.ObjectMarshalerFunc(
+													func(enc zapcore.ObjectEncoder) error {
+														enc.AddString("name", m.FunctionCall.Name)
+														if !private {
+															enc.AddString("arguments", m.FunctionCall.Arguments)
+														}
+														return nil
+													},
+												))
+											}
+
+											if !private {
+												enc.AddString("content", m.Content)
+											}
+
+											return nil
+										},
+									))
+
+									if err != nil {
+										return err
+									}
+								}
+								return nil
+							},
+						))
+					}
+
+					if len(r.Functions) != 0 {
+						enc.AddArray("functions", zapcore.ArrayMarshalerFunc(
+							func(enc zapcore.ArrayEncoder) error {
+								for _, f := range r.Functions {
+									err := enc.AppendObject(zapcore.ObjectMarshalerFunc(
+										func(enc zapcore.ObjectEncoder) error {
+											enc.AddString("name", f.Name)
+											enc.AddString("description", f.Description)
+
+											if f.Parameters != nil && !private {
+												bs, err := json.Marshal(f.Parameters)
+												if err != nil {
+													return err
+												}
+
+												enc.AddString("parameters", string(bs))
+											}
+
+											return nil
+										},
+									))
+
+									if err != nil {
+										return err
+									}
+
+								}
+								return nil
+							},
+						))
+					}
+
+					if r.MaxTokens != 0 {
+						enc.AddInt("max_tokens", r.MaxTokens)
+					}
+
+					if r.Temperature != 0 {
+						enc.AddFloat32("temperature", r.Temperature)
+					}
+
+					if r.TopP != 0 {
+						enc.AddFloat32("top_p", r.TopP)
+					}
+
+					if r.N != 0 {
+						enc.AddInt("n", r.N)
+					}
+
+					if r.Stream {
+						enc.AddBool("stream", r.Stream)
+					}
+
+					if len(r.Stop) != 0 {
+						enc.AddArray("stop", zapcore.ArrayMarshalerFunc(
+							func(enc zapcore.ArrayEncoder) error {
+								for _, s := range r.Stop {
+									enc.AppendString(s)
+								}
+								return nil
+							},
+						))
+					}
+
+					if r.PresencePenalty != 0 {
+						enc.AddFloat32("presence_penalty", r.PresencePenalty)
+					}
+
+					if r.FrequencyPenalty != 0 {
+						enc.AddFloat32("frequency_penalty", r.FrequencyPenalty)
+					}
+
+					if len(r.LogitBias) != 0 {
+						enc.AddObject("logit_bias", zapcore.ObjectMarshalerFunc(
+							func(enc zapcore.ObjectEncoder) error {
+								for k, v := range r.LogitBias {
+									enc.AddInt(k, v)
+								}
+								return nil
+							},
+						))
+					}
+
+					if len(r.User) != 0 {
+						enc.AddString("user", r.User)
+					}
+
+					return nil
+				},
+			)))
+	}
+}
+
+func logError(log logger.Logger, msg string, prod bool, id string, err error) {
+	if prod {
+		log.Debug(msg, zap.String(correlationId, id), zap.Error(err))
+		return
+	}
+
+	log.Debug(fmt.Printf(" correlationId:%s | %s | %v", id, msg, err))
+}
+
+func getProxyLogger(log logger.Logger, prefix string, prod bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set(correlationId, util.NewUuid())
+		start := time.Now()
+		c.Next()
+		latency := time.Now().Sub(start).Milliseconds()
+		if !prod {
+			log.Infof("%s | %d | %s | %s | %dms", prefix, c.Writer.Status(), c.Request.Method, c.FullPath(), latency)
+		}
+
+		if prod {
+			log.Info("request to openai proxy",
+				zap.String(correlationId, c.GetString(correlationId)),
+				zap.String("keyId", c.GetString("keyId")),
+				zap.Int("code", c.Writer.Status()),
+				zap.String("method", c.Request.Method),
+				zap.String("path", c.FullPath()),
+				zap.Int64("lantecyInMs", latency),
+			)
+		}
+	}
 }
 
 func (ps *ProxyServer) Shutdown(ctx context.Context) error {

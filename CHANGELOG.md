@@ -1,3 +1,7 @@
+## 0.0.5 - 2023-09-03
+### Added
+- Add logging for admin and proxy web servers
+
 ## 0.0.4 - 2023-08-30
 ### Fixed
 - Fix PostgreSQL connection URI format issue

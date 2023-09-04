@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/logger"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type KeyManager interface {
@@ -32,13 +35,16 @@ type AdminServer struct {
 	m      KeyManager
 }
 
-func NewAdminServer(log logger.Logger, m KeyManager) (*AdminServer, error) {
+func NewAdminServer(log logger.Logger, mode string, m KeyManager) (*AdminServer, error) {
 	router := gin.New()
 
-	router.GET("/api/key-management/keys", getGetKeysHandler(m))
-	router.PUT("/api/key-management/keys", getCreateKeyHandler(m))
-	router.PATCH("/api/key-management/keys/:id", getUpdateKeyHandler(m))
-	router.DELETE("/api/key-management/keys/:id", getDeleteKeyHandler(m))
+	prod := mode == "production"
+	router.Use(getAdminLogger(log, "admin", prod))
+
+	router.GET("/api/key-management/keys", getGetKeysHandler(m, log, prod))
+	router.PUT("/api/key-management/keys", getCreateKeyHandler(m, log, prod))
+	router.PATCH("/api/key-management/keys/:id", getUpdateKeyHandler(m, log, prod))
+	router.DELETE("/api/key-management/keys/:id", getDeleteKeyHandler(m, log, prod))
 
 	srv := &http.Server{
 		Addr:    ":8001",
@@ -55,9 +61,9 @@ func NewAdminServer(log logger.Logger, m KeyManager) (*AdminServer, error) {
 func (as *AdminServer) Run() {
 	go func() {
 		as.logger.Info("admin server listening at 8001")
-		as.logger.Info("PORT 8001 GET   /api/key-management/keys is set up for retrieving keys using a query param called tag")
-		as.logger.Info("PORT 8001 PUT   /api/key-management/keys is set up for creating a key")
-		as.logger.Info("PORT 8001 PATCH /api/key-management/keys/:id is set up for updating a key using an id")
+		as.logger.Info("PORT 8001 | GET   | /api/key-management/keys is set up for retrieving keys using a query param called tag")
+		as.logger.Info("PORT 8001 | PUT   | /api/key-management/keys is set up for creating a key")
+		as.logger.Info("PORT 8001 | PATCH | /api/key-management/keys/:id is set up for updating a key using an id")
 
 		if err := as.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			as.logger.Fatalf("error admin server listening: %v", err)
@@ -75,7 +81,7 @@ func (as *AdminServer) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func getGetKeysHandler(m KeyManager) gin.HandlerFunc {
+func getGetKeysHandler(m KeyManager, log logger.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tag := c.Query("tag")
 		path := "/api/key-management/keys"
@@ -90,9 +96,11 @@ func getGetKeysHandler(m KeyManager) gin.HandlerFunc {
 			return
 		}
 
+		id := c.Param(correlationId)
 		keys, err := m.GetKeysByTag(tag)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, &ErrorResponse{
+			logError(log, "error when getting api keys by tag", prod, id, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/getting-keys",
 				Title:    "getting keys errored out",
 				Status:   http.StatusInternalServerError,
@@ -111,11 +119,26 @@ type ValidationError interface {
 	Validation()
 }
 
-func getCreateKeyHandler(m KeyManager) gin.HandlerFunc {
+func getCreateKeyHandler(m KeyManager, log logger.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+
 		path := "/api/key-management/keys"
+		if c == nil || c.Request == nil {
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/empty-context",
+				Title:    "context is empty error",
+				Status:   http.StatusInternalServerError,
+				Detail:   "gin context is empty",
+				Instance: path,
+			})
+			return
+		}
+
+		id := c.GetString(correlationId)
+
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
+			logError(log, "error when reading key creation request body", prod, id, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "request body reader error",
@@ -129,6 +152,7 @@ func getCreateKeyHandler(m KeyManager) gin.HandlerFunc {
 		rk := &key.RequestKey{}
 		err = json.Unmarshal(data, rk)
 		if err != nil {
+			logError(log, "error when unmarshalling key creation request body", prod, id, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
 				Title:    "json unmarshaller error",
@@ -152,6 +176,7 @@ func getCreateKeyHandler(m KeyManager) gin.HandlerFunc {
 				return
 			}
 
+			logError(log, "error when creating api key", prod, id, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/key-manager",
 				Title:    "key creation error",
@@ -166,10 +191,22 @@ func getCreateKeyHandler(m KeyManager) gin.HandlerFunc {
 	}
 }
 
-func getUpdateKeyHandler(m KeyManager) gin.HandlerFunc {
+func getUpdateKeyHandler(m KeyManager, log logger.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id := c.Param("id")
 		path := "/api/key-management/keys/:id"
+		if c == nil || c.Request == nil {
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/empty-context",
+				Title:    "context is empty error",
+				Status:   http.StatusInternalServerError,
+				Detail:   "gin context is empty",
+				Instance: path,
+			})
+			return
+		}
+
+		id := c.Param("id")
+		cid := c.Param(correlationId)
 		if len(id) == 0 {
 			c.JSON(http.StatusBadRequest, &ErrorResponse{
 				Type:     "/errors/missing-param-id",
@@ -184,6 +221,7 @@ func getUpdateKeyHandler(m KeyManager) gin.HandlerFunc {
 
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
+			logError(log, "error when reading api key update request body", prod, cid, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "request body reader error",
@@ -197,6 +235,7 @@ func getUpdateKeyHandler(m KeyManager) gin.HandlerFunc {
 		uk := &key.UpdateKey{}
 		err = json.Unmarshal(data, uk)
 		if err != nil {
+			logError(log, "error when unmarshalling api key update request body", prod, cid, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
 				Title:    "json unmarshaller error",
@@ -220,6 +259,7 @@ func getUpdateKeyHandler(m KeyManager) gin.HandlerFunc {
 				return
 			}
 
+			logError(log, "error when updating api key", prod, cid, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/key-manager",
 				Title:    "update key error",
@@ -234,10 +274,44 @@ func getUpdateKeyHandler(m KeyManager) gin.HandlerFunc {
 	}
 }
 
-func getDeleteKeyHandler(m KeyManager) gin.HandlerFunc {
+func getAdminLogger(log logger.Logger, prefix string, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id := c.Param("id")
+		c.Set(correlationId, util.NewUuid())
+		start := time.Now()
+		c.Next()
+		latency := time.Now().Sub(start).Milliseconds()
+		if !prod {
+			log.Infof("%s | %d | %s | %s | %dms", prefix, c.Writer.Status(), c.Request.Method, c.FullPath(), latency)
+		}
+
+		if prod {
+			log.Info("request to OpenAI proxy",
+				zap.String(correlationId, c.GetString(correlationId)),
+				zap.Int("code", c.Writer.Status()),
+				zap.String("method", c.Request.Method),
+				zap.String("path", c.FullPath()),
+				zap.Int64("lantecyInMs", latency),
+			)
+		}
+	}
+}
+
+func getDeleteKeyHandler(m KeyManager, log logger.Logger, prod bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		path := "/api/key-management/keys/:id"
+		if c == nil || c.Request == nil {
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/empty-context",
+				Title:    "context is empty error",
+				Status:   http.StatusInternalServerError,
+				Detail:   "gin context is empty",
+				Instance: path,
+			})
+			return
+		}
+
+		id := c.Param("id")
+		cid := c.Param(correlationId)
 		if len(id) == 0 {
 			c.JSON(http.StatusBadRequest, &ErrorResponse{
 				Type:     "/errors/missing-param-id",
@@ -252,6 +326,7 @@ func getDeleteKeyHandler(m KeyManager) gin.HandlerFunc {
 
 		err := m.DeleteKey(id)
 		if err != nil {
+			logError(log, "error when deleting api key", prod, cid, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/key-manager",
 				Title:    "key deletion error",

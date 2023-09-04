@@ -26,6 +26,8 @@ import (
 
 func main() {
 	modePtr := flag.String("m", "dev", "select the mode that bricksllm runs in")
+	privacyPtr := flag.String("p", "strict", "select the privacy mode that bricksllm runs in")
+
 	flag.Parse()
 
 	lg := zap.NewLogger(*modePtr)
@@ -62,7 +64,7 @@ func main() {
 
 	e := encrypter.NewEncrypter()
 	m := manager.NewManager(store, e)
-	as, err := web.NewAdminServer(lg, m)
+	as, err := web.NewAdminServer(lg, *modePtr, m)
 	if err != nil {
 		lg.Fatalf("error creating admin http server: %v", err)
 	}
@@ -118,7 +120,7 @@ func main() {
 	rec := recorder.NewRecorder(costLimitStorage, costLimitCache, ce)
 	rlm := manager.NewRateLimitManager(rateLimitCache)
 
-	ps, err := web.NewProxyServer(lg, m, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm)
+	ps, err := web.NewProxyServer(lg, *modePtr, *privacyPtr, m, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm)
 	if err != nil {
 		lg.Fatalf("error creating proxy http server: %v", err)
 	}
