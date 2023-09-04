@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
-	"github.com/bricks-cloud/bricksllm/internal/logger"
 
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
@@ -16,12 +15,11 @@ import (
 
 type Store struct {
 	db *sql.DB
-	lg logger.Logger
 	wt time.Duration
 	rt time.Duration
 }
 
-func NewStore(connStr string, lg logger.Logger, wt time.Duration, rt time.Duration) (*Store, error) {
+func NewStore(connStr string, wt time.Duration, rt time.Duration) (*Store, error) {
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		return nil, err
@@ -29,7 +27,6 @@ func NewStore(connStr string, lg logger.Logger, wt time.Duration, rt time.Durati
 
 	return &Store{
 		db: db,
-		lg: lg,
 		wt: wt,
 		rt: rt,
 	}, nil

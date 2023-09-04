@@ -11,7 +11,7 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/config"
 	"github.com/bricks-cloud/bricksllm/internal/encrypter"
-	"github.com/bricks-cloud/bricksllm/internal/logger/zap"
+	logger "github.com/bricks-cloud/bricksllm/internal/logger/zap"
 	"github.com/bricks-cloud/bricksllm/internal/manager"
 	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	"github.com/bricks-cloud/bricksllm/internal/recorder"
@@ -29,48 +29,47 @@ func main() {
 	privacyPtr := flag.String("p", "strict", "select the privacy mode that bricksllm runs in")
 	flag.Parse()
 
-	lg := zap.NewLogger(*modePtr)
+	log := logger.NewZapLogger(*modePtr)
 
 	gin.SetMode(gin.ReleaseMode)
 
 	cfg, err := config.ParseEnvVariables()
 	if err != nil {
-		lg.Fatalf("cannot parse environment variables: %v", err)
+		log.Sugar().Fatalf("cannot parse environment variables: %v", err)
 	}
 
 	store, err := postgresql.NewStore(
 		fmt.Sprintf("postgresql:///%s?sslmode=%s&user=%s&password=%s&host=%s&port=%s", cfg.PostgresqlDbName, cfg.PostgresqlSslMode, cfg.PostgresqlUsername, cfg.PostgresqlPassword, cfg.PostgresqlHosts, cfg.PostgresqlPort),
-		lg,
 		cfg.PostgresqlWriteTimeout,
 		cfg.PostgresqlReadTimeout,
 	)
 
 	if err != nil {
-		lg.Fatalf("cannot connect to postgresql: %v", err)
+		log.Sugar().Fatalf("cannot connect to postgresql: %v", err)
 	}
 
 	err = store.CreateKeysTable()
 	if err != nil {
-		lg.Fatalf("error creating keys table: %v", err)
+		log.Sugar().Fatalf("error creating keys table: %v", err)
 	}
 
-	memStore, err := memdb.NewMemDb(store, lg, cfg.InMemoryDbUpdateInterval)
+	memStore, err := memdb.NewMemDb(store, log, cfg.InMemoryDbUpdateInterval)
 	if err != nil {
-		lg.Fatalf("cannot initialize memdb: %v", err)
+		log.Sugar().Fatalf("cannot initialize memdb: %v", err)
 	}
 
 	memStore.Listen()
 
 	e := encrypter.NewEncrypter()
 	m := manager.NewManager(store, e)
-	as, err := web.NewAdminServer(lg, *modePtr, m)
+	as, err := web.NewAdminServer(log, *modePtr, m)
 	if err != nil {
-		lg.Fatalf("error creating admin http server: %v", err)
+		log.Sugar().Fatalf("error creating admin http server: %v", err)
 	}
 
 	tc, err := openai.NewTokenCounter()
 	if err != nil {
-		lg.Fatalf("error creating token counter: %v", err)
+		log.Sugar().Fatalf("error creating token counter: %v", err)
 	}
 
 	as.Run()
@@ -83,7 +82,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	if err := rateLimitRedisCache.Ping(ctx).Err(); err != nil {
-		lg.Fatalf("error connecting to rate limit redis cache: %v", err)
+		log.Sugar().Fatalf("error connecting to rate limit redis cache: %v", err)
 	}
 
 	costLimitRedisCache := redis.NewClient(&redis.Options{
@@ -95,7 +94,7 @@ func main() {
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	if err := costLimitRedisCache.Ping(ctx).Err(); err != nil {
-		lg.Fatalf("error connecting to cost limit redis cache: %v", err)
+		log.Sugar().Fatalf("error connecting to cost limit redis cache: %v", err)
 	}
 
 	costLimitRedisStorage := redis.NewClient(&redis.Options{
@@ -107,7 +106,7 @@ func main() {
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	if err := costLimitRedisStorage.Ping(ctx).Err(); err != nil {
-		lg.Fatalf("error connecting to cost limit redis storage: %v", err)
+		log.Sugar().Fatalf("error connecting to cost limit redis storage: %v", err)
 	}
 
 	rateLimitCache := redisStorage.NewCache(rateLimitRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
@@ -119,9 +118,9 @@ func main() {
 	rec := recorder.NewRecorder(costLimitStorage, costLimitCache, ce)
 	rlm := manager.NewRateLimitManager(rateLimitCache)
 
-	ps, err := web.NewProxyServer(lg, *modePtr, *privacyPtr, m, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm)
+	ps, err := web.NewProxyServer(log, *modePtr, *privacyPtr, m, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm)
 	if err != nil {
-		lg.Fatalf("error creating proxy http server: %v", err)
+		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}
 
 	ps.Run()
@@ -132,29 +131,29 @@ func main() {
 
 	memStore.Stop()
 
-	lg.Infof("shutting down server...")
+	log.Sugar().Info("shutting down server...")
 
 	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := as.Shutdown(ctx); err != nil {
-		lg.Debugf("admin server shutdown: %v", err)
+		log.Sugar().Debugf("admin server shutdown: %v", err)
 	}
 
 	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := ps.Shutdown(ctx); err != nil {
-		lg.Debugf("proxy server shutdown: %v", err)
+		log.Sugar().Debugf("proxy server shutdown: %v", err)
 	}
 
 	select {
 	case <-ctx.Done():
-		lg.Infof("timeout of 5 seconds")
+		log.Sugar().Infof("timeout of 5 seconds")
 	}
 
 	err = store.DropKeysTable()
 	if err != nil {
-		lg.Fatalf("error dropping keys table: %v", err)
+		log.Sugar().Fatalf("error dropping keys table: %v", err)
 	}
 
-	lg.Infof("server exited")
+	log.Sugar().Infof("server exited")
 }

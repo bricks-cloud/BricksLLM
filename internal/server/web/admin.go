@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
-	"github.com/bricks-cloud/bricksllm/internal/logger"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -31,11 +30,11 @@ type ErrorResponse struct {
 
 type AdminServer struct {
 	server *http.Server
-	logger logger.Logger
+	log    *zap.Logger
 	m      KeyManager
 }
 
-func NewAdminServer(log logger.Logger, mode string, m KeyManager) (*AdminServer, error) {
+func NewAdminServer(log *zap.Logger, mode string, m KeyManager) (*AdminServer, error) {
 	router := gin.New()
 
 	prod := mode == "production"
@@ -52,7 +51,7 @@ func NewAdminServer(log logger.Logger, mode string, m KeyManager) (*AdminServer,
 	}
 
 	return &AdminServer{
-		logger: log,
+		log:    log,
 		server: srv,
 		m:      m,
 	}, nil
@@ -60,28 +59,27 @@ func NewAdminServer(log logger.Logger, mode string, m KeyManager) (*AdminServer,
 
 func (as *AdminServer) Run() {
 	go func() {
-		as.logger.Info("admin server listening at 8001")
-		as.logger.Info("PORT 8001 | GET   | /api/key-management/keys is set up for retrieving keys using a query param called tag")
-		as.logger.Info("PORT 8001 | PUT   | /api/key-management/keys is set up for creating a key")
-		as.logger.Info("PORT 8001 | PATCH | /api/key-management/keys/:id is set up for updating a key using an id")
+		as.log.Info("admin server listening at 8001")
+		as.log.Info("PORT 8001 | GET   | /api/key-management/keys is set up for retrieving keys using a query param called tag")
+		as.log.Info("PORT 8001 | PUT   | /api/key-management/keys is set up for creating a key")
+		as.log.Info("PORT 8001 | PATCH | /api/key-management/keys/:id is set up for updating a key using an id")
 
 		if err := as.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			as.logger.Fatalf("error admin server listening: %v", err)
+			as.log.Sugar().Fatalf("error admin server listening: %v", err)
 		}
 	}()
 }
 
 func (as *AdminServer) Shutdown(ctx context.Context) error {
 	if err := as.server.Shutdown(ctx); err != nil {
-		as.logger.Debugf("error shutting down admin server: %v", err)
-
+		as.log.Sugar().Infof("error shutting down admin server: %v", err)
 		return err
 	}
 
 	return nil
 }
 
-func getGetKeysHandler(m KeyManager, log logger.Logger, prod bool) gin.HandlerFunc {
+func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tag := c.Query("tag")
 		path := "/api/key-management/keys"
@@ -119,7 +117,7 @@ type ValidationError interface {
 	Validation()
 }
 
-func getCreateKeyHandler(m KeyManager, log logger.Logger, prod bool) gin.HandlerFunc {
+func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		path := "/api/key-management/keys"
@@ -191,7 +189,7 @@ func getCreateKeyHandler(m KeyManager, log logger.Logger, prod bool) gin.Handler
 	}
 }
 
-func getUpdateKeyHandler(m KeyManager, log logger.Logger, prod bool) gin.HandlerFunc {
+func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := "/api/key-management/keys/:id"
 		if c == nil || c.Request == nil {
@@ -274,18 +272,18 @@ func getUpdateKeyHandler(m KeyManager, log logger.Logger, prod bool) gin.Handler
 	}
 }
 
-func getAdminLogger(log logger.Logger, prefix string, prod bool) gin.HandlerFunc {
+func getAdminLogger(log *zap.Logger, prefix string, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Set(correlationId, util.NewUuid())
 		start := time.Now()
 		c.Next()
 		latency := time.Now().Sub(start).Milliseconds()
 		if !prod {
-			log.Infof("%s | %d | %s | %s | %dms", prefix, c.Writer.Status(), c.Request.Method, c.FullPath(), latency)
+			log.Sugar().Infof("%s | %d | %s | %s | %dms", prefix, c.Writer.Status(), c.Request.Method, c.FullPath(), latency)
 		}
 
 		if prod {
-			log.Info("request to OpenAI proxy",
+			log.Info("request to admin management api",
 				zap.String(correlationId, c.GetString(correlationId)),
 				zap.Int("code", c.Writer.Status()),
 				zap.String("method", c.Request.Method),
@@ -296,7 +294,7 @@ func getAdminLogger(log logger.Logger, prefix string, prod bool) gin.HandlerFunc
 	}
 }
 
-func getDeleteKeyHandler(m KeyManager, log logger.Logger, prod bool) gin.HandlerFunc {
+func getDeleteKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := "/api/key-management/keys/:id"
 		if c == nil || c.Request == nil {

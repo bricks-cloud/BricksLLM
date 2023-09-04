@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
-	"github.com/bricks-cloud/bricksllm/internal/logger"
 	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
@@ -24,14 +23,14 @@ const (
 
 type ProxyServer struct {
 	server *http.Server
-	logger logger.Logger
+	log    *zap.Logger
 }
 
 type recorder interface {
 	RecordKeySpend(keyId string, model string, promptTks int, completionTks int, costLimitUnit key.TimeUnit) error
 }
 
-func NewProxyServer(log logger.Logger, mode, privacyMode string, m KeyManager, ks keyStorage, kms keyMemStorage, e estimator, v validator, r recorder, credential string, enc encrypter, rlm rateLimitManager) (*ProxyServer, error) {
+func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, ks keyStorage, kms keyMemStorage, e estimator, v validator, r recorder, credential string, enc encrypter, rlm rateLimitManager) (*ProxyServer, error) {
 	router := gin.New()
 	prod := mode == "production"
 	private := mode == "strict"
@@ -49,12 +48,12 @@ func NewProxyServer(log logger.Logger, mode, privacyMode string, m KeyManager, k
 	}
 
 	return &ProxyServer{
-		logger: log,
+		log:    log,
 		server: srv,
 	}, nil
 }
 
-func getOpenAiProxyHandler(r recorder, prod, private bool, credential string, client http.Client, kms keyMemStorage, log logger.Logger, enc encrypter) gin.HandlerFunc {
+func getOpenAiProxyHandler(r recorder, prod, private bool, credential string, client http.Client, kms keyMemStorage, log *zap.Logger, enc encrypter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
@@ -119,6 +118,18 @@ func getOpenAiProxyHandler(r recorder, prod, private bool, credential string, cl
 			}
 		}
 
+		if res.StatusCode != http.StatusOK {
+			errorRes := &openai.ChatCompletionErrorResponse{}
+			err = json.Unmarshal(bytes, errorRes)
+			if err != nil {
+				logError(log, "error when unmarshalling openai http error response body", prod, id, err)
+				JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to parse openai error response")
+				return
+			}
+
+			logOpenAiError(log, prod, id, errorRes)
+		}
+
 		for name, values := range res.Header {
 			for _, value := range values {
 				c.Header(name, value)
@@ -131,19 +142,19 @@ func getOpenAiProxyHandler(r recorder, prod, private bool, credential string, cl
 
 func (ps *ProxyServer) Run() {
 	go func() {
-		ps.logger.Info("proxy server listening at 8002")
-		ps.logger.Info("PORT 8002 | POST | /api/providers/openai/v1/chat/completions is ready for forwarding requests to openai")
+		ps.log.Info("proxy server listening at 8002")
+		ps.log.Info("PORT 8002 | POST | /api/providers/openai/v1/chat/completions is ready for forwarding requests to openai")
 
 		if err := ps.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			ps.logger.Fatalf("error proxy server listening: %v", err)
+			ps.log.Sugar().Fatalf("error proxy server listening: %v", err)
 			return
 		}
 	}()
 }
 
-func logResponse(log logger.Logger, prod, private bool, cid string, r *openai.ChatCompletionResponse) {
+func logResponse(log *zap.Logger, prod, private bool, cid string, r *openai.ChatCompletionResponse) {
 	if prod {
-		log.Info("open ai response",
+		log.Info("openai response",
 			zap.Time("createdAt", time.Now()),
 			zap.String(correlationId, cid),
 			zap.Object("response", zapcore.ObjectMarshalerFunc(
@@ -179,6 +190,9 @@ func logResponse(log logger.Logger, prod, private bool, cid string, r *openai.Ch
 
 					enc.AddObject("usage", zapcore.ObjectMarshalerFunc(
 						func(enc zapcore.ObjectEncoder) error {
+							enc.AddInt("prompt_tokens", r.Usage.PromptTokens)
+							enc.AddInt("completion_tokens", r.Usage.CompletionTokens)
+							enc.AddInt("total_tokens", r.Usage.TotalTokens)
 							return nil
 						},
 					))
@@ -189,9 +203,9 @@ func logResponse(log logger.Logger, prod, private bool, cid string, r *openai.Ch
 	}
 }
 
-func logRequest(log logger.Logger, prod, private bool, id string, r *openai.ChatCompletionRequest) {
+func logRequest(log *zap.Logger, prod, private bool, id string, r *openai.ChatCompletionRequest) {
 	if prod {
-		log.Info("open ai request",
+		log.Info("openai request",
 			zap.Time("createdAt", time.Now()),
 			zap.String(correlationId, id),
 			zap.Object("request", zapcore.ObjectMarshalerFunc(
@@ -328,23 +342,32 @@ func logRequest(log logger.Logger, prod, private bool, id string, r *openai.Chat
 	}
 }
 
-func logError(log logger.Logger, msg string, prod bool, id string, err error) {
+func logOpenAiError(log *zap.Logger, prod bool, id string, errRes *openai.ChatCompletionErrorResponse) {
+	if prod {
+		log.Info("openai error response", zap.String(correlationId, id), zap.Any("error", errRes))
+		return
+	}
+
+	log.Sugar().Infof("correlationId:%s | %s ", id, "openai error response")
+}
+
+func logError(log *zap.Logger, msg string, prod bool, id string, err error) {
 	if prod {
 		log.Debug(msg, zap.String(correlationId, id), zap.Error(err))
 		return
 	}
 
-	log.Debug(fmt.Printf(" correlationId:%s | %s | %v", id, msg, err))
+	log.Sugar().Debugf("correlationId:%s | %s | %v", id, msg, err)
 }
 
-func getProxyLogger(log logger.Logger, prefix string, prod bool) gin.HandlerFunc {
+func getProxyLogger(log *zap.Logger, prefix string, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Set(correlationId, util.NewUuid())
 		start := time.Now()
 		c.Next()
 		latency := time.Now().Sub(start).Milliseconds()
 		if !prod {
-			log.Infof("%s | %d | %s | %s | %dms", prefix, c.Writer.Status(), c.Request.Method, c.FullPath(), latency)
+			log.Sugar().Infof("%s | %d | %s | %s | %dms", prefix, c.Writer.Status(), c.Request.Method, c.FullPath(), latency)
 		}
 
 		if prod {
@@ -362,7 +385,7 @@ func getProxyLogger(log logger.Logger, prefix string, prod bool) gin.HandlerFunc
 
 func (ps *ProxyServer) Shutdown(ctx context.Context) error {
 	if err := ps.server.Shutdown(ctx); err != nil {
-		ps.logger.Debugf("error shutting down proxy server: %v", err)
+		ps.log.Sugar().Infof("error shutting down proxy server: %v", err)
 
 		return err
 	}

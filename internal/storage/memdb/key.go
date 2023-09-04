@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
-	"github.com/bricks-cloud/bricksllm/internal/logger"
+	"go.uber.org/zap"
 )
 
 type Storage interface {
@@ -19,10 +19,10 @@ type MemDb struct {
 	hashToKeysLock sync.RWMutex
 	done           chan bool
 	interval       time.Duration
-	lg             logger.Logger
+	log            *zap.Logger
 }
 
-func NewMemDb(ex Storage, lg logger.Logger, interval time.Duration) (*MemDb, error) {
+func NewMemDb(ex Storage, log *zap.Logger, interval time.Duration) (*MemDb, error) {
 	hashToKeys := map[string]*key.ResponseKey{}
 
 	keys, err := ex.GetAllKeys()
@@ -37,7 +37,7 @@ func NewMemDb(ex Storage, lg logger.Logger, interval time.Duration) (*MemDb, err
 	return &MemDb{
 		external:   ex,
 		hashToKeys: hashToKeys,
-		lg:         lg,
+		log:        log,
 		interval:   interval,
 		done:       make(chan bool),
 	}, nil
@@ -68,18 +68,18 @@ func (mdb *MemDb) RemoveKey(k *key.ResponseKey) {
 
 func (mdb *MemDb) Listen() {
 	ticker := time.NewTicker(mdb.interval)
-	mdb.lg.Info("memdb started listening for key updates")
+	mdb.log.Info("memdb started listening for key updates")
 
 	go func() {
 		for {
 			select {
 			case <-mdb.done:
-				mdb.lg.Info("memdb stopped")
+				mdb.log.Info("memdb stopped")
 				return
 			case <-ticker.C:
 				keys, err := mdb.external.GetUpdatedKeys(mdb.interval)
 				if err != nil {
-					mdb.lg.Debugf("memdb failed to update keys: %v", err)
+					mdb.log.Sugar().Debugf("memdb failed to update keys: %v", err)
 					continue
 				}
 
@@ -87,10 +87,10 @@ func (mdb *MemDb) Listen() {
 					continue
 				}
 
-				mdb.lg.Debugf("memdb updated at %s", time.Now().UTC().String())
+				mdb.log.Sugar().Debugf("memdb updated at %s", time.Now().UTC().String())
 
 				for _, k := range keys {
-					mdb.lg.Debugf("memdb updated a key: %s", k.KeyId)
+					mdb.log.Sugar().Debugf("memdb updated a key: %s", k.KeyId)
 
 					mdb.SetKey(k)
 				}
@@ -100,7 +100,7 @@ func (mdb *MemDb) Listen() {
 }
 
 func (mdb *MemDb) Stop() {
-	mdb.lg.Infof("shutting down memdb...")
+	mdb.log.Info("shutting down memdb...")
 
 	mdb.done <- true
 }

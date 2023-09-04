@@ -115,3 +115,44 @@ func NewLogger(mode string) logger.Logger {
 
 	return zapLogger.Sugar()
 }
+
+func NewZapLogger(mode string) *zap.Logger {
+	rawJSON := []byte(`{
+		"level": "debug",
+		"encoding": "json",
+		"outputPaths": ["stdout"],
+		"errorOutputPaths": ["stderr"],
+		"encoderConfig": {
+		  "messageKey": "message",
+		  "levelKey": "level",
+		  "levelEncoder": "lowercase"
+		}
+	  }`)
+
+	var cfg zap.Config
+
+	if err := json.Unmarshal(rawJSON, &cfg); err != nil {
+		panic(err)
+	}
+
+	if mode == "production" {
+		cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+		return zap.Must(cfg.Build())
+	}
+
+	cfg.EncoderConfig.LevelKey = zapcore.OmitKey
+
+	enc := &prependEncoder{
+		Encoder: zapcore.NewConsoleEncoder(cfg.EncoderConfig),
+		pool:    buffer.NewPool(),
+		cfg:     cfg.EncoderConfig,
+	}
+
+	zapLogger := zap.New(zapcore.NewCore(
+		enc,
+		zapcore.AddSync(colorable.NewColorableStdout()),
+		zapcore.DebugLevel,
+	))
+
+	return zapLogger
+}
