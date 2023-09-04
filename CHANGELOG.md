@@ -1,6 +1,14 @@
+## 0.0.6 - 2023-09-03
+### Added
+- Added support of cost estimation for fined tuned models
+- Added logging for openAI error response
+
+### Fixed
+- Fixed incorrect logging format in production environment
+
 ## 0.0.5 - 2023-09-03
 ### Added
-- Add logging for admin and proxy web servers
+- Added logging for admin and proxy web servers
 
 ## 0.0.4 - 2023-08-30
 ### Fixed

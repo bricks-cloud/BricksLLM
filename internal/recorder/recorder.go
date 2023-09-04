@@ -1,6 +1,9 @@
 package recorder
 
 import (
+	"errors"
+	"strings"
+
 	"github.com/bricks-cloud/bricksllm/internal/key"
 )
 
@@ -32,12 +35,22 @@ func NewRecorder(s Store, c Cache, ce CostEstimator) *Recorder {
 }
 
 func (r *Recorder) RecordKeySpend(keyId string, model string, promptTks int, completionTks int, costLimitUnit key.TimeUnit) error {
-	promptCost, err := r.ce.EstimatePromptCost(model, promptTks)
+	used := model
+	if strings.HasPrefix(model, "ft") {
+		split := strings.Split(model, ":")
+		if len(split) < 2 || len(split[1]) == 0 {
+			return errors.New("model can not be empty")
+		}
+
+		used = split[1]
+	}
+
+	promptCost, err := r.ce.EstimatePromptCost(used, promptTks)
 	if err != nil {
 		return err
 	}
 
-	completionCost, err := r.ce.EstimateCompletionCost(model, completionTks)
+	completionCost, err := r.ce.EstimateCompletionCost(used, completionTks)
 	if err != nil {
 		return err
 	}

@@ -6,12 +6,11 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
-	"github.com/bricks-cloud/bricksllm/internal/logger"
 	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type rateLimitError interface {
@@ -57,7 +56,7 @@ func JSON(c *gin.Context, code int, message string) {
 	})
 }
 
-func getKeyValidator(kms keyMemStorage, prod, private bool, e estimator, v validator, ks keyStorage, log logger.Logger, enc encrypter, rlm rateLimitManager) gin.HandlerFunc {
+func getKeyValidator(kms keyMemStorage, prod, private bool, e estimator, v validator, ks keyStorage, log *zap.Logger, enc encrypter, rlm rateLimitManager) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] request is empty")
@@ -104,7 +103,6 @@ func getKeyValidator(kms keyMemStorage, prod, private bool, e estimator, v valid
 
 		logRequest(log, prod, private, id, ccr)
 
-		estimationStart := time.Now()
 		cost, err := e.EstimateChatCompletionPromptCost(ccr)
 		if err != nil {
 			logError(log, "error when estimating prompt cost", prod, id, err)
@@ -113,7 +111,6 @@ func getKeyValidator(kms keyMemStorage, prod, private bool, e estimator, v valid
 			return
 		}
 
-		log.Debugf("cost estimation latency %dms", time.Now().Sub(estimationStart).Milliseconds())
 		err = v.Validate(kc, cost, ccr.Model)
 		if err != nil {
 			if _, ok := err.(ValidationError); ok {
@@ -130,7 +127,7 @@ func getKeyValidator(kms keyMemStorage, prod, private bool, e estimator, v valid
 				})
 
 				if err != nil {
-					log.Debugf("error when updating revoking the api key %s: %v", kc.KeyId, err)
+					log.Sugar().Debugf("error when updating revoking the api key %s: %v", kc.KeyId, err)
 				}
 
 				JSON(c, http.StatusUnauthorized, "[BricksLLM] key has expired")

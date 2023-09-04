@@ -92,7 +92,7 @@ func (c OpenAiClient) Send(rc *config.OpenAiRouteConfig, prompts []*config.OpenA
 	bodyReader := bytes.NewReader(b)
 
 	if err != nil {
-		return nil, fmt.Errorf("error when marhsalling open ai json payload: %v", err)
+		return nil, fmt.Errorf("error when marhsalling openai json payload: %v", err)
 	}
 
 	req, err := http.NewRequest(http.MethodPost, "https://api.openai.com/v1/chat/completions", bodyReader)
@@ -135,11 +135,11 @@ func (c OpenAiClient) Send(rc *config.OpenAiRouteConfig, prompts []*config.OpenA
 		openAiErr := &OpenAiErrorResponse{}
 		err = json.Unmarshal(b, openAiErr)
 		if err != nil {
-			return nil, fmt.Errorf("error unmarshaling open ai error response : %w", err)
+			return nil, fmt.Errorf("error unmarshaling openai error response : %w", err)
 		}
 
 		if openAiErr.Error == nil {
-			return nil, fmt.Errorf("cannot parse open ai error response : %w", err)
+			return nil, fmt.Errorf("cannot parse openai error response : %w", err)
 		}
 
 		return nil, NewOpenAiError(openAiErr.Error.Message, openAiErr.Error.Type, res.StatusCode)
@@ -150,7 +150,7 @@ func (c OpenAiClient) Send(rc *config.OpenAiRouteConfig, prompts []*config.OpenA
 	openaiRes := &OpenAiResponse{}
 	err = json.Unmarshal(b, openaiRes)
 	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling open ai response : %w", err)
+		return nil, fmt.Errorf("error unmarshaling openai response : %w", err)
 	}
 
 	lm.SetEstimatedCost(EstimateCost(string(rc.Model), openaiRes.Usage.PromptTokens, openaiRes.Usage.CompletionTokens))
