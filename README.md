@@ -11,7 +11,7 @@
    <a href="https://github.com/bricks-cloud/bricks/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-red" alt="License"></a>
 </p>
 
-**BricksLLM** is a cloud native AI gateway written in Go. Currently, it serves as a proxy only for OpenAI. The main feature of the gateway is letting you create API keys that has a rate limit, cost limit and ttl that you could use in both development and production use cases to achieve fine-grained access control that is not provided by OpenAI at the moment. The proxy is compatible with OpenAI API and its SDKs. 
+**BricksLLM** is a cloud native AI gateway written in Go. Currently, it serves as a proxy to OpenAI. We let you create API keys that have rate limits, cost limits and TTLs. The API keys can be used in both development and production to achieve fine-grained access control that is not provided by OpenAI at the moment. The proxy is compatible with OpenAI API and its SDKs.
 
 The vision of BricksLLM is to support many more large language models such as LLama2, Claude, PaLM2 etc, and streamline LLM operations.
 
@@ -47,20 +47,21 @@ docker-compose up
 You can run this in detach mode use the -d flag: `docker-compose up -d`
 
 ### Congradulations you are done!!!
-Use the following command to create your first OpenAI API Key `my-secret-key` with a 2 requests per minute rate limit and a spend limit of total 25 cents.
+Create an API key through the [create key endpoint](#configuration-endpoints). For example, create a key with a rate limit of 2 req/min and a spend limit of 25 cents.
 ```bash
 curl -X PUT http://localhost:8001/api/key-management/keys \
    -H "Content-Type: application/json" \
    -d '{
-	        "name": "My Development Key",
-	        "key": "my-secret-key",
-	        "tags": ["mykey"],
+          "name": "My Development Key",
+          "key": "my-secret-key",
+          "tags": ["mykey"],
           "rateLimitOverTime": 2,
           "rateLimitUnit": "m",
           "costLimitInUsed": 0.25
       }'   
 ```
-You can test your newly created OpenAI API Key by calling the BricksLLM OpenAI proxy
+
+Then, just redirect your requests to us and use OpenAI as you would normally. For example:
 ```bash
 curl -X POST http://localhost:8002/api/providers/openai/v1/chat/completions \
    -H "Authorization: Bearer my-secret-key" \
@@ -76,7 +77,16 @@ curl -X POST http://localhost:8002/api/providers/openai/v1/chat/completions \
       }'
 ```
 
+Or if you're using an SDK, you could change its `baseURL` to point to us. For example:
+```js
+// OpenAI Node SDK v4
+import OpenAI from 'openai';
 
+const openai = new OpenAI({
+  apiKey: "some-secret-key", // key created earlier
+  baseURL: "http://localhost:8002/api/providers/openai/v1", // redirect to us
+});
+```
 
 # Documentation
 ## Environment variables
@@ -101,7 +111,7 @@ curl -X POST http://localhost:8002/api/providers/openai/v1/chat/completions \
 ## Configuration Endpoints
 The configuration server runs on Port `8001`.
 <details>
-  <summary><code>GET</code> <code><b>/api/key-management/keys?tag={tag}</b></code></summary>
+  <summary>Get keys: <code>GET</code> <code><b>/api/key-management/keys?tag={tag}</b></code></summary>
 
 ##### Description
 This endpoint is set up for retrieving key configurations using a query param called tag.
@@ -154,7 +164,7 @@ Fields of KeyConfiguration
 
 
 <details>
-  <summary><code>PUT</code> <code><b>/api/key-management/keys</b></code></summary>
+  <summary>Create key: <code>PUT</code> <code><b>/api/key-management/keys</b></code></summary>
 
 ##### Description
 This endpoint is set up for retrieving key configurations using a query param called tag.
@@ -208,7 +218,7 @@ This endpoint is set up for retrieving key configurations using a query param ca
 </details>
 
 <details>
-  <summary><code>PATCH</code> <code><b>/api/key-management/keys/{keyId}</b></code></summary>
+  <summary>Update key: <code>PATCH</code> <code><b>/api/key-management/keys/{keyId}</b></code></summary>
 
 ##### Description
 This endpoint is set up for updating key configurations using key id.
