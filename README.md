@@ -57,7 +57,7 @@ curl -X PUT http://localhost:8001/api/key-management/keys \
           "tags": ["mykey"],
           "rateLimitOverTime": 2,
           "rateLimitUnit": "m",
-          "costLimitInUsed": 0.25
+          "costLimitInUsd": 0.25
       }'   
 ```
 
