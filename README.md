@@ -274,6 +274,39 @@ This endpoint is set up for updating key configurations using key id.
 
 </details>
 
+<details>
+  <summary><code>GET</code> <code><b>/api/reporting/keys/{keyId}</b></code></summary>
+
+##### Description
+This endpoint is set up for retrieving the cumulative OpenAI cost of an API key.
+
+##### Parameters
+> | name   |  type      | data type      | description                                          |
+> |--------|------------|----------------|------------------------------------------------------|
+> | `keyId` |  required  | string         | Unique key configuration identifier.                  |
+
+##### Error Response
+
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `400`, `500`, `404`         | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `number` | 400            |
+> | title         | `string` | request body reader error             |
+> | type         | `string` | /errors/request-body-read             |
+> | detail         | `string` | something is wrong            |
+> | instance         | `string` | /api/key-management/keys            |
+
+##### Response
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | keyId | `string` | 550e8400-e29b-41d4-a716-446655440000 | Unique identifier for the key.  |
+> | costInMicroDollars | `number` | 55 | Cumulative spend of the API key in micro dollars.
+
+</details>
+
 ## OpenAI Proxy
 The OpenAI proxy runs on Port `8002`.
 
