@@ -123,8 +123,6 @@ func getOpenAiProxyHandler(r recorder, prod, private bool, credential string, cl
 			err = json.Unmarshal(bytes, errorRes)
 			if err != nil {
 				logError(log, "error when unmarshalling openai http error response body", prod, id, err)
-				JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to parse openai error response")
-				return
 			}
 
 			logOpenAiError(log, prod, id, errorRes)
