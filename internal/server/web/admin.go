@@ -20,6 +20,10 @@ type KeyManager interface {
 	DeleteKey(id string) error
 }
 
+type KeyReportingManager interface {
+	GetKeyReporting(keyId string) (*key.KeyReporting, error)
+}
+
 type ErrorResponse struct {
 	Type     string `json:"type"`
 	Title    string `json:"title"`
@@ -34,7 +38,7 @@ type AdminServer struct {
 	m      KeyManager
 }
 
-func NewAdminServer(log *zap.Logger, mode string, m KeyManager) (*AdminServer, error) {
+func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReportingManager) (*AdminServer, error) {
 	router := gin.New()
 
 	prod := mode == "production"
@@ -44,6 +48,8 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager) (*AdminServer, e
 	router.PUT("/api/key-management/keys", getCreateKeyHandler(m, log, prod))
 	router.PATCH("/api/key-management/keys/:id", getUpdateKeyHandler(m, log, prod))
 	router.DELETE("/api/key-management/keys/:id", getDeleteKeyHandler(m, log, prod))
+
+	router.GET("/api/reporting/keys/:id", getGetKeyReportingHandler(krm, log, prod))
 
 	srv := &http.Server{
 		Addr:    ":8001",
@@ -133,7 +139,6 @@ func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 		}
 
 		id := c.GetString(correlationId)
-
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
 			logError(log, "error when reading key creation request body", prod, id, err)
@@ -336,5 +341,67 @@ func getDeleteKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 		}
 
 		c.Status(http.StatusOK)
+	}
+}
+
+type notFoundError interface {
+	Error() string
+	NotFound()
+}
+
+func getGetKeyReportingHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		path := "/api/reporting/keys/:id"
+		if c == nil || c.Request == nil {
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/empty-context",
+				Title:    "context is empty error",
+				Status:   http.StatusInternalServerError,
+				Detail:   "gin context is empty",
+				Instance: path,
+			})
+			return
+		}
+
+		id := c.Param("id")
+		cid := c.Param(correlationId)
+		if len(id) == 0 {
+			c.JSON(http.StatusBadRequest, &ErrorResponse{
+				Type:     "/errors/missing-param-id",
+				Title:    "id is empty",
+				Status:   http.StatusBadRequest,
+				Detail:   "id url param is missing from the request url. it is required for retrieving api key reporting",
+				Instance: path,
+			})
+
+			return
+		}
+
+		kr, err := m.GetKeyReporting(id)
+		if err != nil {
+			if _, ok := err.(notFoundError); ok {
+				logError(log, "key not found", prod, cid, err)
+				c.JSON(http.StatusInternalServerError, &ErrorResponse{
+					Type:     "/errors/key-not-found",
+					Title:    "key not found error",
+					Status:   http.StatusNotFound,
+					Detail:   err.Error(),
+					Instance: path,
+				})
+				return
+			}
+
+			logError(log, "error when getting api key reporting", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/key-reporting-manager",
+				Title:    "key reporting error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, kr)
 	}
 }

@@ -35,6 +35,7 @@ func NewTokenCounter() (*TokenCounter, error) {
 			"gpt-3.5-turbo":          e,
 			"gpt-3.5-turbo-0301":     e,
 			"gpt-3.5-turbo-0613":     e,
+			"gpt-3.5-turbo-instruct": e,
 			"gpt-3.5-turbo-16k":      e,
 			"gpt-3.5-turbo-16k-0613": e,
 		},

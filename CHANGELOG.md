@@ -1,3 +1,7 @@
+## 0.0.7 - 2023-09-03
+### Added
+- Added new reporting endpoint for retrieving the cumulative cost of an API key
+
 ## 0.0.6 - 2023-09-03
 ### Added
 - Added support of cost estimation for fined tuned models

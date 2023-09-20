@@ -61,20 +61,6 @@ func main() {
 
 	memStore.Listen()
 
-	e := encrypter.NewEncrypter()
-	m := manager.NewManager(store, e)
-	as, err := web.NewAdminServer(log, *modePtr, m)
-	if err != nil {
-		log.Sugar().Fatalf("error creating admin http server: %v", err)
-	}
-
-	tc, err := openai.NewTokenCounter()
-	if err != nil {
-		log.Sugar().Fatalf("error creating token counter: %v", err)
-	}
-
-	as.Run()
-
 	rateLimitRedisCache := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
 		Password: cfg.RedisPassword,
@@ -98,7 +84,7 @@ func main() {
 		log.Sugar().Fatalf("error connecting to cost limit redis cache: %v", err)
 	}
 
-	costLimitRedisStorage := redis.NewClient(&redis.Options{
+	costRedisStorage := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
 		Password: cfg.RedisPassword,
 		DB:       2,
@@ -106,17 +92,32 @@ func main() {
 
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	if err := costLimitRedisStorage.Ping(ctx).Err(); err != nil {
+	if err := costRedisStorage.Ping(ctx).Err(); err != nil {
 		log.Sugar().Fatalf("error connecting to cost limit redis storage: %v", err)
 	}
 
 	rateLimitCache := redisStorage.NewCache(rateLimitRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 	costLimitCache := redisStorage.NewCache(costLimitRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
-	costLimitStorage := redisStorage.NewStore(costLimitRedisStorage, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
+	costStorage := redisStorage.NewStore(costRedisStorage, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
+
+	e := encrypter.NewEncrypter()
+	m := manager.NewManager(store, e)
+	krm := manager.NewReportingManager(costStorage, store)
+	as, err := web.NewAdminServer(log, *modePtr, m, krm)
+	if err != nil {
+		log.Sugar().Fatalf("error creating admin http server: %v", err)
+	}
+
+	tc, err := openai.NewTokenCounter()
+	if err != nil {
+		log.Sugar().Fatalf("error creating token counter: %v", err)
+	}
+
+	as.Run()
 
 	ce := openai.NewCostEstimator(openai.OpenAiPerThousandTokenCost, tc)
-	v := validator.NewValidator(costLimitCache, rateLimitCache, costLimitStorage)
-	rec := recorder.NewRecorder(costLimitStorage, costLimitCache, ce)
+	v := validator.NewValidator(costLimitCache, rateLimitCache, costStorage)
+	rec := recorder.NewRecorder(costStorage, costLimitCache, ce)
 	rlm := manager.NewRateLimitManager(rateLimitCache)
 
 	ps, err := web.NewProxyServer(log, *modePtr, *privacyPtr, m, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm)
