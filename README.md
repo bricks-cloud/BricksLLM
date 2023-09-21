@@ -275,7 +275,7 @@ This endpoint is set up for updating key configurations using key id.
 </details>
 
 <details>
-  <summary><code>GET</code> <code><b>/api/reporting/keys/{keyId}</b></code></summary>
+  <summary>Get Key Reporting: <code>GET</code> <code><b>/api/reporting/keys/{keyId}</b></code></summary>
 
 ##### Description
 This endpoint is set up for retrieving the cumulative OpenAI cost of an API key.
@@ -311,7 +311,7 @@ This endpoint is set up for retrieving the cumulative OpenAI cost of an API key.
 The OpenAI proxy runs on Port `8002`.
 
 <details>
-  <summary><code>POST</code> <code><b>/api/providers/openai/v1/chat/completions</b></code></summary>
+  <summary>Call OpenAI chat completions: <code>POST</code> <code><b>/api/providers/openai/v1/chat/completions</b></code></summary>
 
 ##### Description
 This endpoint is set up for proxying OpenAI API requests. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/chat).
