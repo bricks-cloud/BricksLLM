@@ -1,3 +1,7 @@
+## 0.0.8 - 2023-09-20
+### fixed
+- Fixed open ai error response parsing
+
 ## 0.0.7 - 2023-09-03
 ### Added
 - Added new reporting endpoint for retrieving the cumulative cost of an API key
