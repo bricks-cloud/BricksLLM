@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
 
 	"github.com/lib/pq"
@@ -61,14 +62,17 @@ func (s *Store) CreateKeysTable() error {
 	return nil
 }
 
-func (s *Store) CreateStatsTable() error {
+func (s *Store) CreateEventsTable() error {
 	createTableQuery := `
-	CREATE TABLE IF NOT EXISTS stats (
+	CREATE TABLE IF NOT EXISTS events (
 		event_id VARCHAR(255) PRIMARY KEY,
-		created_at DATE NOT NULL,
+		created_at BIGINT NOT NULL,
 		organization_id VARCHAR(255),
 		key_id VARCHAR(255),
 		cost_in_micro_dollars BIGINT,
+		provider VARCHAR(255),
+		model VARCHAR(255),
+		status_code INT
 	) PARTITION BY RANGE (created_at)`
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -81,8 +85,8 @@ func (s *Store) CreateStatsTable() error {
 	return nil
 }
 
-func (s *Store) DropStatsTable() error {
-	createTableQuery := `DROP TABLE stats`
+func (s *Store) DropEventsTable() error {
+	createTableQuery := `DROP TABLE events`
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()
 
@@ -105,6 +109,33 @@ func (s *Store) DropKeysTable() error {
 	}
 
 	return nil
+}
+
+func (s *Store) InsertEvent(e *event.Event) error {
+	query := `
+		INSERT INTO keys (event_id, created_at, organization_id, key_id, cost_in_micro_dollars, provider, model, status_code)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`
+
+	values := []any{
+		e.Id,
+		e.CreatedAt,
+		e.OragnizationId,
+		e.KeyId,
+		e.CostInUsd,
+		e.Provider,
+		e.Model,
+		e.Status,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+	if _, err := s.db.ExecContext(ctx, query, values...); err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
 func (s *Store) GetKeysByTag(tag string) ([]*key.ResponseKey, error) {
