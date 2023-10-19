@@ -61,6 +61,39 @@ func (s *Store) CreateKeysTable() error {
 	return nil
 }
 
+func (s *Store) CreateStatsTable() error {
+	createTableQuery := `
+	CREATE TABLE IF NOT EXISTS stats (
+		event_id VARCHAR(255) PRIMARY KEY,
+		created_at DATE NOT NULL,
+		organization_id VARCHAR(255),
+		key_id VARCHAR(255),
+		cost_in_micro_dollars BIGINT,
+	) PARTITION BY RANGE (created_at)`
+
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+	_, err := s.db.ExecContext(ctxTimeout, createTableQuery)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Store) DropStatsTable() error {
+	createTableQuery := `DROP TABLE stats`
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+
+	_, err := s.db.ExecContext(ctxTimeout, createTableQuery)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *Store) DropKeysTable() error {
 	createTableQuery := `DROP TABLE keys`
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
