@@ -40,7 +40,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, ks 
 
 	client := http.Client{}
 
-	router.POST("/api/providers/openai/v1/chat/completions", getOpenAiProxyHandler(r, prod, private, credential, client, kms, log, enc))
+	router.POST("/api/providers/openai/v1/chat/completions", getChatCompletionHandler(r, prod, private, credential, client, kms, log, enc))
 
 	srv := &http.Server{
 		Addr:    ":8002",
@@ -53,7 +53,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, ks 
 	}, nil
 }
 
-func getOpenAiProxyHandler(r recorder, prod, private bool, credential string, client http.Client, kms keyMemStorage, log *zap.Logger, enc encrypter) gin.HandlerFunc {
+func getChatCompletionHandler(r recorder, prod, private bool, credential string, client http.Client, kms keyMemStorage, log *zap.Logger, enc encrypter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
