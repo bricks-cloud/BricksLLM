@@ -33,6 +33,7 @@ type keyStorage interface {
 
 type estimator interface {
 	EstimateChatCompletionPromptCost(r *openai.ChatCompletionRequest) (float64, error)
+	EstimateTotalCost(model string, promptTks, completionTks int) (float64, error)
 }
 
 type validator interface {

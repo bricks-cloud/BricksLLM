@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
+	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
@@ -27,7 +29,8 @@ type ProxyServer struct {
 }
 
 type recorder interface {
-	RecordKeySpend(keyId string, model string, promptTks int, completionTks int, costLimitUnit key.TimeUnit) error
+	RecordKeySpend(keyId string, model string, micros int64, costLimitUnit key.TimeUnit) error
+	RecordEvent(e *event.Event) error
 }
 
 func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, ks keyStorage, kms keyMemStorage, e estimator, v validator, r recorder, credential string, enc encrypter, rlm rateLimitManager) (*ProxyServer, error) {
@@ -40,7 +43,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, ks 
 
 	client := http.Client{}
 
-	router.POST("/api/providers/openai/v1/chat/completions", getChatCompletionHandler(r, prod, private, credential, client, kms, log, enc))
+	router.POST("/api/providers/openai/v1/chat/completions", getChatCompletionHandler(r, prod, private, credential, client, kms, log, enc, e))
 
 	srv := &http.Server{
 		Addr:    ":8002",
@@ -53,7 +56,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, ks 
 	}, nil
 }
 
-func getChatCompletionHandler(r recorder, prod, private bool, credential string, client http.Client, kms keyMemStorage, log *zap.Logger, enc encrypter) gin.HandlerFunc {
+func getChatCompletionHandler(r recorder, prod, private bool, credential string, client http.Client, kms keyMemStorage, log *zap.Logger, enc encrypter, e estimator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
@@ -101,6 +104,9 @@ func getChatCompletionHandler(r recorder, prod, private bool, credential string,
 			return
 		}
 
+		var cost float64 = 0
+		var model string = "unknown"
+
 		if res.StatusCode == http.StatusOK {
 			chatRes := &openai.ChatCompletionResponse{}
 			err = json.Unmarshal(bytes, chatRes)
@@ -112,7 +118,15 @@ func getChatCompletionHandler(r recorder, prod, private bool, credential string,
 
 			logResponse(log, prod, private, id, chatRes)
 
-			err = r.RecordKeySpend(kc.KeyId, chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens, kc.CostLimitInUsdUnit)
+			model = chatRes.Model
+
+			cost, err := e.EstimateTotalCost(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
+			if err != nil {
+				logError(log, "error when estimating openai cost", prod, id, err)
+			}
+
+			micros := int64(cost * 1000000)
+			err = r.RecordKeySpend(kc.KeyId, chatRes.Model, micros, kc.CostLimitInUsdUnit)
 			if err != nil {
 				logError(log, "error when recording openai spend", prod, id, err)
 			}
@@ -126,6 +140,22 @@ func getChatCompletionHandler(r recorder, prod, private bool, credential string,
 			}
 
 			logOpenAiError(log, prod, id, errorRes)
+		}
+
+		evt := &event.Event{
+			Id:        util.NewUuid(),
+			CreatedAt: time.Now().Unix(),
+			Tags:      kc.Tags,
+			KeyId:     kc.KeyId,
+			CostInUsd: cost,
+			Provider:  provider.OpenAiProvider,
+			Model:     model,
+			Status:    res.StatusCode,
+		}
+
+		err = r.RecordEvent(evt)
+		if err != nil {
+			logError(log, "error when recording openai event", prod, id, err)
 		}
 
 		for name, values := range res.Header {
