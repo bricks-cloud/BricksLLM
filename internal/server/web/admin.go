@@ -358,6 +358,10 @@ func validateEventReportingRequest(r *event.ReportingRequest) bool {
 		return false
 	}
 
+	if r.Start >= r.End {
+		return false
+	}
+
 	return true
 }
 
@@ -404,12 +408,12 @@ func getGetEventMetrics(m KeyReportingManager, log *zap.Logger, prod bool) gin.H
 		}
 
 		if !validateEventReportingRequest(request) {
-			err = fmt.Errorf("event reporting request %+v does not have all the required fields", request)
+			err = fmt.Errorf("event reporting request %+v is not valid", request)
 			logError(log, "invalid reporting request", prod, cid, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/invalid-reporting-request",
 				Title:    "invalid reporting request",
-				Status:   http.StatusBadGateway,
+				Status:   http.StatusBadRequest,
 				Detail:   err.Error(),
 				Instance: path,
 			})
