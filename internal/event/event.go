@@ -1,18 +1,14 @@
 package event
 
-type Event struct {
-	Id             string
-	CreatedAt      int64
-	OragnizationId string
-	KeyId          string
-	CostInUsd      float64
-	Provider       string
-	Model          string
-	Status         int
-}
+import "github.com/bricks-cloud/bricksllm/internal/provider"
 
-type EventDataPoint struct {
-	TimeStamp          int64
-	NumberOfRequests   int64
-	CostInMicroDollars int64
+type Event struct {
+	Id        string
+	CreatedAt int64
+	Tags      []string
+	KeyId     string
+	CostInUsd float64
+	Provider  provider.Provider
+	Model     string
+	Status    int
 }
