@@ -29,11 +29,12 @@ type CostEstimator interface {
 	EstimateCompletionCost(model string, tks int) (float64, error)
 }
 
-func NewRecorder(s Store, c Cache, ce CostEstimator) *Recorder {
+func NewRecorder(s Store, c Cache, ce CostEstimator, es EventsStore) *Recorder {
 	return &Recorder{
 		s:  s,
 		c:  c,
 		ce: ce,
+		es: es,
 	}
 }
 

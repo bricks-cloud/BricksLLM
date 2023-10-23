@@ -122,7 +122,7 @@ func main() {
 
 	ce := openai.NewCostEstimator(openai.OpenAiPerThousandTokenCost, tc)
 	v := validator.NewValidator(costLimitCache, rateLimitCache, costStorage)
-	rec := recorder.NewRecorder(costStorage, costLimitCache, ce)
+	rec := recorder.NewRecorder(costStorage, costLimitCache, ce, store)
 	rlm := manager.NewRateLimitManager(rateLimitCache)
 
 	ps, err := web.NewProxyServer(log, *modePtr, *privacyPtr, m, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm)

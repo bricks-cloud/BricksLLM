@@ -120,7 +120,7 @@ func getChatCompletionHandler(r recorder, prod, private bool, credential string,
 
 			model = chatRes.Model
 
-			cost, err := e.EstimateTotalCost(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
+			cost, err = e.EstimateTotalCost(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
 			if err != nil {
 				logError(log, "error when estimating openai cost", prod, id, err)
 			}

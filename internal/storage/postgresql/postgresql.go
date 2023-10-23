@@ -69,11 +69,11 @@ func (s *Store) CreateEventsTable() error {
 		created_at BIGINT NOT NULL,
 		tags VARCHAR(255)[],
 		key_id VARCHAR(255),
-		cost_in_usd BIGINT,
+		cost_in_usd FLOAT8,
 		provider VARCHAR(255),
 		model VARCHAR(255),
 		status_code INT
-	) PARTITION BY RANGE (created_at)`
+	)`
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()
@@ -120,7 +120,7 @@ func (s *Store) InsertEvent(e *event.Event) error {
 	values := []any{
 		e.Id,
 		e.CreatedAt,
-		e.Tags,
+		sliceToSqlStringArray(e.Tags),
 		e.KeyId,
 		e.CostInUsd,
 		e.Provider,
@@ -160,11 +160,11 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 
 	query := fmt.Sprintf(
 		`
-		WITH time_series_table AS
+		,time_series_table AS
 		(
 			SELECT generate_series(%d, %d, %d) series
 		)
-		SELECT    COALESCE(COUNT(*),0) AS num_of_requests, COALESCE(SUM(events_table.cost_in_usd),0) AS cost_in_micro_dollars, time
+		SELECT    COALESCE(COUNT(events_table.event_id),0) AS num_of_requests, COALESCE(SUM(events_table.cost_in_usd),0) AS cost_in_usd, series AS time_stamp
 		FROM      time_series_table
 		LEFT JOIN events_table
 		ON        events_table.created_at >= time_series_table.series 

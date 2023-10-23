@@ -53,6 +53,7 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 	router.DELETE("/api/key-management/keys/:id", getDeleteKeyHandler(m, log, prod))
 
 	router.GET("/api/reporting/keys/:id", getGetKeyReportingHandler(krm, log, prod))
+	router.GET("/api/reporting/events", getGetEventMetrics(krm, log, prod))
 
 	srv := &http.Server{
 		Addr:    ":8001",
