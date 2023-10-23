@@ -113,7 +113,7 @@ func (s *Store) DropKeysTable() error {
 
 func (s *Store) InsertEvent(e *event.Event) error {
 	query := `
-		INSERT INTO keys (event_id, created_at, organization_id, key_id, cost_in_micro_dollars, provider, model, status_code)
+		INSERT INTO events (event_id, created_at, organization_id, key_id, cost_in_micro_dollars, provider, model, status_code)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
 
@@ -135,7 +135,93 @@ func (s *Store) InsertEvent(e *event.Event) error {
 	}
 
 	return nil
+}
 
+func getTimeSeriesEnd(start, end, increment int64) (int64, error) {
+	if increment <= 0 {
+		return 0, fmt.Errorf("increment can not be a number smaller or equal to 0: %d", increment)
+	}
+
+	replaced := end
+	for i := start; i < end; i += increment {
+		if i+increment >= end {
+			replaced = i + increment
+		}
+	}
+
+	return replaced, nil
+}
+
+func (s *Store) GetEventDataPoints(start, end, increment int64, orgIds, keyIds []string) ([]*event.EventDataPoint, error) {
+	replacedEnd, err := getTimeSeriesEnd(start, end, increment)
+	if err != nil {
+		return nil, err
+	}
+
+	query := fmt.Sprintf(
+		`
+		WITH time_series_table AS
+		(
+			SELECT generate_series(%d, %d, %d) series
+		)
+		SELECT    COALESCE(COUNT(*),0) AS num_of_requests, COALESCE(SUM(events_table.cost_in_micro_dollars),0) AS cost_in_micro_dollars, time
+		FROM      time_series_table
+		LEFT JOIN events_table
+		ON        events_table.created_at >= time_series_table.series 
+		AND       events_table.created_at < time_series_table.series + %d
+		GROUP BY  time_series_table.series
+		ORDER BY  time_series_table.series;
+		`,
+		start, replacedEnd, increment, increment,
+	)
+
+	eventSelectionBlock := `
+	WITH events_table AS
+		(
+			SELECT * FROM events 
+	`
+
+	conditionBlock := "WHERE "
+	if len(orgIds) != 0 {
+		conditionBlock += fmt.Sprintf("organization_id = ANY({%s})", strings.Join(orgIds, ", "))
+	}
+
+	if len(keyIds) != 0 {
+		conditionBlock += fmt.Sprintf("key_id = ANY({%s})", strings.Join(keyIds, ", "))
+	}
+
+	if len(orgIds) != 0 || len(keyIds) != 0 {
+		eventSelectionBlock += conditionBlock
+	}
+
+	eventSelectionBlock += ")"
+
+	query = eventSelectionBlock + query
+
+	ctx, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	data := []*event.EventDataPoint{}
+	for rows.Next() {
+		var e event.EventDataPoint
+		if err := rows.Scan(
+			&e.NumberOfRequests,
+			&e.CostInMicroDollars,
+			&e.TimeStamp,
+		); err != nil {
+			return nil, err
+		}
+
+		data = append(data, &e)
+	}
+
+	return data, nil
 }
 
 func (s *Store) GetKeysByTag(tag string) ([]*key.ResponseKey, error) {

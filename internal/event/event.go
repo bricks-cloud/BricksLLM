@@ -10,3 +10,9 @@ type Event struct {
 	Model          string
 	Status         int
 }
+
+type EventDataPoint struct {
+	TimeStamp          int64
+	NumberOfRequests   int64
+	CostInMicroDollars int64
+}
