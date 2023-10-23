@@ -3,10 +3,12 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
 
+	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
@@ -22,6 +24,7 @@ type KeyManager interface {
 
 type KeyReportingManager interface {
 	GetKeyReporting(keyId string) (*key.KeyReporting, error)
+	GetEventReporting(e *event.ReportingRequest) (*event.ReportingResponse, error)
 }
 
 type ErrorResponse struct {
@@ -347,6 +350,86 @@ func getDeleteKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 type notFoundError interface {
 	Error() string
 	NotFound()
+}
+
+func validateEventReportingRequest(r *event.ReportingRequest) bool {
+	if r.Start == 0 || r.End == 0 || r.Increment <= 0 {
+		return false
+	}
+
+	return true
+}
+
+func getGetEventMetrics(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		path := "/api/reporting/events"
+		if c == nil || c.Request == nil {
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/empty-context",
+				Title:    "context is empty error",
+				Status:   http.StatusInternalServerError,
+				Detail:   "gin context is empty",
+				Instance: path,
+			})
+			return
+		}
+
+		cid := c.Param(correlationId)
+		data, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			logError(log, "error when reading event reporting request body", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/request-body-read",
+				Title:    "request body reader error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		request := &event.ReportingRequest{}
+		err = json.Unmarshal(data, request)
+		if err != nil {
+			logError(log, "error when unmarshalling event reporting request body", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/json-unmarshal",
+				Title:    "json unmarshaller error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		if !validateEventReportingRequest(request) {
+			err = fmt.Errorf("event reporting request %+v does not have all the required fields", request)
+			logError(log, "invalid reporting request", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/invalid-reporting-request",
+				Title:    "invalid reporting request",
+				Status:   http.StatusBadGateway,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		reportingResponse, err := m.GetEventReporting(request)
+		if err != nil {
+			logError(log, "error when getting event reporting", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/event-reporting-manager",
+				Title:    "event reporting error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, reportingResponse)
+	}
 }
 
 func getGetKeyReportingHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {

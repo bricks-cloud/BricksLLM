@@ -2,6 +2,7 @@ package manager
 
 import (
 	"github.com/bricks-cloud/bricksllm/internal/errors"
+	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
 )
 
@@ -13,16 +14,33 @@ type keyStorage interface {
 	GetKey(keyId string) (*key.ResponseKey, error)
 }
 
+type eventStorage interface {
+	GetEventDataPoints(start, end, increment int64, tags, keyIds []string) ([]*event.DataPoint, error)
+}
+
 type ReportingManager struct {
+	es eventStorage
 	cs costStorage
 	ks keyStorage
 }
 
-func NewReportingManager(cs costStorage, ks keyStorage) *ReportingManager {
+func NewReportingManager(cs costStorage, ks keyStorage, es eventStorage) *ReportingManager {
 	return &ReportingManager{
 		cs: cs,
 		ks: ks,
+		es: es,
 	}
+}
+
+func (rm *ReportingManager) GetEventReporting(e *event.ReportingRequest) (*event.ReportingResponse, error) {
+	dataPoints, err := rm.es.GetEventDataPoints(e.Start, e.End, e.Increment, e.Tags, e.KeyIds)
+	if err != nil {
+		return nil, err
+	}
+
+	return &event.ReportingResponse{
+		DataPoints: dataPoints,
+	}, nil
 }
 
 func (rm *ReportingManager) GetKeyReporting(keyId string) (*key.KeyReporting, error) {
