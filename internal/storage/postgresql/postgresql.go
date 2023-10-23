@@ -67,9 +67,9 @@ func (s *Store) CreateEventsTable() error {
 	CREATE TABLE IF NOT EXISTS events (
 		event_id VARCHAR(255) PRIMARY KEY,
 		created_at BIGINT NOT NULL,
-		organization_id VARCHAR(255),
+		tags VARCHAR(255)[],
 		key_id VARCHAR(255),
-		cost_in_micro_dollars BIGINT,
+		cost_in_usd BIGINT,
 		provider VARCHAR(255),
 		model VARCHAR(255),
 		status_code INT
@@ -113,14 +113,14 @@ func (s *Store) DropKeysTable() error {
 
 func (s *Store) InsertEvent(e *event.Event) error {
 	query := `
-		INSERT INTO events (event_id, created_at, organization_id, key_id, cost_in_micro_dollars, provider, model, status_code)
+		INSERT INTO events (event_id, created_at, tags, key_id, cost_in_usd, provider, model, status_code)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
 
 	values := []any{
 		e.Id,
 		e.CreatedAt,
-		e.OragnizationId,
+		e.Tags,
 		e.KeyId,
 		e.CostInUsd,
 		e.Provider,
@@ -152,7 +152,7 @@ func getTimeSeriesEnd(start, end, increment int64) (int64, error) {
 	return replaced, nil
 }
 
-func (s *Store) GetEventDataPoints(start, end, increment int64, orgIds, keyIds []string) ([]*event.EventDataPoint, error) {
+func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []string) ([]*event.DataPoint, error) {
 	replacedEnd, err := getTimeSeriesEnd(start, end, increment)
 	if err != nil {
 		return nil, err
@@ -164,7 +164,7 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, orgIds, keyIds [
 		(
 			SELECT generate_series(%d, %d, %d) series
 		)
-		SELECT    COALESCE(COUNT(*),0) AS num_of_requests, COALESCE(SUM(events_table.cost_in_micro_dollars),0) AS cost_in_micro_dollars, time
+		SELECT    COALESCE(COUNT(*),0) AS num_of_requests, COALESCE(SUM(events_table.cost_in_usd),0) AS cost_in_micro_dollars, time
 		FROM      time_series_table
 		LEFT JOIN events_table
 		ON        events_table.created_at >= time_series_table.series 
@@ -182,15 +182,15 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, orgIds, keyIds [
 	`
 
 	conditionBlock := "WHERE "
-	if len(orgIds) != 0 {
-		conditionBlock += fmt.Sprintf("organization_id = ANY({%s})", strings.Join(orgIds, ", "))
+	if len(tags) != 0 {
+		conditionBlock += fmt.Sprintf("ANY(events.tags) = ANY({%s})", strings.Join(tags, ", "))
 	}
 
 	if len(keyIds) != 0 {
 		conditionBlock += fmt.Sprintf("key_id = ANY({%s})", strings.Join(keyIds, ", "))
 	}
 
-	if len(orgIds) != 0 || len(keyIds) != 0 {
+	if len(tags) != 0 || len(keyIds) != 0 {
 		eventSelectionBlock += conditionBlock
 	}
 
@@ -207,12 +207,12 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, orgIds, keyIds [
 	}
 	defer rows.Close()
 
-	data := []*event.EventDataPoint{}
+	data := []*event.DataPoint{}
 	for rows.Next() {
-		var e event.EventDataPoint
+		var e event.DataPoint
 		if err := rows.Scan(
 			&e.NumberOfRequests,
-			&e.CostInMicroDollars,
+			&e.CostInUsd,
 			&e.TimeStamp,
 		); err != nil {
 			return nil, err
