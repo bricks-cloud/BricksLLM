@@ -6,14 +6,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
-	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
-	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -38,8 +35,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, ks 
 	prod := mode == "production"
 	private := mode == "strict"
 
-	router.Use(getProxyLogger(log, "proxy", prod))
-	router.Use(getKeyValidator(kms, prod, private, e, v, ks, log, enc, rlm))
+	router.Use(getMiddleware(kms, prod, private, e, v, ks, log, enc, rlm, r, "proxy"))
 
 	client := http.Client{}
 
@@ -71,17 +67,9 @@ func getChatCompletionHandler(r recorder, prod, private bool, credential string,
 			return
 		}
 
-		split := strings.Split(c.Request.Header.Get("Authorization"), "Bearer ")
-		if len(split) < 2 || len(split[1]) == 0 {
-			JSON(c, http.StatusUnauthorized, "[BricksLLM] bearer token is not present")
-			return
-		}
-
-		apiKey := split[1]
-		hash := enc.Encrypt(apiKey)
-
-		kc := kms.GetKey(hash)
-		if kc == nil {
+		raw, exists := c.Get("key")
+		kc, ok := raw.(*key.ResponseKey)
+		if !exists || !ok {
 			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
 			return
 		}
@@ -105,10 +93,8 @@ func getChatCompletionHandler(r recorder, prod, private bool, credential string,
 		}
 
 		var cost float64 = 0
-		var model string = "unknown"
-
+		chatRes := &openai.ChatCompletionResponse{}
 		if res.StatusCode == http.StatusOK {
-			chatRes := &openai.ChatCompletionResponse{}
 			err = json.Unmarshal(bytes, chatRes)
 			if err != nil {
 				logError(log, "error when unmarshalling openai http response body", prod, id, err)
@@ -117,8 +103,6 @@ func getChatCompletionHandler(r recorder, prod, private bool, credential string,
 			}
 
 			logResponse(log, prod, private, id, chatRes)
-
-			model = chatRes.Model
 
 			cost, err = e.EstimateTotalCost(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
 			if err != nil {
@@ -132,6 +116,10 @@ func getChatCompletionHandler(r recorder, prod, private bool, credential string,
 			}
 		}
 
+		c.Set("costInUsd", cost)
+		c.Set("promptTokenCount", chatRes.Usage.PromptTokens)
+		c.Set("completionTokenCount", chatRes.Usage.CompletionTokens)
+
 		if res.StatusCode != http.StatusOK {
 			errorRes := &openai.ChatCompletionErrorResponse{}
 			err = json.Unmarshal(bytes, errorRes)
@@ -140,22 +128,6 @@ func getChatCompletionHandler(r recorder, prod, private bool, credential string,
 			}
 
 			logOpenAiError(log, prod, id, errorRes)
-		}
-
-		evt := &event.Event{
-			Id:        util.NewUuid(),
-			CreatedAt: time.Now().Unix(),
-			Tags:      kc.Tags,
-			KeyId:     kc.KeyId,
-			CostInUsd: cost,
-			Provider:  provider.OpenAiProvider,
-			Model:     model,
-			Status:    res.StatusCode,
-		}
-
-		err = r.RecordEvent(evt)
-		if err != nil {
-			logError(log, "error when recording openai event", prod, id, err)
 		}
 
 		for name, values := range res.Header {
@@ -386,29 +358,6 @@ func logError(log *zap.Logger, msg string, prod bool, id string, err error) {
 	}
 
 	log.Sugar().Debugf("correlationId:%s | %s | %v", id, msg, err)
-}
-
-func getProxyLogger(log *zap.Logger, prefix string, prod bool) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Set(correlationId, util.NewUuid())
-		start := time.Now()
-		c.Next()
-		latency := time.Now().Sub(start).Milliseconds()
-		if !prod {
-			log.Sugar().Infof("%s | %d | %s | %s | %dms", prefix, c.Writer.Status(), c.Request.Method, c.FullPath(), latency)
-		}
-
-		if prod {
-			log.Info("request to openai proxy",
-				zap.String(correlationId, c.GetString(correlationId)),
-				zap.String("keyId", c.GetString("keyId")),
-				zap.Int("code", c.Writer.Status()),
-				zap.String("method", c.Request.Method),
-				zap.String("path", c.FullPath()),
-				zap.Int64("lantecyInMs", latency),
-			)
-		}
-	}
 }
 
 func (ps *ProxyServer) Shutdown(ctx context.Context) error {

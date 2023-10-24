@@ -1,13 +1,19 @@
 package event
 
 type DataPoint struct {
-	TimeStamp        int64   `json:"timeStamp"`
-	NumberOfRequests int64   `json:"numberOfRequests"`
-	CostInUsd        float64 `json:"costInUsd"`
+	TimeStamp            int64   `json:"timeStamp"`
+	NumberOfRequests     int64   `json:"numberOfRequests"`
+	CostInUsd            float64 `json:"costInUsd"`
+	LatencyInMs          int     `json:"latencyInMs"`
+	PromptTokenCount     int     `json:"promptTokenCount"`
+	CompletionTokenCount int     `json:"completionTokenCount"`
+	SuccessCouunt        int     `json:"successCount"`
 }
 
 type ReportingResponse struct {
-	DataPoints []*DataPoint `json:"dataPoints"`
+	DataPoints        []*DataPoint `json:"dataPoints"`
+	LatencyInMsMedian float64      `json:"latencyInMsMedian"`
+	LatencyInMs99th   float64      `json:"latencyInMs99th"`
 }
 
 type ReportingRequest struct {
