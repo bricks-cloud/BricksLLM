@@ -16,6 +16,7 @@ type keyStorage interface {
 
 type eventStorage interface {
 	GetEventDataPoints(start, end, increment int64, tags, keyIds []string) ([]*event.DataPoint, error)
+	GetLatencyPercentiles(start, end int64, tags, keyIds []string) ([]float64, error)
 }
 
 type ReportingManager struct {
@@ -38,8 +39,19 @@ func (rm *ReportingManager) GetEventReporting(e *event.ReportingRequest) (*event
 		return nil, err
 	}
 
+	percentiles, err := rm.es.GetLatencyPercentiles(e.Start, e.End, e.Tags, e.KeyIds)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(percentiles) == 0 {
+		return nil, errors.NewNotFoundError("latency percentiles are not found")
+	}
+
 	return &event.ReportingResponse{
-		DataPoints: dataPoints,
+		DataPoints:        dataPoints,
+		LatencyInMsMedian: percentiles[0],
+		LatencyInMs99th:   percentiles[1],
 	}, nil
 }
 
