@@ -233,8 +233,12 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 		conditionBlock += fmt.Sprintf("tags @> '%s' ", sliceToSqlStringArray(tags))
 	}
 
+	if len(tags) != 0 && len(keyIds) != 0 {
+		conditionBlock += "AND "
+	}
+
 	if len(keyIds) != 0 {
-		conditionBlock += fmt.Sprintf("AND key_id = ANY('%s')", sliceToSqlStringArray(keyIds))
+		conditionBlock += fmt.Sprintf("key_id = ANY('%s')", sliceToSqlStringArray(keyIds))
 	}
 
 	if len(tags) != 0 || len(keyIds) != 0 {
