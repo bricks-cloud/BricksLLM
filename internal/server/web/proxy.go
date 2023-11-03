@@ -6,12 +6,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
+	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
-	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -27,7 +26,8 @@ type ProxyServer struct {
 }
 
 type recorder interface {
-	RecordKeySpend(keyId string, model string, promptTks int, completionTks int, costLimitUnit key.TimeUnit) error
+	RecordKeySpend(keyId string, model string, micros int64, costLimitUnit key.TimeUnit) error
+	RecordEvent(e *event.Event) error
 }
 
 func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, ks keyStorage, kms keyMemStorage, e estimator, v validator, r recorder, credential string, enc encrypter, rlm rateLimitManager) (*ProxyServer, error) {
@@ -35,12 +35,11 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, ks 
 	prod := mode == "production"
 	private := mode == "strict"
 
-	router.Use(getProxyLogger(log, "proxy", prod))
-	router.Use(getKeyValidator(kms, prod, private, e, v, ks, log, enc, rlm))
+	router.Use(getMiddleware(kms, prod, private, e, v, ks, log, enc, rlm, r, "proxy"))
 
 	client := http.Client{}
 
-	router.POST("/api/providers/openai/v1/chat/completions", getOpenAiProxyHandler(r, prod, private, credential, client, kms, log, enc))
+	router.POST("/api/providers/openai/v1/chat/completions", getChatCompletionHandler(r, prod, private, credential, client, kms, log, enc, e))
 
 	srv := &http.Server{
 		Addr:    ":8002",
@@ -53,7 +52,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, ks 
 	}, nil
 }
 
-func getOpenAiProxyHandler(r recorder, prod, private bool, credential string, client http.Client, kms keyMemStorage, log *zap.Logger, enc encrypter) gin.HandlerFunc {
+func getChatCompletionHandler(r recorder, prod, private bool, credential string, client http.Client, kms keyMemStorage, log *zap.Logger, enc encrypter, e estimator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
@@ -68,17 +67,9 @@ func getOpenAiProxyHandler(r recorder, prod, private bool, credential string, cl
 			return
 		}
 
-		split := strings.Split(c.Request.Header.Get("Authorization"), "Bearer ")
-		if len(split) < 2 || len(split[1]) == 0 {
-			JSON(c, http.StatusUnauthorized, "[BricksLLM] bearer token is not present")
-			return
-		}
-
-		apiKey := split[1]
-		hash := enc.Encrypt(apiKey)
-
-		kc := kms.GetKey(hash)
-		if kc == nil {
+		raw, exists := c.Get("key")
+		kc, ok := raw.(*key.ResponseKey)
+		if !exists || !ok {
 			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
 			return
 		}
@@ -101,8 +92,9 @@ func getOpenAiProxyHandler(r recorder, prod, private bool, credential string, cl
 			return
 		}
 
+		var cost float64 = 0
+		chatRes := &openai.ChatCompletionResponse{}
 		if res.StatusCode == http.StatusOK {
-			chatRes := &openai.ChatCompletionResponse{}
 			err = json.Unmarshal(bytes, chatRes)
 			if err != nil {
 				logError(log, "error when unmarshalling openai http response body", prod, id, err)
@@ -112,11 +104,21 @@ func getOpenAiProxyHandler(r recorder, prod, private bool, credential string, cl
 
 			logResponse(log, prod, private, id, chatRes)
 
-			err = r.RecordKeySpend(kc.KeyId, chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens, kc.CostLimitInUsdUnit)
+			cost, err = e.EstimateTotalCost(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
+			if err != nil {
+				logError(log, "error when estimating openai cost", prod, id, err)
+			}
+
+			micros := int64(cost * 1000000)
+			err = r.RecordKeySpend(kc.KeyId, chatRes.Model, micros, kc.CostLimitInUsdUnit)
 			if err != nil {
 				logError(log, "error when recording openai spend", prod, id, err)
 			}
 		}
+
+		c.Set("costInUsd", cost)
+		c.Set("promptTokenCount", chatRes.Usage.PromptTokens)
+		c.Set("completionTokenCount", chatRes.Usage.CompletionTokens)
 
 		if res.StatusCode != http.StatusOK {
 			errorRes := &openai.ChatCompletionErrorResponse{}
@@ -356,29 +358,6 @@ func logError(log *zap.Logger, msg string, prod bool, id string, err error) {
 	}
 
 	log.Sugar().Debugf("correlationId:%s | %s | %v", id, msg, err)
-}
-
-func getProxyLogger(log *zap.Logger, prefix string, prod bool) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Set(correlationId, util.NewUuid())
-		start := time.Now()
-		c.Next()
-		latency := time.Now().Sub(start).Milliseconds()
-		if !prod {
-			log.Sugar().Infof("%s | %d | %s | %s | %dms", prefix, c.Writer.Status(), c.Request.Method, c.FullPath(), latency)
-		}
-
-		if prod {
-			log.Info("request to openai proxy",
-				zap.String(correlationId, c.GetString(correlationId)),
-				zap.String("keyId", c.GetString("keyId")),
-				zap.Int("code", c.Writer.Status()),
-				zap.String("method", c.Request.Method),
-				zap.String("path", c.FullPath()),
-				zap.Int64("lantecyInMs", latency),
-			)
-		}
-	}
 }
 
 func (ps *ProxyServer) Shutdown(ctx context.Context) error {

@@ -78,6 +78,20 @@ func NewCostEstimator(m map[string]map[string]float64, tc tokenCounter) *CostEst
 	}
 }
 
+func (ce *CostEstimator) EstimateTotalCost(model string, promptTks, completionTks int) (float64, error) {
+	promptCost, err := ce.EstimatePromptCost(model, promptTks)
+	if err != nil {
+		return 0, err
+	}
+
+	completionCost, err := ce.EstimateCompletionCost(model, completionTks)
+	if err != nil {
+		return 0, err
+	}
+
+	return promptCost + completionCost, nil
+}
+
 func (ce *CostEstimator) EstimatePromptCost(model string, tks int) (float64, error) {
 	costMap, ok := ce.tokenCostMap["prompt"]
 	if !ok {

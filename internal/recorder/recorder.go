@@ -1,9 +1,7 @@
 package recorder
 
 import (
-	"errors"
-	"strings"
-
+	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
 )
 
@@ -11,6 +9,11 @@ type Recorder struct {
 	s  Store
 	c  Cache
 	ce CostEstimator
+	es EventsStore
+}
+
+type EventsStore interface {
+	InsertEvent(e *event.Event) error
 }
 
 type Store interface {
@@ -26,38 +29,17 @@ type CostEstimator interface {
 	EstimateCompletionCost(model string, tks int) (float64, error)
 }
 
-func NewRecorder(s Store, c Cache, ce CostEstimator) *Recorder {
+func NewRecorder(s Store, c Cache, ce CostEstimator, es EventsStore) *Recorder {
 	return &Recorder{
 		s:  s,
 		c:  c,
 		ce: ce,
+		es: es,
 	}
 }
 
-func (r *Recorder) RecordKeySpend(keyId string, model string, promptTks int, completionTks int, costLimitUnit key.TimeUnit) error {
-	used := model
-	if strings.HasPrefix(model, "ft") {
-		split := strings.Split(model, ":")
-		if len(split) < 2 || len(split[1]) == 0 {
-			return errors.New("model can not be empty")
-		}
-
-		used = split[1]
-	}
-
-	promptCost, err := r.ce.EstimatePromptCost(used, promptTks)
-	if err != nil {
-		return err
-	}
-
-	completionCost, err := r.ce.EstimateCompletionCost(used, completionTks)
-	if err != nil {
-		return err
-	}
-
-	micros := (promptCost + completionCost) * 1000000
-
-	err = r.s.IncrementCounter(keyId, int64(micros))
+func (r *Recorder) RecordKeySpend(keyId string, model string, micros int64, costLimitUnit key.TimeUnit) error {
+	err := r.s.IncrementCounter(keyId, micros)
 	if err != nil {
 		return err
 	}
@@ -70,4 +52,8 @@ func (r *Recorder) RecordKeySpend(keyId string, model string, promptTks int, com
 	}
 
 	return nil
+}
+
+func (r *Recorder) RecordEvent(e *event.Event) error {
+	return r.es.InsertEvent(e)
 }

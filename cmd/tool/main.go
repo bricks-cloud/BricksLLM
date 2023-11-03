@@ -53,6 +53,11 @@ func main() {
 		log.Sugar().Fatalf("error creating keys table: %v", err)
 	}
 
+	err = store.CreateEventsTable()
+	if err != nil {
+		log.Sugar().Fatalf("error creating events table: %v", err)
+	}
+
 	memStore, err := memdb.NewMemDb(store, log, cfg.InMemoryDbUpdateInterval)
 	if err != nil {
 		log.Sugar().Fatalf("cannot initialize memdb: %v", err)
@@ -101,7 +106,7 @@ func main() {
 
 	e := encrypter.NewEncrypter()
 	m := manager.NewManager(store, e)
-	krm := manager.NewReportingManager(costStorage, store)
+	krm := manager.NewReportingManager(costStorage, store, store)
 	as, err := web.NewAdminServer(log, *modePtr, m, krm)
 	if err != nil {
 		log.Sugar().Fatalf("error creating admin http server: %v", err)
@@ -116,7 +121,7 @@ func main() {
 
 	ce := openai.NewCostEstimator(openai.OpenAiPerThousandTokenCost, tc)
 	v := validator.NewValidator(costLimitCache, rateLimitCache, costStorage)
-	rec := recorder.NewRecorder(costStorage, costLimitCache, ce)
+	rec := recorder.NewRecorder(costStorage, costLimitCache, ce, store)
 	rlm := manager.NewRateLimitManager(rateLimitCache)
 
 	ps, err := web.NewProxyServer(log, *modePtr, *privacyPtr, m, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm)
@@ -154,6 +159,11 @@ func main() {
 	err = store.DropKeysTable()
 	if err != nil {
 		log.Sugar().Fatalf("error dropping keys table: %v", err)
+	}
+
+	err = store.DropEventsTable()
+	if err != nil {
+		log.Sugar().Fatalf("error dropping events table: %v", err)
 	}
 
 	log.Sugar().Infof("server exited")

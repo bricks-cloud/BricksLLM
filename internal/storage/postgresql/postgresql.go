@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
 
 	"github.com/lib/pq"
@@ -61,6 +62,45 @@ func (s *Store) CreateKeysTable() error {
 	return nil
 }
 
+func (s *Store) CreateEventsTable() error {
+	createTableQuery := `
+	CREATE TABLE IF NOT EXISTS events (
+		event_id VARCHAR(255) PRIMARY KEY,
+		created_at BIGINT NOT NULL,
+		tags VARCHAR(255)[],
+		key_id VARCHAR(255),
+		cost_in_usd FLOAT8,
+		provider VARCHAR(255),
+		model VARCHAR(255),
+		status_code INT,
+		prompt_token_count INT,
+		completion_token_count INT,
+		latency_in_ms INT
+	)`
+
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+	_, err := s.db.ExecContext(ctxTimeout, createTableQuery)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Store) DropEventsTable() error {
+	createTableQuery := `DROP TABLE events`
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+
+	_, err := s.db.ExecContext(ctxTimeout, createTableQuery)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *Store) DropKeysTable() error {
 	createTableQuery := `DROP TABLE keys`
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -72,6 +112,171 @@ func (s *Store) DropKeysTable() error {
 	}
 
 	return nil
+}
+
+func (s *Store) InsertEvent(e *event.Event) error {
+	query := `
+		INSERT INTO events (event_id, created_at, tags, key_id, cost_in_usd, provider, model, status_code, prompt_token_count, completion_token_count, latency_in_ms)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	`
+
+	values := []any{
+		e.Id,
+		e.CreatedAt,
+		sliceToSqlStringArray(e.Tags),
+		e.KeyId,
+		e.CostInUsd,
+		e.Provider,
+		e.Model,
+		e.Status,
+		e.PromptTokenCount,
+		e.CompletionTokenCount,
+		e.LatencyInMs,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+	if _, err := s.db.ExecContext(ctx, query, values...); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Store) GetLatencyPercentiles(start, end int64, tags, keyIds []string) ([]float64, error) {
+	eventSelectionBlock := `
+	WITH events_table AS
+		(
+			SELECT * FROM events 
+	`
+
+	conditionBlock := fmt.Sprintf("WHERE created_at >= %d AND created_at <= %d", start, end)
+	if len(tags) != 0 {
+		conditionBlock += fmt.Sprintf("AND tags @> '%s' ", sliceToSqlStringArray(tags))
+	}
+
+	if len(keyIds) != 0 {
+		conditionBlock += fmt.Sprintf("AND key_id = ANY('%s')", sliceToSqlStringArray(keyIds))
+	}
+
+	if len(tags) != 0 || len(keyIds) != 0 {
+		eventSelectionBlock += conditionBlock
+	}
+
+	eventSelectionBlock += ")"
+
+	query :=
+		`
+		SELECT    COALESCE(percentile_cont(0.5) WITHIN GROUP (ORDER BY events_table.latency_in_ms), 0) as median_latency, COALESCE(percentile_cont(0.99) WITHIN GROUP (ORDER BY events_table.latency_in_ms), 0) as top_latency
+		FROM      events_table
+		`
+
+	query = eventSelectionBlock + query
+
+	ctx, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	data := []float64{}
+	for rows.Next() {
+		var median float64
+		var top float64
+
+		if err := rows.Scan(
+			&median,
+			&top,
+		); err != nil {
+			return nil, err
+		}
+
+		data = []float64{
+			median,
+			top,
+		}
+		break
+	}
+
+	return data, nil
+}
+
+func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []string) ([]*event.DataPoint, error) {
+	query := fmt.Sprintf(
+		`
+		,time_series_table AS
+		(
+			SELECT generate_series(%d, %d, %d) series
+		)
+		SELECT    series AS time_stamp, COALESCE(COUNT(events_table.event_id),0) AS num_of_requests, COALESCE(SUM(events_table.cost_in_usd),0) AS cost_in_usd, COALESCE(SUM(events_table.latency_in_ms),0) AS latency_in_ms, COALESCE(SUM(events_table.prompt_token_count),0) AS prompt_token_count, COALESCE(SUM(events_table.completion_token_count),0) AS completion_token_count, COALESCE(SUM(CASE WHEN status_code = 200 THEN 1 END),0) AS success_count
+		FROM      time_series_table
+		LEFT JOIN events_table
+		ON        events_table.created_at >= time_series_table.series 
+		AND       events_table.created_at < time_series_table.series + %d
+		GROUP BY  time_series_table.series
+		ORDER BY  time_series_table.series;
+		`,
+		start, end, increment, increment,
+	)
+
+	eventSelectionBlock := `
+	WITH events_table AS
+		(
+			SELECT * FROM events 
+	`
+
+	conditionBlock := "WHERE "
+	if len(tags) != 0 {
+		conditionBlock += fmt.Sprintf("tags @> '%s' ", sliceToSqlStringArray(tags))
+	}
+
+	if len(tags) != 0 && len(keyIds) != 0 {
+		conditionBlock += "AND "
+	}
+
+	if len(keyIds) != 0 {
+		conditionBlock += fmt.Sprintf("key_id = ANY('%s')", sliceToSqlStringArray(keyIds))
+	}
+
+	if len(tags) != 0 || len(keyIds) != 0 {
+		eventSelectionBlock += conditionBlock
+	}
+
+	eventSelectionBlock += ")"
+
+	query = eventSelectionBlock + query
+
+	ctx, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	data := []*event.DataPoint{}
+	for rows.Next() {
+		var e event.DataPoint
+		if err := rows.Scan(
+			&e.TimeStamp,
+			&e.NumberOfRequests,
+			&e.CostInUsd,
+			&e.LatencyInMs,
+			&e.PromptTokenCount,
+			&e.CompletionTokenCount,
+			&e.SuccessCouunt,
+		); err != nil {
+			return nil, err
+		}
+
+		data = append(data, &e)
+	}
+
+	return data, nil
 }
 
 func (s *Store) GetKeysByTag(tag string) ([]*key.ResponseKey, error) {

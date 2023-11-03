@@ -6,9 +6,13 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
+	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -33,6 +37,7 @@ type keyStorage interface {
 
 type estimator interface {
 	EstimateChatCompletionPromptCost(r *openai.ChatCompletionRequest) (float64, error)
+	EstimateTotalCost(model string, promptTks, completionTks int) (float64, error)
 }
 
 type validator interface {
@@ -56,13 +61,68 @@ func JSON(c *gin.Context, code int, message string) {
 	})
 }
 
-func getKeyValidator(kms keyMemStorage, prod, private bool, e estimator, v validator, ks keyStorage, log *zap.Logger, enc encrypter, rlm rateLimitManager) gin.HandlerFunc {
+func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validator, ks keyStorage, log *zap.Logger, enc encrypter, rlm rateLimitManager, r recorder, prefix string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] request is empty")
 			c.Abort()
 			return
 		}
+
+		cid := util.NewUuid()
+		c.Set(correlationId, cid)
+		start := time.Now()
+
+		defer func() {
+			latency := int(time.Now().Sub(start).Milliseconds())
+			raw, exists := c.Get("key")
+			var kc *key.ResponseKey
+			if exists {
+				kc = raw.(*key.ResponseKey)
+			}
+
+			if !prod {
+				log.Sugar().Infof("%s | %d | %s | %s | %dms", prefix, c.Writer.Status(), c.Request.Method, c.FullPath(), latency)
+			}
+
+			keyId := ""
+			tags := []string{}
+
+			if kc != nil {
+				keyId = kc.KeyId
+				tags = kc.Tags
+			}
+
+			if prod {
+				log.Info("request to openai proxy",
+					zap.String(correlationId, c.GetString(correlationId)),
+					zap.String("keyId", keyId),
+					zap.Int("code", c.Writer.Status()),
+					zap.String("method", c.Request.Method),
+					zap.String("path", c.FullPath()),
+					zap.Int("lantecyInMs", latency),
+				)
+			}
+
+			evt := &event.Event{
+				Id:                   util.NewUuid(),
+				CreatedAt:            time.Now().Unix(),
+				Tags:                 tags,
+				KeyId:                keyId,
+				CostInUsd:            c.GetFloat64("costInUsd"),
+				Provider:             provider.OpenAiProvider,
+				Model:                c.GetString("model"),
+				Status:               c.Writer.Status(),
+				PromptTokenCount:     c.GetInt("promptTokenCount"),
+				CompletionTokenCount: c.GetInt("completionTokenCount"),
+				LatencyInMs:          latency,
+			}
+
+			err := r.RecordEvent(evt)
+			if err != nil {
+				logError(log, "error when recording openai event", prod, cid, err)
+			}
+		}()
 
 		split := strings.Split(c.Request.Header.Get("Authorization"), "Bearer ")
 		if len(split) < 2 || len(split[1]) == 0 {
@@ -81,7 +141,7 @@ func getKeyValidator(kms keyMemStorage, prod, private bool, e estimator, v valid
 			return
 		}
 
-		c.Set("keyId", kc.KeyId)
+		c.Set("key", kc)
 		id := c.GetString(correlationId)
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
@@ -100,6 +160,8 @@ func getKeyValidator(kms keyMemStorage, prod, private bool, e estimator, v valid
 			c.Abort()
 			return
 		}
+
+		c.Set("model", ccr.Model)
 
 		logRequest(log, prod, private, id, ccr)
 
@@ -155,5 +217,7 @@ func getKeyValidator(kms keyMemStorage, prod, private bool, e estimator, v valid
 				return
 			}
 		}
+
+		c.Next()
 	}
 }
