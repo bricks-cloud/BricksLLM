@@ -58,12 +58,23 @@ func main() {
 		log.Sugar().Fatalf("error creating events table: %v", err)
 	}
 
+	err = store.CreateApiKeysTable()
+	if err != nil {
+		log.Sugar().Fatalf("error creating api keys table: %v", err)
+	}
+
 	memStore, err := memdb.NewMemDb(store, log, cfg.InMemoryDbUpdateInterval)
 	if err != nil {
 		log.Sugar().Fatalf("cannot initialize memdb: %v", err)
 	}
 
 	memStore.Listen()
+
+	apiKeyMemStore, err := memdb.NewApiKeyMemDb(store, log, cfg.InMemoryDbUpdateInterval)
+	if err != nil {
+		log.Sugar().Fatalf("cannot initialize api key memdb: %v", err)
+	}
+	apiKeyMemStore.Listen()
 
 	rateLimitRedisCache := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
@@ -107,7 +118,8 @@ func main() {
 	e := encrypter.NewEncrypter()
 	m := manager.NewManager(store, e)
 	krm := manager.NewReportingManager(costStorage, store, store)
-	as, err := web.NewAdminServer(log, *modePtr, m, krm)
+	apikm := manager.NewApiKeyManager(store, apiKeyMemStore)
+	as, err := web.NewAdminServer(log, *modePtr, m, krm, apikm)
 	if err != nil {
 		log.Sugar().Fatalf("error creating admin http server: %v", err)
 	}
@@ -124,7 +136,7 @@ func main() {
 	rec := recorder.NewRecorder(costStorage, costLimitCache, ce, store)
 	rlm := manager.NewRateLimitManager(rateLimitCache)
 
-	ps, err := web.NewProxyServer(log, *modePtr, *privacyPtr, m, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm)
+	ps, err := web.NewProxyServer(log, *modePtr, *privacyPtr, m, apikm, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm)
 	if err != nil {
 		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}
@@ -136,6 +148,7 @@ func main() {
 	<-quit
 
 	memStore.Stop()
+	apiKeyMemStore.Stop()
 
 	log.Sugar().Info("shutting down server...")
 
@@ -164,6 +177,11 @@ func main() {
 	err = store.DropEventsTable()
 	if err != nil {
 		log.Sugar().Fatalf("error dropping events table: %v", err)
+	}
+
+	err = store.DropApiKeysTable()
+	if err != nil {
+		log.Sugar().Fatalf("error dropping api keys table: %v", err)
 	}
 
 	log.Sugar().Infof("server exited")

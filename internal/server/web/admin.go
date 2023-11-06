@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bricks-cloud/bricksllm/internal/apikey"
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/util"
@@ -20,6 +21,11 @@ type KeyManager interface {
 	UpdateKey(id string, key *key.UpdateKey) (*key.ResponseKey, error)
 	CreateKey(key *key.RequestKey) (*key.ResponseKey, error)
 	DeleteKey(id string) error
+}
+
+type ApiKeyManager interface {
+	SetKey(key *apikey.RequestApiKey) error
+	GetKey(provider string, keyName string) (string, error)
 }
 
 type KeyReportingManager interface {
@@ -41,7 +47,7 @@ type AdminServer struct {
 	m      KeyManager
 }
 
-func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReportingManager) (*AdminServer, error) {
+func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReportingManager, apikm ApiKeyManager) (*AdminServer, error) {
 	router := gin.New()
 
 	prod := mode == "production"
@@ -54,6 +60,8 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 
 	router.GET("/api/reporting/keys/:id", getGetKeyReportingHandler(krm, log, prod))
 	router.GET("/api/reporting/events", getGetEventMetrics(krm, log, prod))
+
+	router.PUT("/api/api-key-management/keys", getSetApiKeysHandler(apikm, log, prod))
 
 	srv := &http.Server{
 		Addr:    ":8001",
@@ -87,6 +95,54 @@ func (as *AdminServer) Shutdown(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func getSetApiKeysHandler(m ApiKeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		path := "/api/api-key-management/keys"
+		data, err := io.ReadAll(c.Request.Body)
+		id := c.Param(correlationId)
+		if err != nil {
+			logError(log, "error when reading key creation request body", prod, id, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/request-body-read",
+				Title:    "request body reader error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		rak := &apikey.RequestApiKey{}
+		err = json.Unmarshal(data, rak)
+		if err != nil {
+			logError(log, "error when unmarshalling api keys request body", prod, id, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/json-unmarshal",
+				Title:    "json unmarshaller error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		err = m.SetKey(rak)
+		if err != nil {
+			logError(log, "error when setting api keys", prod, id, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/setting-api-key",
+				Title:    "setting api key error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		c.Status(http.StatusOK)
+	}
 }
 
 func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
@@ -129,7 +185,6 @@ type ValidationError interface {
 
 func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-
 		path := "/api/key-management/keys"
 		if c == nil || c.Request == nil {
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
