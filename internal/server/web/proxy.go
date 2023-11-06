@@ -30,7 +30,7 @@ type recorder interface {
 	RecordEvent(e *event.Event) error
 }
 
-func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, ks keyStorage, kms keyMemStorage, e estimator, v validator, r recorder, credential string, enc encrypter, rlm rateLimitManager) (*ProxyServer, error) {
+func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, akm ApiKeyManager, ks keyStorage, kms keyMemStorage, e estimator, v validator, r recorder, credential string, enc encrypter, rlm rateLimitManager) (*ProxyServer, error) {
 	router := gin.New()
 	prod := mode == "production"
 	private := mode == "strict"
@@ -39,7 +39,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, ks 
 
 	client := http.Client{}
 
-	router.POST("/api/providers/openai/v1/chat/completions", getChatCompletionHandler(r, prod, private, credential, client, kms, log, enc, e))
+	router.POST("/api/providers/openai/v1/chat/completions", getChatCompletionHandler(r, prod, private, akm, client, kms, log, enc, e))
 
 	srv := &http.Server{
 		Addr:    ":8002",
@@ -52,7 +52,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, ks 
 	}, nil
 }
 
-func getChatCompletionHandler(r recorder, prod, private bool, credential string, client http.Client, kms keyMemStorage, log *zap.Logger, enc encrypter, e estimator) gin.HandlerFunc {
+func getChatCompletionHandler(r recorder, prod, private bool, akm ApiKeyManager, client http.Client, kms keyMemStorage, log *zap.Logger, enc encrypter, e estimator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
@@ -75,7 +75,15 @@ func getChatCompletionHandler(r recorder, prod, private bool, credential string,
 		}
 
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", credential))
+
+		key, err := akm.GetKey("openai", "apikey")
+		if err != nil {
+			logError(log, "openai api key is not set", prod, id, err)
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] openai api key is not set")
+			return
+		}
+
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", key))
 
 		res, err := client.Do(req)
 		if err != nil {
