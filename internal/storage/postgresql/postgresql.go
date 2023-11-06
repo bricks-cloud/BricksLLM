@@ -3,10 +3,12 @@ package postgresql
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/bricks-cloud/bricksllm/internal/apikey"
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
 
@@ -31,6 +33,26 @@ func NewStore(connStr string, wt time.Duration, rt time.Duration) (*Store, error
 		wt: wt,
 		rt: rt,
 	}, nil
+}
+
+func (s *Store) CreateApiKeysTable() error {
+	createTableQuery := `
+	CREATE TABLE IF NOT EXISTS apikeys (
+		key_id VARCHAR(255) PRIMARY KEY,
+		updated_at BIGINT NOT NULL,
+		key VARCHAR(255) NOT NULL,
+		key_name VARCHAR(255) NOT NULL,
+		provider VARCHAR(255)
+	)`
+
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+	_, err := s.db.ExecContext(ctxTimeout, createTableQuery)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *Store) CreateKeysTable() error {
@@ -88,12 +110,25 @@ func (s *Store) CreateEventsTable() error {
 	return nil
 }
 
-func (s *Store) DropEventsTable() error {
-	createTableQuery := `DROP TABLE events`
+func (s *Store) DropApiKeysTable() error {
+	dropTableQuery := `DROP TABLE apikeys`
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()
 
-	_, err := s.db.ExecContext(ctxTimeout, createTableQuery)
+	_, err := s.db.ExecContext(ctxTimeout, dropTableQuery)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Store) DropEventsTable() error {
+	dropTableQuery := `DROP TABLE events`
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+
+	_, err := s.db.ExecContext(ctxTimeout, dropTableQuery)
 	if err != nil {
 		return err
 	}
@@ -102,11 +137,11 @@ func (s *Store) DropEventsTable() error {
 }
 
 func (s *Store) DropKeysTable() error {
-	createTableQuery := `DROP TABLE keys`
+	dropTableQuery := `DROP TABLE keys`
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()
 
-	_, err := s.db.ExecContext(ctxTimeout, createTableQuery)
+	_, err := s.db.ExecContext(ctxTimeout, dropTableQuery)
 	if err != nil {
 		return err
 	}
@@ -357,6 +392,34 @@ func (s *Store) GetKey(keyId string) (*key.ResponseKey, error) {
 	return keys[0], nil
 }
 
+func (s *Store) GetAllApiKeys() ([]*apikey.ResponseApiKey, error) {
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM apikeys")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	keys := []*apikey.ResponseApiKey{}
+	for rows.Next() {
+		var k apikey.ResponseApiKey
+		if err := rows.Scan(
+			&k.Id,
+			&k.UpdatedAt,
+			&k.Key,
+			&k.KeyName,
+			&k.Provider,
+		); err != nil {
+			return nil, err
+		}
+		keys = append(keys, &k)
+	}
+
+	return keys, nil
+}
+
 func (s *Store) GetAllKeys() ([]*key.ResponseKey, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
@@ -385,6 +448,34 @@ func (s *Store) GetAllKeys() ([]*key.ResponseKey, error) {
 			&k.RateLimitOverTime,
 			&k.RateLimitUnit,
 			&k.Ttl,
+		); err != nil {
+			return nil, err
+		}
+		keys = append(keys, &k)
+	}
+
+	return keys, nil
+}
+
+func (s *Store) GetUpdatedApiKeys(interval time.Duration) ([]*apikey.ResponseApiKey, error) {
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM apikeys WHERE updated_at >= $1", time.Now().Unix()-int64(interval.Seconds()))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	keys := []*apikey.ResponseApiKey{}
+	for rows.Next() {
+		var k apikey.ResponseApiKey
+		if err := rows.Scan(
+			&k.Id,
+			&k.UpdatedAt,
+			&k.Key,
+			&k.KeyName,
+			&k.Provider,
 		); err != nil {
 			return nil, err
 		}
@@ -530,6 +621,65 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 	}
 
 	return &k, nil
+}
+
+func (s *Store) UpsertApiKey(rk *apikey.RequestApiKey) error {
+	if len(rk.Provider) == 0 {
+		return errors.New("provider is empty")
+	}
+
+	if len(rk.KeyName) == 0 {
+		return errors.New("key name is empty")
+	}
+
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+	duplicated, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM apikeys WHERE $1 = provider AND $2 = key_name", rk.Key, rk.KeyName)
+	if err != nil {
+		return err
+	}
+	defer duplicated.Close()
+
+	i := 0
+	for duplicated.Next() {
+		i++
+	}
+
+	if i > 0 {
+		values := []any{
+			rk.Provider,
+			rk.KeyName,
+			rk.Key,
+		}
+
+		query := "UPDATE apikeys SET key = $3 WHERE $1 = provider AND $2 = key_name"
+		if _, err := s.db.ExecContext(ctxTimeout, query, values...); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	query := `
+		INSERT INTO apikeys (key_id, updated_at, key, key_name, provider)
+		VALUES ($1, $2, $3, $4, $5)
+	`
+
+	values := []any{
+		rk.Id,
+		rk.UpdatedAt,
+		rk.Key,
+		rk.KeyName,
+		rk.Provider,
+	}
+
+	ctxTimeout, cancel = context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+	if _, err := s.db.ExecContext(ctxTimeout, query, values...); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
