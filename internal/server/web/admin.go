@@ -10,10 +10,17 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
+	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
+
+type ProviderSettingsManager interface {
+	CreateSetting(setting *provider.Setting) (*provider.Setting, error)
+	UpdateSetting(id string, setting *provider.Setting) (*provider.Setting, error)
+	GetSetting(id string) (*provider.Setting, error)
+}
 
 type KeyManager interface {
 	GetKeysByTag(tag string) ([]*key.ResponseKey, error)
@@ -41,7 +48,7 @@ type AdminServer struct {
 	m      KeyManager
 }
 
-func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReportingManager) (*AdminServer, error) {
+func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReportingManager, psm ProviderSettingsManager) (*AdminServer, error) {
 	router := gin.New()
 
 	prod := mode == "production"
@@ -54,6 +61,9 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 
 	router.GET("/api/reporting/keys/:id", getGetKeyReportingHandler(krm, log, prod))
 	router.GET("/api/reporting/events", getGetEventMetrics(krm, log, prod))
+
+	router.PUT("/api/provider-settings", getCreateProviderSettingHandler(psm, log, prod))
+	router.PATCH("/api/provider-settings/:id", getUpdateProviderSettingHandler(psm, log, prod))
 
 	srv := &http.Server{
 		Addr:    ":8001",
@@ -73,6 +83,9 @@ func (as *AdminServer) Run() {
 		as.log.Info("PORT 8001 | GET   | /api/key-management/keys is set up for retrieving keys using a query param called tag")
 		as.log.Info("PORT 8001 | PUT   | /api/key-management/keys is set up for creating a key")
 		as.log.Info("PORT 8001 | PATCH | /api/key-management/keys/:id is set up for updating a key using an id")
+		as.log.Info("PORT 8001 | PUT   | /api/provider-settings is set up for creating a provider setting")
+		as.log.Info("PORT 8001 | PATCH | /api/provider-settings:id is set up for updating provider setting")
+		as.log.Info("PORT 8001 | GET   | /api/reporting/events is set up for retrieving api metrics")
 
 		if err := as.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			as.log.Sugar().Fatalf("error admin server listening: %v", err)
@@ -127,9 +140,78 @@ type ValidationError interface {
 	Validation()
 }
 
+func getCreateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		path := "/api/provider-settings"
+		if c == nil || c.Request == nil {
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/empty-context",
+				Title:    "context is empty error",
+				Status:   http.StatusInternalServerError,
+				Detail:   "gin context is empty",
+				Instance: path,
+			})
+			return
+		}
+
+		cid := c.Param(correlationId)
+		data, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			logError(log, "error when reading api key create request body", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/request-body-read",
+				Title:    "request body reader error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		setting := &provider.Setting{}
+		err = json.Unmarshal(data, setting)
+		if err != nil {
+			logError(log, "error when unmarshalling provider setting update request body", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/json-unmarshal",
+				Title:    "json unmarshaller error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		created, err := m.CreateSetting(setting)
+		if err != nil {
+			if _, ok := err.(ValidationError); ok {
+				c.JSON(http.StatusBadRequest, &ErrorResponse{
+					Type:     "/errors/validation",
+					Title:    "provider setting validation failed",
+					Status:   http.StatusBadRequest,
+					Detail:   err.Error(),
+					Instance: path,
+				})
+				return
+			}
+
+			logError(log, "error when creating a provider setting", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/provider-settings-manager",
+				Title:    "provider setting creation failed",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, created)
+	}
+}
+
 func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-
 		path := "/api/key-management/keys"
 		if c == nil || c.Request == nil {
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -183,6 +265,17 @@ func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 				return
 			}
 
+			if _, ok := err.(notFoundError); ok {
+				c.JSON(http.StatusNotFound, &ErrorResponse{
+					Type:     "/errors/not-found",
+					Title:    "key creation failed",
+					Status:   http.StatusNotFound,
+					Detail:   err.Error(),
+					Instance: path,
+				})
+				return
+			}
+
 			logError(log, "error when creating api key", prod, id, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/key-manager",
@@ -195,6 +288,77 @@ func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 		}
 
 		c.JSON(http.StatusOK, resk)
+	}
+}
+
+func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		path := "/api/provider-settings/:id"
+		if c == nil || c.Request == nil {
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/empty-context",
+				Title:    "context is empty error",
+				Status:   http.StatusInternalServerError,
+				Detail:   "gin context is empty",
+				Instance: path,
+			})
+			return
+		}
+
+		id := c.Param("id")
+		cid := c.Param(correlationId)
+		data, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			logError(log, "error when reading api key update request body", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/request-body-read",
+				Title:    "request body reader error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		setting := &provider.Setting{}
+		err = json.Unmarshal(data, setting)
+		if err != nil {
+			logError(log, "error when unmarshalling provider setting update request body", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/json-unmarshal",
+				Title:    "json unmarshaller error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		updated, err := m.UpdateSetting(id, setting)
+		if err != nil {
+			if _, ok := err.(ValidationError); ok {
+				c.JSON(http.StatusBadRequest, &ErrorResponse{
+					Type:     "/errors/validation",
+					Title:    "provider setting validation failed",
+					Status:   http.StatusBadRequest,
+					Detail:   err.Error(),
+					Instance: path,
+				})
+				return
+			}
+
+			logError(log, "error when updating a provider setting", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/provider-settings-manager",
+				Title:    "provider setting update failed",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, updated)
 	}
 }
 
@@ -260,6 +424,17 @@ func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 					Type:     "/errors/validation",
 					Title:    "key validation failed",
 					Status:   http.StatusBadRequest,
+					Detail:   err.Error(),
+					Instance: path,
+				})
+				return
+			}
+
+			if _, ok := err.(notFoundError); ok {
+				c.JSON(http.StatusNotFound, &ErrorResponse{
+					Type:     "/errors/not-found",
+					Title:    "update key failed",
+					Status:   http.StatusNotFound,
 					Detail:   err.Error(),
 					Instance: path,
 				})

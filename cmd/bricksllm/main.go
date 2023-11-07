@@ -54,17 +54,32 @@ func main() {
 		log.Sugar().Fatalf("error creating keys table: %v", err)
 	}
 
+	err = store.AlterKeysTable()
+	if err != nil {
+		log.Sugar().Fatalf("error altering keys table: %v", err)
+	}
+
 	err = store.CreateEventsTable()
 	if err != nil {
 		log.Sugar().Fatalf("error creating events table: %v", err)
+	}
+
+	err = store.CreateProviderSettingsTable()
+	if err != nil {
+		log.Sugar().Fatalf("error creating provider settings table: %v", err)
 	}
 
 	memStore, err := memdb.NewMemDb(store, log, cfg.InMemoryDbUpdateInterval)
 	if err != nil {
 		log.Sugar().Fatalf("cannot initialize memdb: %v", err)
 	}
-
 	memStore.Listen()
+
+	psMemStore, err := memdb.NewProviderSettingsMemDb(store, log, cfg.InMemoryDbUpdateInterval)
+	if err != nil {
+		log.Sugar().Fatalf("cannot initialize provider settings memdb: %v", err)
+	}
+	psMemStore.Listen()
 
 	rateLimitRedisCache := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
@@ -108,7 +123,9 @@ func main() {
 	e := encrypter.NewEncrypter()
 	m := manager.NewManager(store, e)
 	krm := manager.NewReportingManager(costStorage, store, store)
-	as, err := web.NewAdminServer(log, *modePtr, m, krm)
+	psm := manager.NewProviderSettingsManager(store, psMemStore)
+
+	as, err := web.NewAdminServer(log, *modePtr, m, krm, psm)
 	if err != nil {
 		log.Sugar().Fatalf("error creating admin http server: %v", err)
 	}
@@ -125,7 +142,7 @@ func main() {
 	rec := recorder.NewRecorder(costStorage, costLimitCache, ce, store)
 	rlm := manager.NewRateLimitManager(rateLimitCache)
 
-	ps, err := web.NewProxyServer(log, *modePtr, *privacyPtr, m, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm)
+	ps, err := web.NewProxyServer(log, *modePtr, *privacyPtr, m, psm, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm)
 	if err != nil {
 		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}
@@ -137,6 +154,7 @@ func main() {
 	<-quit
 
 	memStore.Stop()
+	psMemStore.Stop()
 
 	log.Sugar().Infof("shutting down server...")
 

@@ -21,7 +21,7 @@ type Config struct {
 	PostgresqlReadTimeout    time.Duration `env:"POSTGRESQL_READ_TIME_OUT" envDefault:"2s"`
 	PostgresqlWriteTimeout   time.Duration `env:"POSTGRESQL_WRITE_TIME_OUT" envDefault:"1s"`
 	InMemoryDbUpdateInterval time.Duration `env:"IN_MEMORY_DB_UPDATE_INTERVAL" envDefault:"1s"`
-	OpenAiKey                string        `env:"OPENAI_API_KEY,required"`
+	OpenAiKey                string        `env:"OPENAI_API_KEY"`
 }
 
 func ParseEnvVariables() (*Config, error) {

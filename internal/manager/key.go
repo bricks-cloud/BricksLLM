@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
+	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 )
 
@@ -12,6 +13,7 @@ type Storage interface {
 	UpdateKey(id string, key *key.UpdateKey) (*key.ResponseKey, error)
 	CreateKey(key *key.RequestKey) (*key.ResponseKey, error)
 	DeleteKey(id string) error
+	GetProviderSetting(id string) (*provider.Setting, error)
 }
 
 type Encrypter interface {
@@ -44,6 +46,10 @@ func (m *Manager) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		return nil, err
 	}
 
+	if _, err := m.s.GetProviderSetting(rk.SettingId); err != nil {
+		return nil, err
+	}
+
 	return m.s.CreateKey(rk)
 }
 
@@ -52,6 +58,12 @@ func (m *Manager) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, err
 
 	if err := uk.Validate(); err != nil {
 		return nil, err
+	}
+
+	if len(uk.SettingId) != 0 {
+		if _, err := m.s.GetProviderSetting(uk.SettingId); err != nil {
+			return nil, err
+		}
 	}
 
 	return m.s.UpdateKey(id, uk)
