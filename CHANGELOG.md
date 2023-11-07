@@ -1,3 +1,17 @@
+## 1.0.0 - 2023-11-06
+### Added
+- Added a new API endpoint for creating and updating provider settings (e.g. OpenAI API key)
+
+### Changed
+- Removed having OpenAI API key as an required env vairable for running the proxy
+
+### Breaking Changes
+- Forced key creation to include a new field called settingId
+
+## 0.0.9 - 2023-11-03
+### Added
+- Added a new API endpoint for retrieving metrics
+
 ## 0.0.8 - 2023-09-20
 ### Fixed
 - Fixed open ai error response parsing
