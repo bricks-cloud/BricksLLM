@@ -88,7 +88,7 @@ func (s *Store) CreateKeysTable() error {
 
 func (s *Store) AlterKeysTable() error {
 	alterTableQuery := `
-		ALTER TABLE keys ADD COLUMN IF NOT EXISTS setting_id VARCHAR(255) NOT NULL;
+		ALTER TABLE keys ADD COLUMN IF NOT EXISTS setting_id VARCHAR(255);
 	`
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
