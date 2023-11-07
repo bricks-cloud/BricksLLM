@@ -1,3 +1,11 @@
+## 1.0.1 - 2023-11-07
+### Added
+- Added support for gpt-4-turbo models in cost estimation
+
+### Fixed
+- Fixed proxy logic to prevent internal errors from forwarding requests to OpenAI
+- Fixed proxy logic to prevent internal errors from receiving responses from OpenAI
+
 ## 1.0.0 - 2023-11-06
 ### Added
 - Added a new API endpoint for creating and updating provider settings (e.g. OpenAI API key)
