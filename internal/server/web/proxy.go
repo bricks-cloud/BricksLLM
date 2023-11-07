@@ -10,8 +10,8 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
-	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	"github.com/gin-gonic/gin"
+	goopenai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -108,26 +108,26 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 		}
 
 		var cost float64 = 0
-		chatRes := &openai.ChatCompletionResponse{}
+		chatRes := &goopenai.ChatCompletionResponse{}
 		if res.StatusCode == http.StatusOK {
 			err = json.Unmarshal(bytes, chatRes)
 			if err != nil {
 				logError(log, "error when unmarshalling openai http response body", prod, id, err)
-				JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to parse openai response")
-				return
 			}
 
-			logResponse(log, prod, private, id, chatRes)
+			if err == nil {
+				logResponse(log, prod, private, id, chatRes)
 
-			cost, err = e.EstimateTotalCost(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
-			if err != nil {
-				logError(log, "error when estimating openai cost", prod, id, err)
-			}
+				cost, err = e.EstimateTotalCost(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
+				if err != nil {
+					logError(log, "error when estimating openai cost", prod, id, err)
+				}
 
-			micros := int64(cost * 1000000)
-			err = r.RecordKeySpend(kc.KeyId, chatRes.Model, micros, kc.CostLimitInUsdUnit)
-			if err != nil {
-				logError(log, "error when recording openai spend", prod, id, err)
+				micros := int64(cost * 1000000)
+				err = r.RecordKeySpend(kc.KeyId, chatRes.Model, micros, kc.CostLimitInUsdUnit)
+				if err != nil {
+					logError(log, "error when recording openai spend", prod, id, err)
+				}
 			}
 		}
 
@@ -136,7 +136,7 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 		c.Set("completionTokenCount", chatRes.Usage.CompletionTokens)
 
 		if res.StatusCode != http.StatusOK {
-			errorRes := &openai.ChatCompletionErrorResponse{}
+			errorRes := &goopenai.ErrorResponse{}
 			err = json.Unmarshal(bytes, errorRes)
 			if err != nil {
 				logError(log, "error when unmarshalling openai http error response body", prod, id, err)
@@ -167,14 +167,14 @@ func (ps *ProxyServer) Run() {
 	}()
 }
 
-func logResponse(log *zap.Logger, prod, private bool, cid string, r *openai.ChatCompletionResponse) {
+func logResponse(log *zap.Logger, prod, private bool, cid string, r *goopenai.ChatCompletionResponse) {
 	if prod {
 		log.Info("openai response",
 			zap.Time("createdAt", time.Now()),
 			zap.String(correlationId, cid),
 			zap.Object("response", zapcore.ObjectMarshalerFunc(
 				func(enc zapcore.ObjectEncoder) error {
-					enc.AddString("id", r.Id)
+					enc.AddString("id", r.ID)
 					enc.AddString("object", r.Object)
 					enc.AddInt64("created", r.Created)
 					enc.AddString("model", r.Model)
@@ -194,7 +194,7 @@ func logResponse(log *zap.Logger, prod, private bool, cid string, r *openai.Chat
 											},
 										))
 
-										enc.AddString("finish_reason", c.FinishReason)
+										enc.AddString("finish_reason", string(c.FinishReason))
 										return nil
 									},
 								))
@@ -218,7 +218,7 @@ func logResponse(log *zap.Logger, prod, private bool, cid string, r *openai.Chat
 	}
 }
 
-func logRequest(log *zap.Logger, prod, private bool, id string, r *openai.ChatCompletionRequest) {
+func logRequest(log *zap.Logger, prod, private bool, id string, r *goopenai.ChatCompletionRequest) {
 	if prod {
 		log.Info("openai request",
 			zap.Time("createdAt", time.Now()),
@@ -357,7 +357,7 @@ func logRequest(log *zap.Logger, prod, private bool, id string, r *openai.ChatCo
 	}
 }
 
-func logOpenAiError(log *zap.Logger, prod bool, id string, errRes *openai.ChatCompletionErrorResponse) {
+func logOpenAiError(log *zap.Logger, prod bool, id string, errRes *goopenai.ErrorResponse) {
 	if prod {
 		log.Info("openai error response", zap.String(correlationId, id), zap.Any("error", errRes))
 		return

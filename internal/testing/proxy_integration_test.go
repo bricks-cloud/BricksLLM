@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
-	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
+	goopenai "github.com/sashabaranov/go-openai"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func proxyRequest(request *openai.ChatCompletionRequest, apiKey string) (int, []byte, error) {
+func proxyRequest(request *goopenai.ChatCompletionRequest, apiKey string) (int, []byte, error) {
 	jsonData, err := json.Marshal(request)
 
 	if err != nil {
@@ -50,9 +50,9 @@ func proxyRequest(request *openai.ChatCompletionRequest, apiKey string) (int, []
 func TestProxy_AccessControl(t *testing.T) {
 	t.Run("when request to proxy does not have an api key", func(t *testing.T) {
 		t.Skip()
-		request := &openai.ChatCompletionRequest{
+		request := &goopenai.ChatCompletionRequest{
 			Model: "gpt-4",
-			Messages: []openai.RequestMessage{
+			Messages: []goopenai.ChatCompletionMessage{
 				{
 					Role:    "system",
 					Content: "hi",
@@ -77,9 +77,9 @@ func TestProxy_AccessControl(t *testing.T) {
 
 		time.Sleep(2 * time.Second)
 
-		request := &openai.ChatCompletionRequest{
+		request := &goopenai.ChatCompletionRequest{
 			Model: "gpt-4",
-			Messages: []openai.RequestMessage{
+			Messages: []goopenai.ChatCompletionMessage{
 				{
 					Role:    "system",
 					Content: "hi",
@@ -105,9 +105,9 @@ func TestProxy_AccessControl(t *testing.T) {
 		require.Nil(t, err)
 
 		time.Sleep(2 * time.Second)
-		request := &openai.ChatCompletionRequest{
+		request := &goopenai.ChatCompletionRequest{
 			Model: "gpt-4",
-			Messages: []openai.RequestMessage{
+			Messages: []goopenai.ChatCompletionMessage{
 				{
 					Role:    "system",
 					Content: "hi",
@@ -137,9 +137,9 @@ func TestProxy_AccessControl(t *testing.T) {
 		require.Nil(t, err)
 
 		time.Sleep(2 * time.Second)
-		request := &openai.ChatCompletionRequest{
+		request := &goopenai.ChatCompletionRequest{
 			Model: "gpt-3.5-turbo",
-			Messages: []openai.RequestMessage{
+			Messages: []goopenai.ChatCompletionMessage{
 				{
 					Role:    "system",
 					Content: "hi",

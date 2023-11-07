@@ -1,35 +1,40 @@
 package openai
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+
+	goopenai "github.com/sashabaranov/go-openai"
 )
 
 var OpenAiPerThousandTokenCost = map[string]map[string]float64{
 	"prompt": {
-		"gpt-4":                  0.03,
-		"gpt-4-0314":             0.03,
-		"gpt-4-0613":             0.03,
-		"gpt-4-32k":              0.06,
-		"gpt-4-32k-0613":         0.06,
-		"gpt-4-32k-0314":         0.06,
-		"gpt-3.5-turbo":          0.0015,
-		"gpt-3.5-turbo-0301":     0.0015,
-		"gpt-3.5-turbo-instruct": 0.0015,
-		"gpt-3.5-turbo-0613":     0.0015,
-		"gpt-3.5-turbo-16k":      0.0015,
-		"gpt-3.5-turbo-16k-0613": 0.0015,
-		"text-davinci-003":       0.12,
-		"text-davinci-002":       0.12,
-		"code-davinci-002":       0.12,
-		"text-curie-001":         0.012,
-		"text-babbage-001":       0.0024,
-		"text-ada-001":           0.0016,
-		"davinci":                0.12,
-		"curie":                  0.012,
-		"babbage":                0.0024,
-		"ada":                    0.0016,
+		"gpt-4-1106-preview":        0.01,
+		"gpt-4-1106-vision-preview": 0.01,
+		"gpt-4":                     0.03,
+		"gpt-4-0314":                0.03,
+		"gpt-4-0613":                0.03,
+		"gpt-4-32k":                 0.06,
+		"gpt-4-32k-0613":            0.06,
+		"gpt-4-32k-0314":            0.06,
+		"gpt-3.5-turbo":             0.0015,
+		"gpt-3.5-turbo-0301":        0.0015,
+		"gpt-3.5-turbo-instruct":    0.0015,
+		"gpt-3.5-turbo-0613":        0.0015,
+		"gpt-3.5-turbo-16k":         0.0015,
+		"gpt-3.5-turbo-16k-0613":    0.0015,
+		"text-davinci-003":          0.12,
+		"text-davinci-002":          0.12,
+		"code-davinci-002":          0.12,
+		"text-curie-001":            0.012,
+		"text-babbage-001":          0.0024,
+		"text-ada-001":              0.0016,
+		"davinci":                   0.12,
+		"curie":                     0.012,
+		"babbage":                   0.0024,
+		"ada":                       0.0016,
 	},
 	"fine_tune": {
 		"text-davinci-003": 0.03,
@@ -47,18 +52,20 @@ var OpenAiPerThousandTokenCost = map[string]map[string]float64{
 		"text-embedding-ada-002": 0.0001,
 	},
 	"completion": {
-		"gpt-4":                  0.06,
-		"gpt-4-0314":             0.06,
-		"gpt-4-0613":             0.06,
-		"gpt-4-32k":              0.12,
-		"gpt-4-32k-0613":         0.12,
-		"gpt-4-32k-0314":         0.12,
-		"gpt-3.5-turbo":          0.002,
-		"gpt-3.5-turbo-0301":     0.002,
-		"gpt-3.5-turbo-0613":     0.002,
-		"gpt-3.5-turbo-instruct": 0.002,
-		"gpt-3.5-turbo-16k":      0.004,
-		"gpt-3.5-turbo-16k-0613": 0.004,
+		"gpt-4-1106-preview":        0.03,
+		"gpt-4-1106-vision-preview": 0.03,
+		"gpt-4":                     0.06,
+		"gpt-4-0314":                0.06,
+		"gpt-4-0613":                0.06,
+		"gpt-4-32k":                 0.12,
+		"gpt-4-32k-0613":            0.12,
+		"gpt-4-32k-0314":            0.12,
+		"gpt-3.5-turbo":             0.002,
+		"gpt-3.5-turbo-0301":        0.002,
+		"gpt-3.5-turbo-0613":        0.002,
+		"gpt-3.5-turbo-instruct":    0.002,
+		"gpt-3.5-turbo-16k":         0.004,
+		"gpt-3.5-turbo-16k-0613":    0.004,
 	},
 }
 
@@ -124,7 +131,7 @@ func (ce *CostEstimator) EstimateCompletionCost(model string, tks int) (float64,
 	return tksInFloat / 1000 * cost, nil
 }
 
-func (ce *CostEstimator) EstimateChatCompletionPromptCost(r *ChatCompletionRequest) (float64, error) {
+func (ce *CostEstimator) EstimateChatCompletionPromptCost(r *goopenai.ChatCompletionRequest) (float64, error) {
 	if len(r.Model) == 0 {
 		return 0, errors.New("model is not provided")
 	}
@@ -136,7 +143,7 @@ func (ce *CostEstimator) EstimateChatCompletionPromptCost(r *ChatCompletionReque
 	return ce.EstimatePromptCost(r.Model, tks)
 }
 
-func countFunctionTokens(r *ChatCompletionRequest, tc tokenCounter) (int, error) {
+func countFunctionTokens(r *goopenai.ChatCompletionRequest, tc tokenCounter) (int, error) {
 	if len(r.Functions) == 0 {
 		return 0, nil
 	}
@@ -151,7 +158,7 @@ func countFunctionTokens(r *ChatCompletionRequest, tc tokenCounter) (int, error)
 	return tks, nil
 }
 
-func formatFunctionDefinitions(r *ChatCompletionRequest) string {
+func formatFunctionDefinitions(r *goopenai.ChatCompletionRequest) string {
 	lines := []string{
 		"namespace functions {", "",
 	}
@@ -163,7 +170,16 @@ func formatFunctionDefinitions(r *ChatCompletionRequest) string {
 
 		if f.Parameters != nil {
 			lines = append(lines, fmt.Sprintf("type %s = (_: {`", f.Name))
-			lines = append(lines, formatObjectProperties(f.Parameters, 0))
+
+			params := &FuntionCallProp{}
+			data, err := json.Marshal(f.Parameters)
+			if err == nil {
+				err := json.Unmarshal(data, params)
+				if err == nil {
+					lines = append(lines, formatObjectProperties(params, 0))
+				}
+			}
+
 			lines = append(lines, "}) => any;")
 		}
 
@@ -178,7 +194,7 @@ func formatFunctionDefinitions(r *ChatCompletionRequest) string {
 	return strings.Join(lines, "\n")
 }
 
-func countMessageTokens(r *ChatCompletionRequest, tc tokenCounter) (int, error) {
+func countMessageTokens(r *goopenai.ChatCompletionRequest, tc tokenCounter) (int, error) {
 	if len(r.Messages) == 0 {
 		return 0, nil
 	}
@@ -229,7 +245,7 @@ func countMessageTokens(r *ChatCompletionRequest, tc tokenCounter) (int, error) 
 	return result, nil
 }
 
-func countTotalTokens(r *ChatCompletionRequest, tc tokenCounter) (int, error) {
+func countTotalTokens(r *goopenai.ChatCompletionRequest, tc tokenCounter) (int, error) {
 	if r == nil {
 		return 0, nil
 	}

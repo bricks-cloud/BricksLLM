@@ -13,9 +13,3 @@ type Logger interface {
 }
 
 type MessageType string
-
-const (
-	LlmMessageType   MessageType = "llm"
-	ApiMessageType   MessageType = "api"
-	ErrorMessageType MessageType = "error"
-)

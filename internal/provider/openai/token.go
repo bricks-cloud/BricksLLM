@@ -14,7 +14,7 @@ type encoder interface {
 }
 
 type TokenCounter struct {
-	encoderMap map[string]encoder
+	encoder encoder
 }
 
 func NewTokenCounter() (*TokenCounter, error) {
@@ -25,35 +25,12 @@ func NewTokenCounter() (*TokenCounter, error) {
 	}
 
 	return &TokenCounter{
-		encoderMap: map[string]encoder{
-			"gpt-4":                  e,
-			"gpt-4-0314":             e,
-			"gpt-4-0613":             e,
-			"gpt-4-32k":              e,
-			"gpt-4-32k-0613":         e,
-			"gpt-4-32k-0314":         e,
-			"gpt-3.5-turbo":          e,
-			"gpt-3.5-turbo-0301":     e,
-			"gpt-3.5-turbo-0613":     e,
-			"gpt-3.5-turbo-instruct": e,
-			"gpt-3.5-turbo-16k":      e,
-			"gpt-3.5-turbo-16k-0613": e,
-		},
+		encoder: e,
 	}, nil
 }
 
 func (tc *TokenCounter) Count(model string, input string) (int, error) {
-	encoder, ok := tc.encoderMap[model]
-	if !ok {
-		encoder, err := tiktoken.EncodingForModel(model)
-		if err != nil {
-			return 0, err
-		}
-
-		tc.encoderMap[model] = encoder
-	}
-
-	token := encoder.Encode(input, nil, nil)
+	token := tc.encoder.Encode(input, nil, nil)
 	return len(token), nil
 }
 
