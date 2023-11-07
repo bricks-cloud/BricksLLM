@@ -11,10 +11,11 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
-	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+
+	goopenai "github.com/sashabaranov/go-openai"
 )
 
 type rateLimitError interface {
@@ -36,7 +37,7 @@ type keyStorage interface {
 }
 
 type estimator interface {
-	EstimateChatCompletionPromptCost(r *openai.ChatCompletionRequest) (float64, error)
+	EstimateChatCompletionPromptCost(r *goopenai.ChatCompletionRequest) (float64, error)
 	EstimateTotalCost(model string, promptTks, completionTks int) (float64, error)
 }
 
@@ -53,8 +54,8 @@ type encrypter interface {
 }
 
 func JSON(c *gin.Context, code int, message string) {
-	c.JSON(code, &openai.ChatCompletionErrorResponse{
-		Error: &openai.ErrorContent{
+	c.JSON(code, &goopenai.ErrorResponse{
+		Error: &goopenai.APIError{
 			Message: message,
 			Code:    code,
 		},
@@ -136,7 +137,13 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 
 		kc := kms.GetKey(hash)
 		if kc == nil {
-			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
+			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is unauthorized")
+			c.Abort()
+			return
+		}
+
+		if kc.Revoked {
+			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key has been revoked")
 			c.Abort()
 			return
 		}
@@ -146,18 +153,14 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
 			logError(log, "error when reading request body", prod, id, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] error when reading the request body")
-			c.Abort()
 			return
 		}
 
 		c.Request.Body = io.NopCloser(bytes.NewReader(body))
-		ccr := &openai.ChatCompletionRequest{}
+		ccr := &goopenai.ChatCompletionRequest{}
 		err = json.Unmarshal(body, ccr)
 		if err != nil {
 			logError(log, "error when unmarshalling json", prod, id, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] error when parsing the request body")
-			c.Abort()
 			return
 		}
 
@@ -168,19 +171,10 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 		cost, err := e.EstimateChatCompletionPromptCost(ccr)
 		if err != nil {
 			logError(log, "error when estimating prompt cost", prod, id, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] error when estimating completion prompt cost")
-			c.Abort()
-			return
 		}
 
 		err = v.Validate(kc, cost, ccr.Model)
 		if err != nil {
-			if _, ok := err.(ValidationError); ok {
-				JSON(c, http.StatusUnauthorized, "[BricksLLM] api key has been revoked")
-				c.Abort()
-				return
-			}
-
 			if _, ok := err.(expirationError); ok {
 				truePtr := true
 				_, err = ks.UpdateKey(kc.KeyId, &key.UpdateKey{
@@ -204,16 +198,12 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 			}
 
 			logError(log, "error when validating api key", prod, id, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] error when validating the api request")
-			c.Abort()
 			return
 		}
 
 		if len(kc.RateLimitUnit) != 0 {
 			if err := rlm.Increment(kc.KeyId, kc.RateLimitUnit); err != nil {
 				logError(log, "error when incrementing rate limit counter", prod, id, err)
-				JSON(c, http.StatusInternalServerError, "[BricksLLM] unable to record rate limit")
-				c.Abort()
 				return
 			}
 		}
