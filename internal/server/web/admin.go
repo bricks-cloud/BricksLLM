@@ -60,7 +60,7 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 	router.DELETE("/api/key-management/keys/:id", getDeleteKeyHandler(m, log, prod))
 
 	router.GET("/api/reporting/keys/:id", getGetKeyReportingHandler(krm, log, prod))
-	router.GET("/api/reporting/events", getGetEventMetrics(krm, log, prod))
+	router.POST("/api/reporting/events", getGetEventMetrics(krm, log, prod))
 
 	router.PUT("/api/provider-settings", getCreateProviderSettingHandler(psm, log, prod))
 	router.PATCH("/api/provider-settings/:id", getUpdateProviderSettingHandler(psm, log, prod))
