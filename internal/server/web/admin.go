@@ -85,7 +85,7 @@ func (as *AdminServer) Run() {
 		as.log.Info("PORT 8001 | PATCH | /api/key-management/keys/:id is set up for updating a key using an id")
 		as.log.Info("PORT 8001 | PUT   | /api/provider-settings is set up for creating a provider setting")
 		as.log.Info("PORT 8001 | PATCH | /api/provider-settings:id is set up for updating provider setting")
-		as.log.Info("PORT 8001 | GET   | /api/reporting/events is set up for retrieving api metrics")
+		as.log.Info("PORT 8001 | POST  | /api/reporting/events is set up for retrieving api metrics")
 
 		if err := as.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			as.log.Sugar().Fatalf("error admin server listening: %v", err)

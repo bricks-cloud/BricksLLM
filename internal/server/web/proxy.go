@@ -158,7 +158,7 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 func (ps *ProxyServer) Run() {
 	go func() {
 		ps.log.Info("proxy server listening at 8002")
-		ps.log.Info("PORT 8002 | POST | /api/providers/openai/v1/chat/completions is ready for forwarding requests to openai")
+		ps.log.Info("PORT 8002 | POST  | /api/providers/openai/v1/chat/completions is ready for forwarding requests to openai")
 
 		if err := ps.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			ps.log.Sugar().Fatalf("error proxy server listening: %v", err)

@@ -344,6 +344,7 @@ func (s *Store) GetKeysByTag(tag string) ([]*key.ResponseKey, error) {
 	keys := []*key.ResponseKey{}
 	for rows.Next() {
 		var k key.ResponseKey
+		var settingId sql.NullString
 		if err := rows.Scan(
 			&k.Name,
 			&k.CreatedAt,
@@ -359,11 +360,15 @@ func (s *Store) GetKeysByTag(tag string) ([]*key.ResponseKey, error) {
 			&k.RateLimitOverTime,
 			&k.RateLimitUnit,
 			&k.Ttl,
-			&k.SettingId,
+			&settingId,
 		); err != nil {
 			return nil, err
 		}
-		keys = append(keys, &k)
+
+		pk := &k
+		pk.SettingId = settingId.String
+
+		keys = append(keys, pk)
 	}
 
 	return keys, nil
@@ -382,6 +387,8 @@ func (s *Store) GetKey(keyId string) (*key.ResponseKey, error) {
 	keys := []*key.ResponseKey{}
 	for rows.Next() {
 		var k key.ResponseKey
+		var settingId sql.NullString
+
 		if err := rows.Scan(
 			&k.Name,
 			&k.CreatedAt,
@@ -397,11 +404,15 @@ func (s *Store) GetKey(keyId string) (*key.ResponseKey, error) {
 			&k.RateLimitOverTime,
 			&k.RateLimitUnit,
 			&k.Ttl,
-			&k.SettingId,
+			&settingId,
 		); err != nil {
 			return nil, err
 		}
-		keys = append(keys, &k)
+
+		pk := &k
+		pk.SettingId = settingId.String
+
+		keys = append(keys, pk)
 	}
 
 	if len(keys) == 0 {
@@ -500,6 +511,7 @@ func (s *Store) GetAllKeys() ([]*key.ResponseKey, error) {
 	keys := []*key.ResponseKey{}
 	for rows.Next() {
 		var k key.ResponseKey
+		var settingId sql.NullString
 		if err := rows.Scan(
 			&k.Name,
 			&k.CreatedAt,
@@ -515,11 +527,15 @@ func (s *Store) GetAllKeys() ([]*key.ResponseKey, error) {
 			&k.RateLimitOverTime,
 			&k.RateLimitUnit,
 			&k.Ttl,
-			&k.SettingId,
+			&settingId,
 		); err != nil {
 			return nil, err
 		}
-		keys = append(keys, &k)
+
+		pk := &k
+		pk.SettingId = settingId.String
+
+		keys = append(keys, pk)
 	}
 
 	return keys, nil
@@ -574,6 +590,8 @@ func (s *Store) GetUpdatedKeys(interval time.Duration) ([]*key.ResponseKey, erro
 	keys := []*key.ResponseKey{}
 	for rows.Next() {
 		var k key.ResponseKey
+		var settingId sql.NullString
+
 		if err := rows.Scan(
 			&k.Name,
 			&k.CreatedAt,
@@ -589,11 +607,15 @@ func (s *Store) GetUpdatedKeys(interval time.Duration) ([]*key.ResponseKey, erro
 			&k.RateLimitOverTime,
 			&k.RateLimitUnit,
 			&k.Ttl,
-			&k.SettingId,
+			&settingId,
 		); err != nil {
 			return nil, err
 		}
-		keys = append(keys, &k)
+
+		pk := &k
+		pk.SettingId = settingId.String
+
+		keys = append(keys, pk)
 	}
 
 	return keys, nil
@@ -684,6 +706,7 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 	defer cancel()
 
 	var k key.ResponseKey
+	var settingId sql.NullString
 	if err := s.db.QueryRowContext(ctxTimeout, query, values...).Scan(
 		&k.Name,
 		&k.CreatedAt,
@@ -704,7 +727,10 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 		return nil, err
 	}
 
-	return &k, nil
+	pk := &k
+	pk.SettingId = settingId.String
+
+	return pk, nil
 }
 
 func (s *Store) UpdateProviderSetting(id string, setting *provider.Setting) (*provider.Setting, error) {
@@ -835,6 +861,8 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 	defer cancel()
 
 	var k key.ResponseKey
+
+	var settingId sql.NullString
 	if err := s.db.QueryRowContext(ctxTimeout, query, values...).Scan(
 		&k.Name,
 		&k.CreatedAt,
@@ -850,12 +878,15 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		&k.RateLimitOverTime,
 		&k.RateLimitUnit,
 		&k.Ttl,
-		&k.SettingId,
+		&settingId,
 	); err != nil {
 		return nil, err
 	}
 
-	return &k, nil
+	pk := &k
+	pk.SettingId = settingId.String
+
+	return pk, nil
 }
 
 func (s *Store) DeleteKey(id string) error {
