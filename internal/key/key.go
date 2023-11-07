@@ -26,6 +26,7 @@ type UpdateKey struct {
 	RateLimitOverTime      int      `json:"rateLimitOverTime"`
 	RateLimitUnit          TimeUnit `json:"rateLimitUnit"`
 	Ttl                    string   `json:"ttl"`
+	SettingId              string   `json:"settingId"`
 }
 
 func (uk *UpdateKey) Validate() error {
@@ -109,6 +110,7 @@ type RequestKey struct {
 	RateLimitOverTime      int      `json:"rateLimitOverTime"`
 	RateLimitUnit          TimeUnit `json:"rateLimitUnit"`
 	Ttl                    string   `json:"ttl"`
+	SettingId              string   `json:"settingId"`
 }
 
 func (rk *RequestKey) Validate() error {
@@ -139,6 +141,10 @@ func (rk *RequestKey) Validate() error {
 
 	if len(rk.KeyId) == 0 {
 		invalid = append(invalid, "keyId")
+	}
+
+	if len(rk.SettingId) == 0 {
+		invalid = append(invalid, "settingId")
 	}
 
 	if rk.CostLimitInUsd < 0 {
@@ -219,4 +225,5 @@ type ResponseKey struct {
 	RateLimitOverTime      int      `json:"rateLimitOverTime"`
 	RateLimitUnit          TimeUnit `json:"rateLimitUnit"`
 	Ttl                    string   `json:"ttl"`
+	SettingId              string   `json:"settingId"`
 }

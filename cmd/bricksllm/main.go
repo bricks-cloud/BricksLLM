@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bricks-cloud/bricksllm/internal/apikey"
 	"github.com/bricks-cloud/bricksllm/internal/config"
 	"github.com/bricks-cloud/bricksllm/internal/encrypter"
 	"github.com/bricks-cloud/bricksllm/internal/logger/zap"
@@ -55,28 +54,32 @@ func main() {
 		log.Sugar().Fatalf("error creating keys table: %v", err)
 	}
 
+	err = store.AlterKeysTable()
+	if err != nil {
+		log.Sugar().Fatalf("error altering keys table: %v", err)
+	}
+
 	err = store.CreateEventsTable()
 	if err != nil {
 		log.Sugar().Fatalf("error creating events table: %v", err)
 	}
 
-	err = store.CreateApiKeysTable()
+	err = store.CreateProviderSettingsTable()
 	if err != nil {
-		log.Sugar().Fatalf("error creating api keys table: %v", err)
+		log.Sugar().Fatalf("error creating provider settings table: %v", err)
 	}
 
 	memStore, err := memdb.NewMemDb(store, log, cfg.InMemoryDbUpdateInterval)
 	if err != nil {
 		log.Sugar().Fatalf("cannot initialize memdb: %v", err)
 	}
-
 	memStore.Listen()
 
-	apiKeyMemStore, err := memdb.NewApiKeyMemDb(store, log, cfg.InMemoryDbUpdateInterval)
+	psMemStore, err := memdb.NewProviderSettingsMemDb(store, log, cfg.InMemoryDbUpdateInterval)
 	if err != nil {
-		log.Sugar().Fatalf("cannot initialize api key memdb: %v", err)
+		log.Sugar().Fatalf("cannot initialize provider settings memdb: %v", err)
 	}
-	apiKeyMemStore.Listen()
+	psMemStore.Listen()
 
 	rateLimitRedisCache := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
@@ -120,17 +123,9 @@ func main() {
 	e := encrypter.NewEncrypter()
 	m := manager.NewManager(store, e)
 	krm := manager.NewReportingManager(costStorage, store, store)
-	apikm := manager.NewApiKeyManager(store, apiKeyMemStore)
+	psm := manager.NewProviderSettingsManager(store, psMemStore)
 
-	if len(cfg.OpenAiKey) != 0 {
-		apikm.SetKey(&apikey.RequestApiKey{
-			Provider: "openai",
-			Key:      cfg.OpenAiKey,
-			KeyName:  "apikey",
-		})
-	}
-
-	as, err := web.NewAdminServer(log, *modePtr, m, krm, apikm)
+	as, err := web.NewAdminServer(log, *modePtr, m, krm, psm)
 	if err != nil {
 		log.Sugar().Fatalf("error creating admin http server: %v", err)
 	}
@@ -147,7 +142,7 @@ func main() {
 	rec := recorder.NewRecorder(costStorage, costLimitCache, ce, store)
 	rlm := manager.NewRateLimitManager(rateLimitCache)
 
-	ps, err := web.NewProxyServer(log, *modePtr, *privacyPtr, m, apikm, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm)
+	ps, err := web.NewProxyServer(log, *modePtr, *privacyPtr, m, psm, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm)
 	if err != nil {
 		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}
@@ -159,7 +154,7 @@ func main() {
 	<-quit
 
 	memStore.Stop()
-	apiKeyMemStore.Stop()
+	psMemStore.Stop()
 
 	log.Sugar().Infof("shutting down server...")
 

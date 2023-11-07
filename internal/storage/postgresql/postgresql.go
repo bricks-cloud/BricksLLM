@@ -3,14 +3,16 @@ package postgresql
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/bricks-cloud/bricksllm/internal/apikey"
+	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
+	"github.com/bricks-cloud/bricksllm/internal/provider"
 
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
@@ -35,14 +37,14 @@ func NewStore(connStr string, wt time.Duration, rt time.Duration) (*Store, error
 	}, nil
 }
 
-func (s *Store) CreateApiKeysTable() error {
+func (s *Store) CreateProviderSettingsTable() error {
 	createTableQuery := `
-	CREATE TABLE IF NOT EXISTS apikeys (
-		key_id VARCHAR(255) PRIMARY KEY,
+	CREATE TABLE IF NOT EXISTS provider_settings (
+		id VARCHAR(255) PRIMARY KEY,
+		created_at BIGINT NOT NULL,
 		updated_at BIGINT NOT NULL,
-		key VARCHAR(255) NOT NULL,
-		key_name VARCHAR(255) NOT NULL,
-		provider VARCHAR(255)
+		provider VARCHAR(255) NOT NULL,
+		setting JSONB NOT NULL
 	)`
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -84,6 +86,21 @@ func (s *Store) CreateKeysTable() error {
 	return nil
 }
 
+func (s *Store) AlterKeysTable() error {
+	alterTableQuery := `
+		ALTER TABLE keys ADD COLUMN IF NOT EXISTS setting_id VARCHAR(255) NOT NULL;
+	`
+
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+	_, err := s.db.ExecContext(ctxTimeout, alterTableQuery)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *Store) CreateEventsTable() error {
 	createTableQuery := `
 	CREATE TABLE IF NOT EXISTS events (
@@ -110,8 +127,8 @@ func (s *Store) CreateEventsTable() error {
 	return nil
 }
 
-func (s *Store) DropApiKeysTable() error {
-	dropTableQuery := `DROP TABLE apikeys`
+func (s *Store) DropProviderSettingsTable() error {
+	dropTableQuery := `DROP TABLE provider_settings`
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()
 
@@ -342,6 +359,7 @@ func (s *Store) GetKeysByTag(tag string) ([]*key.ResponseKey, error) {
 			&k.RateLimitOverTime,
 			&k.RateLimitUnit,
 			&k.Ttl,
+			&k.SettingId,
 		); err != nil {
 			return nil, err
 		}
@@ -379,6 +397,7 @@ func (s *Store) GetKey(keyId string) (*key.ResponseKey, error) {
 			&k.RateLimitOverTime,
 			&k.RateLimitUnit,
 			&k.Ttl,
+			&k.SettingId,
 		); err != nil {
 			return nil, err
 		}
@@ -392,32 +411,80 @@ func (s *Store) GetKey(keyId string) (*key.ResponseKey, error) {
 	return keys[0], nil
 }
 
-func (s *Store) GetAllApiKeys() ([]*apikey.ResponseApiKey, error) {
+func (s *Store) GetProviderSetting(id string) (*provider.Setting, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
-	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM apikeys")
+	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM provider_settings WHERE $1 = id", id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	keys := []*apikey.ResponseApiKey{}
+	settings := []*provider.Setting{}
 	for rows.Next() {
-		var k apikey.ResponseApiKey
+		setting := &provider.Setting{}
+		var data []byte
 		if err := rows.Scan(
-			&k.Id,
-			&k.UpdatedAt,
-			&k.Key,
-			&k.KeyName,
-			&k.Provider,
+			&setting.Id,
+			&setting.CreatedAt,
+			&setting.UpdatedAt,
+			&setting.Provider,
+			&data,
 		); err != nil {
 			return nil, err
 		}
-		keys = append(keys, &k)
+
+		m := map[string]string{}
+		if err := json.Unmarshal(data, &m); err != nil {
+			return nil, err
+		}
+
+		setting.Setting = m
+		settings = append(settings, setting)
 	}
 
-	return keys, nil
+	if len(settings) == 1 {
+		return settings[0], nil
+	}
+
+	return nil, internal_errors.NewNotFoundError("provider setting is not found")
+}
+
+func (s *Store) GetAllProviderSettings() ([]*provider.Setting, error) {
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM provider_settings")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	settings := []*provider.Setting{}
+	for rows.Next() {
+		setting := &provider.Setting{}
+		var data []byte
+		if err := rows.Scan(
+			&setting.Id,
+			&setting.CreatedAt,
+			&setting.UpdatedAt,
+			&setting.Provider,
+			&data,
+		); err != nil {
+			return nil, err
+		}
+
+		m := map[string]string{}
+		if err := json.Unmarshal(data, &m); err != nil {
+			return nil, err
+		}
+
+		setting.Setting = m
+		settings = append(settings, setting)
+	}
+
+	return settings, nil
 }
 
 func (s *Store) GetAllKeys() ([]*key.ResponseKey, error) {
@@ -448,6 +515,7 @@ func (s *Store) GetAllKeys() ([]*key.ResponseKey, error) {
 			&k.RateLimitOverTime,
 			&k.RateLimitUnit,
 			&k.Ttl,
+			&k.SettingId,
 		); err != nil {
 			return nil, err
 		}
@@ -457,32 +525,40 @@ func (s *Store) GetAllKeys() ([]*key.ResponseKey, error) {
 	return keys, nil
 }
 
-func (s *Store) GetUpdatedApiKeys(interval time.Duration) ([]*apikey.ResponseApiKey, error) {
+func (s *Store) GetUpdatedProviderSettings(interval time.Duration) ([]*provider.Setting, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
-	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM apikeys WHERE updated_at >= $1", time.Now().Unix()-int64(interval.Seconds()))
+	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM provider_settings WHERE updated_at >= $1", time.Now().Unix()-int64(interval.Seconds()))
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	keys := []*apikey.ResponseApiKey{}
+	settings := []*provider.Setting{}
 	for rows.Next() {
-		var k apikey.ResponseApiKey
+		setting := &provider.Setting{}
+		var data []byte
 		if err := rows.Scan(
-			&k.Id,
-			&k.UpdatedAt,
-			&k.Key,
-			&k.KeyName,
-			&k.Provider,
+			&setting.Id,
+			&setting.CreatedAt,
+			&setting.UpdatedAt,
+			&setting.Provider,
+			&data,
 		); err != nil {
 			return nil, err
 		}
-		keys = append(keys, &k)
+
+		m := map[string]string{}
+		if err := json.Unmarshal(data, &m); err != nil {
+			return nil, err
+		}
+
+		setting.Setting = m
+		settings = append(settings, setting)
 	}
 
-	return keys, nil
+	return settings, nil
 }
 
 func (s *Store) GetUpdatedKeys(interval time.Duration) ([]*key.ResponseKey, error) {
@@ -513,6 +589,7 @@ func (s *Store) GetUpdatedKeys(interval time.Duration) ([]*key.ResponseKey, erro
 			&k.RateLimitOverTime,
 			&k.RateLimitUnit,
 			&k.Ttl,
+			&k.SettingId,
 		); err != nil {
 			return nil, err
 		}
@@ -595,6 +672,12 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 		counter++
 	}
 
+	if len(uk.SettingId) != 0 {
+		values = append(values, uk.SettingId)
+		fields = append(fields, fmt.Sprintf("setting_id = $%d", counter))
+		counter++
+	}
+
 	query := fmt.Sprintf("UPDATE keys SET %s WHERE key_id = $1 RETURNING *;", strings.Join(fields, ","))
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -616,6 +699,7 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 		&k.RateLimitOverTime,
 		&k.RateLimitUnit,
 		&k.Ttl,
+		&k.SettingId,
 	); err != nil {
 		return nil, err
 	}
@@ -623,20 +707,44 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 	return &k, nil
 }
 
-func (s *Store) UpsertApiKey(rk *apikey.RequestApiKey) error {
-	if len(rk.Provider) == 0 {
-		return errors.New("provider is empty")
+func (s *Store) UpdateProviderSetting(id string, setting *provider.Setting) (*provider.Setting, error) {
+	data, err := json.Marshal(setting.Setting)
+	if err != nil {
+		return nil, err
 	}
 
-	if len(rk.KeyName) == 0 {
-		return errors.New("key name is empty")
+	values := []any{
+		id,
+		data,
+		setting.UpdatedAt,
+	}
+
+	query := "UPDATE provider_settings SET setting = $2, updated_at = $3 WHERE id = $1 RETURNING id, created_at, updated_at, provider;"
+	updated := &provider.Setting{}
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+	if err := s.db.QueryRowContext(ctxTimeout, query, values...).Scan(
+		&updated.Id,
+		&updated.CreatedAt,
+		&updated.UpdatedAt,
+		&updated.Provider,
+	); err != nil {
+		return nil, err
+	}
+
+	return updated, nil
+}
+
+func (s *Store) CreateProviderSetting(setting *provider.Setting) (*provider.Setting, error) {
+	if len(setting.Provider) == 0 {
+		return nil, errors.New("provider is empty")
 	}
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()
-	duplicated, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM apikeys WHERE $1 = provider AND $2 = key_name", rk.Key, rk.KeyName)
+	duplicated, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM provider_settings WHERE $1 = id", setting.Id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer duplicated.Close()
 
@@ -646,40 +754,39 @@ func (s *Store) UpsertApiKey(rk *apikey.RequestApiKey) error {
 	}
 
 	if i > 0 {
-		values := []any{
-			rk.Provider,
-			rk.KeyName,
-			rk.Key,
-		}
-
-		query := "UPDATE apikeys SET key = $3 WHERE $1 = provider AND $2 = key_name"
-		if _, err := s.db.ExecContext(ctxTimeout, query, values...); err != nil {
-			return err
-		}
-
-		return nil
+		return nil, NewDuplicationError("key can not be duplicated")
 	}
 
 	query := `
-		INSERT INTO apikeys (key_id, updated_at, key, key_name, provider)
+		INSERT INTO provider_settings (id, created_at, updated_at, provider, setting)
 		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, created_at, updated_at, provider
 	`
 
+	data, err := json.Marshal(setting.Setting)
+	if err != nil {
+		return nil, err
+	}
+
 	values := []any{
-		rk.Id,
-		rk.UpdatedAt,
-		rk.Key,
-		rk.KeyName,
-		rk.Provider,
+		setting.Id,
+		setting.CreatedAt,
+		setting.UpdatedAt,
+		setting.Provider,
+		data,
 	}
 
-	ctxTimeout, cancel = context.WithTimeout(context.Background(), s.wt)
-	defer cancel()
-	if _, err := s.db.ExecContext(ctxTimeout, query, values...); err != nil {
-		return err
+	created := &provider.Setting{}
+	if err := s.db.QueryRowContext(ctxTimeout, query, values...).Scan(
+		&created.Id,
+		&created.CreatedAt,
+		&created.UpdatedAt,
+		&created.Provider,
+	); err != nil {
+		return nil, err
 	}
 
-	return nil
+	return created, nil
 }
 
 func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
@@ -701,8 +808,8 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 	}
 
 	query := `
-		INSERT INTO keys (name, created_at, updated_at, tags, revoked, key_id, key, revoked_reason, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		INSERT INTO keys (name, created_at, updated_at, tags, revoked, key_id, key, revoked_reason, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl, setting_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		RETURNING *;
 	`
 
@@ -721,6 +828,7 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		rk.RateLimitOverTime,
 		rk.RateLimitUnit,
 		rk.Ttl,
+		rk.SettingId,
 	}
 
 	ctxTimeout, cancel = context.WithTimeout(context.Background(), s.wt)
@@ -742,6 +850,7 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		&k.RateLimitOverTime,
 		&k.RateLimitUnit,
 		&k.Ttl,
+		&k.SettingId,
 	); err != nil {
 		return nil, err
 	}
