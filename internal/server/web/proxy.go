@@ -113,21 +113,21 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 			err = json.Unmarshal(bytes, chatRes)
 			if err != nil {
 				logError(log, "error when unmarshalling openai http response body", prod, id, err)
-				JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to parse openai response")
-				return
 			}
 
-			logResponse(log, prod, private, id, chatRes)
+			if err == nil {
+				logResponse(log, prod, private, id, chatRes)
 
-			cost, err = e.EstimateTotalCost(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
-			if err != nil {
-				logError(log, "error when estimating openai cost", prod, id, err)
-			}
+				cost, err = e.EstimateTotalCost(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
+				if err != nil {
+					logError(log, "error when estimating openai cost", prod, id, err)
+				}
 
-			micros := int64(cost * 1000000)
-			err = r.RecordKeySpend(kc.KeyId, chatRes.Model, micros, kc.CostLimitInUsdUnit)
-			if err != nil {
-				logError(log, "error when recording openai spend", prod, id, err)
+				micros := int64(cost * 1000000)
+				err = r.RecordKeySpend(kc.KeyId, chatRes.Model, micros, kc.CostLimitInUsdUnit)
+				if err != nil {
+					logError(log, "error when recording openai spend", prod, id, err)
+				}
 			}
 		}
 
