@@ -1,3 +1,10 @@
+## 1.0.2 - 2023-11-09
+### Added
+- Added Datadog integration
+
+### Fixed
+- Fixed bug with proxy not fetching existing provider settings
+
 ## 1.0.1 - 2023-11-07
 ### Added
 - Added support for gpt-4-turbo models in cost estimation

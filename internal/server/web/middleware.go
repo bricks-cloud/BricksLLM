@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
+	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -75,7 +77,8 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 		start := time.Now()
 
 		defer func() {
-			latency := int(time.Now().Sub(start).Milliseconds())
+			dur := time.Now().Sub(start)
+			latency := int(dur.Milliseconds())
 			raw, exists := c.Get("key")
 			var kc *key.ResponseKey
 			if exists {
@@ -94,6 +97,8 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 				tags = kc.Tags
 			}
 
+			stats.Timing("bricksllm.web.get_middleware.proxy_latency_in_ms", dur, nil, 1)
+
 			if prod {
 				log.Info("request to openai proxy",
 					zap.String(correlationId, c.GetString(correlationId)),
@@ -104,6 +109,10 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 					zap.Int("lantecyInMs", latency),
 				)
 			}
+
+			stats.Incr("bricksllm.web.get_middleware.responses", []string{
+				strconv.Itoa(c.Writer.Status()),
+			}, 1)
 
 			evt := &event.Event{
 				Id:                   util.NewUuid(),
@@ -121,12 +130,18 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 
 			err := r.RecordEvent(evt)
 			if err != nil {
+				stats.Incr("bricksllm.web.get_middleware.record_event_error", []string{
+					strconv.Itoa(c.Writer.Status()),
+				}, 1)
+
 				logError(log, "error when recording openai event", prod, cid, err)
 			}
 		}()
 
 		split := strings.Split(c.Request.Header.Get("Authorization"), "Bearer ")
 		if len(split) < 2 || len(split[1]) == 0 {
+			stats.Incr("bricksllm.web.get_middleware.missing_bearer_token", nil, 1)
+
 			JSON(c, http.StatusUnauthorized, "[BricksLLM] bearer token is not present")
 			c.Abort()
 			return
@@ -137,12 +152,16 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 
 		kc := kms.GetKey(hash)
 		if kc == nil {
+			stats.Incr("bricksllm.web.get_middleware.api_key_is_not_authorized", nil, 1)
+
 			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is unauthorized")
 			c.Abort()
 			return
 		}
 
 		if kc.Revoked {
+			stats.Incr("bricksllm.web.get_middleware.api_key_revoked", nil, 1)
+
 			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key has been revoked")
 			c.Abort()
 			return
@@ -170,12 +189,18 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 
 		cost, err := e.EstimateChatCompletionPromptCost(ccr)
 		if err != nil {
+			stats.Incr("bricksllm.web.get_middleware.estimate_chat_completion_prompt_cost_error", nil, 1)
+
 			logError(log, "error when estimating prompt cost", prod, id, err)
 		}
 
 		err = v.Validate(kc, cost, ccr.Model)
 		if err != nil {
+			stats.Incr("bricksllm.web.get_middleware.validation_error", nil, 1)
+
 			if _, ok := err.(expirationError); ok {
+				stats.Incr("bricksllm.web.get_middleware.key_expired", nil, 1)
+
 				truePtr := true
 				_, err = ks.UpdateKey(kc.KeyId, &key.UpdateKey{
 					Revoked:       &truePtr,
@@ -183,6 +208,7 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 				})
 
 				if err != nil {
+					stats.Incr("bricksllm.web.get_middleware.update_key_error", nil, 1)
 					log.Sugar().Debugf("error when updating revoking the api key %s: %v", kc.KeyId, err)
 				}
 
@@ -192,6 +218,7 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 			}
 
 			if _, ok := err.(rateLimitError); ok {
+				stats.Incr("bricksllm.web.get_middleware.rate_limited", nil, 1)
 				JSON(c, http.StatusTooManyRequests, "[BricksLLM] too many requests")
 				c.Abort()
 				return
@@ -203,8 +230,9 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 
 		if len(kc.RateLimitUnit) != 0 {
 			if err := rlm.Increment(kc.KeyId, kc.RateLimitUnit); err != nil {
+				stats.Incr("bricksllm.web.get_middleware.rate_limit_increment_error", nil, 1)
+
 				logError(log, "error when incrementing rate limit counter", prod, id, err)
-				return
 			}
 		}
 

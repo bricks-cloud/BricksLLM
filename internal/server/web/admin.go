@@ -11,6 +11,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
+	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -104,6 +105,14 @@ func (as *AdminServer) Shutdown(ctx context.Context) error {
 
 func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		stats.Incr("bricksllm.web.get_get_keys_handler.requests", nil, 1)
+
+		start := time.Now()
+		defer func() {
+			dur := time.Now().Sub(start)
+			stats.Timing("bricksllm.web.get_get_keys_handler.latency", dur, nil, 1)
+		}()
+
 		tag := c.Query("tag")
 		path := "/api/key-management/keys"
 		if len(tag) == 0 {
@@ -120,6 +129,8 @@ func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc
 		id := c.Param(correlationId)
 		keys, err := m.GetKeysByTag(tag)
 		if err != nil {
+			stats.Incr("bricksllm.web.get_get_keys_handler.get_keys_by_tag_err", nil, 1)
+
 			logError(log, "error when getting api keys by tag", prod, id, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/getting-keys",
@@ -131,6 +142,7 @@ func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc
 			return
 		}
 
+		stats.Incr("bricksllm.web.get_get_keys_handler.success", nil, 1)
 		c.JSON(http.StatusOK, keys)
 	}
 }
@@ -142,6 +154,14 @@ type ValidationError interface {
 
 func getCreateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		stats.Incr("bricksllm.web.get_create_provider_setting_handler.requests", nil, 1)
+
+		start := time.Now()
+		defer func() {
+			dur := time.Now().Sub(start)
+			stats.Timing("bricksllm.web.get_create_provider_setting_handler.latency", dur, nil, 1)
+		}()
+
 		path := "/api/provider-settings"
 		if c == nil || c.Request == nil {
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -184,7 +204,17 @@ func getCreateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 
 		created, err := m.CreateSetting(setting)
 		if err != nil {
+			errType := "internal"
+
+			defer func() {
+				stats.Incr("bricksllm.web.get_create_provider_setting_handler.create_setting_error", []string{
+					errType,
+				}, 1)
+			}()
+
 			if _, ok := err.(ValidationError); ok {
+				errType = "validation"
+
 				c.JSON(http.StatusBadRequest, &ErrorResponse{
 					Type:     "/errors/validation",
 					Title:    "provider setting validation failed",
@@ -206,12 +236,22 @@ func getCreateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 			return
 		}
 
+		stats.Incr("bricksllm.web.get_create_provider_setting_handler.success", nil, 1)
+
 		c.JSON(http.StatusOK, created)
 	}
 }
 
 func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		stats.Incr("bricksllm.web.get_create_key_handler.requests", nil, 1)
+
+		start := time.Now()
+		defer func() {
+			dur := time.Now().Sub(start)
+			stats.Timing("bricksllm.web.get_create_key_handler.latency", dur, nil, 1)
+		}()
+
 		path := "/api/key-management/keys"
 		if c == nil || c.Request == nil {
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -254,7 +294,17 @@ func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 
 		resk, err := m.CreateKey(rk)
 		if err != nil {
+			errType := "internal"
+
+			defer func() {
+				stats.Incr("bricksllm.web.get_create_key_handler.create_key_error", []string{
+					errType,
+				}, 1)
+			}()
+
 			if _, ok := err.(ValidationError); ok {
+				errType = "validation"
+
 				c.JSON(http.StatusBadRequest, &ErrorResponse{
 					Type:     "/errors/validation",
 					Title:    "key validation failed",
@@ -266,6 +316,8 @@ func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 			}
 
 			if _, ok := err.(notFoundError); ok {
+				errType = "not_found"
+
 				c.JSON(http.StatusNotFound, &ErrorResponse{
 					Type:     "/errors/not-found",
 					Title:    "key creation failed",
@@ -287,12 +339,22 @@ func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 			return
 		}
 
+		stats.Incr("bricksllm.web.get_create_key_handler.success", nil, 1)
+
 		c.JSON(http.StatusOK, resk)
 	}
 }
 
 func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		stats.Incr("bricksllm.web.get_update_provider_setting_handler.requests", nil, 1)
+
+		start := time.Now()
+		defer func() {
+			dur := time.Now().Sub(start)
+			stats.Timing("bricksllm.web.get_update_provider_setting_handler.latency", dur, nil, 1)
+		}()
+
 		path := "/api/provider-settings/:id"
 		if c == nil || c.Request == nil {
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -336,7 +398,16 @@ func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 
 		updated, err := m.UpdateSetting(id, setting)
 		if err != nil {
+			errType := "internal"
+
+			defer func() {
+				stats.Incr("bricksllm.web.get_update_provider_setting_handler.update_setting_error", []string{
+					errType,
+				}, 1)
+			}()
+
 			if _, ok := err.(ValidationError); ok {
+				errType = "validation"
 				c.JSON(http.StatusBadRequest, &ErrorResponse{
 					Type:     "/errors/validation",
 					Title:    "provider setting validation failed",
@@ -358,12 +429,22 @@ func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 			return
 		}
 
+		stats.Incr("bricksllm.web.get_update_provider_setting_handler.success", nil, 1)
+
 		c.JSON(http.StatusOK, updated)
 	}
 }
 
 func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		stats.Incr("bricksllm.web.get_update_key_handler.requests", nil, 1)
+
+		start := time.Now()
+		defer func() {
+			dur := time.Now().Sub(start)
+			stats.Timing("bricksllm.web.get_update_key_handler.latency", dur, nil, 1)
+		}()
+
 		path := "/api/key-management/keys/:id"
 		if c == nil || c.Request == nil {
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -419,7 +500,15 @@ func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 
 		resk, err := m.UpdateKey(id, uk)
 		if err != nil {
+			errType := "internal"
+			defer func() {
+				stats.Incr("bricksllm.web.get_update_key_handler.update_key_error", []string{
+					errType,
+				}, 1)
+			}()
+
 			if _, ok := err.(ValidationError); ok {
+				errType = "validation"
 				c.JSON(http.StatusBadRequest, &ErrorResponse{
 					Type:     "/errors/validation",
 					Title:    "key validation failed",
@@ -431,6 +520,8 @@ func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 			}
 
 			if _, ok := err.(notFoundError); ok {
+				errType = "not_found"
+
 				c.JSON(http.StatusNotFound, &ErrorResponse{
 					Type:     "/errors/not-found",
 					Title:    "update key failed",
@@ -451,6 +542,8 @@ func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 			})
 			return
 		}
+
+		stats.Incr("bricksllm.web.get_update_key_handler.success", nil, 1)
 
 		c.JSON(http.StatusOK, resk)
 	}
@@ -542,7 +635,16 @@ func validateEventReportingRequest(r *event.ReportingRequest) bool {
 
 func getGetEventMetrics(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		stats.Incr("bricksllm.web.get_get_event_metrics.requests", nil, 1)
+
+		start := time.Now()
+		defer func() {
+			dur := time.Now().Sub(start)
+			stats.Timing("bricksllm.web.get_get_event_metrics.latency", dur, nil, 1)
+		}()
+
 		path := "/api/reporting/events"
+
 		if c == nil || c.Request == nil {
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/empty-context",
@@ -583,6 +685,8 @@ func getGetEventMetrics(m KeyReportingManager, log *zap.Logger, prod bool) gin.H
 		}
 
 		if !validateEventReportingRequest(request) {
+			stats.Incr("bricksllm.web.get_get_event_metrics.request_not_valid", nil, 1)
+
 			err = fmt.Errorf("event reporting request %+v is not valid", request)
 			logError(log, "invalid reporting request", prod, cid, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -597,6 +701,8 @@ func getGetEventMetrics(m KeyReportingManager, log *zap.Logger, prod bool) gin.H
 
 		reportingResponse, err := m.GetEventReporting(request)
 		if err != nil {
+			stats.Incr("bricksllm.web.get_get_event_metrics.get_event_reporting_error", nil, 1)
+
 			logError(log, "error when getting event reporting", prod, cid, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/event-reporting-manager",
@@ -608,12 +714,22 @@ func getGetEventMetrics(m KeyReportingManager, log *zap.Logger, prod bool) gin.H
 			return
 		}
 
+		stats.Incr("bricksllm.web.get_get_event_metrics.success", nil, 1)
+
 		c.JSON(http.StatusOK, reportingResponse)
 	}
 }
 
 func getGetKeyReportingHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		stats.Incr("bricksllm.web.get_get_key_reporting_hanlder.requests", nil, 1)
+
+		start := time.Now()
+		defer func() {
+			dur := time.Now().Sub(start)
+			stats.Timing("bricksllm.web.get_get_key_reporting_hanlder.latency", dur, nil, 1)
+		}()
+
 		path := "/api/reporting/keys/:id"
 		if c == nil || c.Request == nil {
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -642,7 +758,17 @@ func getGetKeyReportingHandler(m KeyReportingManager, log *zap.Logger, prod bool
 
 		kr, err := m.GetKeyReporting(id)
 		if err != nil {
+			errType := "internal"
+
+			defer func() {
+				stats.Incr("bricksllm.web.get_get_key_reporting_hanlder.get_key_reporting_error", []string{
+					errType,
+				}, 1)
+			}()
+
 			if _, ok := err.(notFoundError); ok {
+				errType = "not_found"
+
 				logError(log, "key not found", prod, cid, err)
 				c.JSON(http.StatusInternalServerError, &ErrorResponse{
 					Type:     "/errors/key-not-found",
@@ -664,6 +790,8 @@ func getGetKeyReportingHandler(m KeyReportingManager, log *zap.Logger, prod bool
 			})
 			return
 		}
+
+		stats.Incr("bricksllm.web.get_get_key_reporting_hanlder.success", nil, 1)
 
 		c.JSON(http.StatusOK, kr)
 	}
