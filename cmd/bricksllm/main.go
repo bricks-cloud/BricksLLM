@@ -16,6 +16,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	"github.com/bricks-cloud/bricksllm/internal/recorder"
 	"github.com/bricks-cloud/bricksllm/internal/server/web"
+	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/bricks-cloud/bricksllm/internal/storage/memdb"
 	"github.com/bricks-cloud/bricksllm/internal/storage/postgresql"
 	redisStorage "github.com/bricks-cloud/bricksllm/internal/storage/redis"
@@ -37,6 +38,11 @@ func main() {
 	cfg, err := config.ParseEnvVariables()
 	if err != nil {
 		log.Sugar().Fatalf("cannot parse environment variables: %v", err)
+	}
+
+	err = stats.InitializeClient(cfg.StatsProvider)
+	if err != nil {
+		log.Sugar().Fatalf("cannot connect to telemetry provider: %v", err)
 	}
 
 	store, err := postgresql.NewStore(

@@ -10,6 +10,7 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
+	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/gin-gonic/gin"
 	goopenai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
@@ -54,6 +55,8 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, psm
 
 func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettingsManager, client http.Client, kms keyMemStorage, log *zap.Logger, enc encrypter, e estimator) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		stats.Incr("bricksllm.web.get_chat_completion_handler.requests", nil, 1)
+
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
 			return
@@ -70,6 +73,7 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 		raw, exists := c.Get("key")
 		kc, ok := raw.(*key.ResponseKey)
 		if !exists || !ok {
+			stats.Incr("bricksllm.web.get_chat_completion_handler.api_key_not_registered", nil, 1)
 			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
 			return
 		}
@@ -78,6 +82,8 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 
 		setting, err := psm.GetSetting(kc.SettingId)
 		if err != nil {
+			stats.Incr("bricksllm.web.get_chat_completion_handler.provider_setting_not_found", nil, 1)
+
 			logError(log, "openai api key is not set", prod, id, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] openai api key is not set")
 			return
@@ -85,6 +91,8 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 
 		key, ok := setting.Setting["apikey"]
 		if !ok || len(key) == 0 {
+			stats.Incr("bricksllm.web.get_chat_completion_handler.provider_setting_api_key_not_found", nil, 1)
+
 			logError(log, "openai api key is not found in setting", prod, id, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] openai api key is not found in setting")
 			return
@@ -92,13 +100,19 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", key))
 
+		start := time.Now()
+
 		res, err := client.Do(req)
 		if err != nil {
+			stats.Incr("bricksllm.web.get_chat_completion_handler.http_client_error", nil, 1)
+
 			logError(log, "error when sending http request to openai", prod, id, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send http request to openai")
 			return
 		}
 		defer res.Body.Close()
+		dur := time.Now().Sub(start)
+		stats.Timing("bricksllm.web.get_chat_completion_handler.latency", dur, nil, 1)
 
 		bytes, err := io.ReadAll(res.Body)
 		if err != nil {
@@ -110,6 +124,8 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 		var cost float64 = 0
 		chatRes := &goopenai.ChatCompletionResponse{}
 		if res.StatusCode == http.StatusOK {
+			stats.Timing("bricksllm.web.get_chat_completion_handler.success_latency", dur, nil, 1)
+
 			err = json.Unmarshal(bytes, chatRes)
 			if err != nil {
 				logError(log, "error when unmarshalling openai http response body", prod, id, err)
@@ -117,15 +133,16 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 
 			if err == nil {
 				logResponse(log, prod, private, id, chatRes)
-
 				cost, err = e.EstimateTotalCost(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
 				if err != nil {
+					stats.Incr("bricksllm.web.get_chat_completion_handler.estimate_total_cost_error", nil, 1)
 					logError(log, "error when estimating openai cost", prod, id, err)
 				}
 
 				micros := int64(cost * 1000000)
 				err = r.RecordKeySpend(kc.KeyId, chatRes.Model, micros, kc.CostLimitInUsdUnit)
 				if err != nil {
+					stats.Incr("bricksllm.web.get_chat_completion_handler.record_key_spend_error", nil, 1)
 					logError(log, "error when recording openai spend", prod, id, err)
 				}
 			}
@@ -136,6 +153,9 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 		c.Set("completionTokenCount", chatRes.Usage.CompletionTokens)
 
 		if res.StatusCode != http.StatusOK {
+			stats.Timing("bricksllm.web.get_chat_completion_handler.error_latency", dur, nil, 1)
+			stats.Incr("bricksllm.web.get_chat_completion_handler.error_response", nil, 1)
+
 			errorRes := &goopenai.ErrorResponse{}
 			err = json.Unmarshal(bytes, errorRes)
 			if err != nil {
@@ -150,6 +170,8 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 				c.Header(name, value)
 			}
 		}
+
+		stats.Incr("bricksllm.web.get_chat_completion_handler.success", nil, 1)
 
 		c.Data(res.StatusCode, "application/json", bytes)
 	}

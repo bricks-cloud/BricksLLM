@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
+	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"go.uber.org/zap"
 )
 
@@ -79,6 +80,8 @@ func (mdb *MemDb) Listen() {
 			case <-ticker.C:
 				keys, err := mdb.external.GetUpdatedKeys(mdb.interval)
 				if err != nil {
+					stats.Incr("bricksllm.memdb.memdb.listen.get_updated_keys_error", nil, 1)
+
 					mdb.log.Sugar().Debugf("memdb failed to update keys: %v", err)
 					continue
 				}
