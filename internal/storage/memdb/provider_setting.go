@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/provider"
+	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"go.uber.org/zap"
 )
 
@@ -23,9 +24,19 @@ type ProviderSettingsMemDb struct {
 }
 
 func NewProviderSettingsMemDb(ex ProviderSettingsStorage, log *zap.Logger, interval time.Duration) (*ProviderSettingsMemDb, error) {
+	m := map[string]*provider.Setting{}
+	settings, err := ex.GetAllProviderSettings()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, s := range settings {
+		m[s.Id] = s
+	}
+
 	return &ProviderSettingsMemDb{
 		external: ex,
-		settings: map[string]*provider.Setting{},
+		settings: m,
 		log:      log,
 		interval: interval,
 		done:     make(chan bool),
@@ -68,6 +79,8 @@ func (mdb *ProviderSettingsMemDb) Listen() {
 			case <-ticker.C:
 				settings, err := mdb.external.GetUpdatedProviderSettings(mdb.interval)
 				if err != nil {
+					stats.Incr("bricksllm.memdb.provider_settings_memdb.listen.get_updated_provider_settings", nil, 1)
+
 					mdb.log.Sugar().Debugf("priovider settings memdb failed to update a provider setting: %v", err)
 					continue
 				}
