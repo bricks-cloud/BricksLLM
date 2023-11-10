@@ -208,7 +208,7 @@ func getCreateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 
 			defer func() {
 				stats.Incr("bricksllm.web.get_create_provider_setting_handler.create_setting_error", []string{
-					errType,
+					"error_type:" + errType,
 				}, 1)
 			}()
 
@@ -298,7 +298,7 @@ func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 
 			defer func() {
 				stats.Incr("bricksllm.web.get_create_key_handler.create_key_error", []string{
-					errType,
+					"error_type:" + errType,
 				}, 1)
 			}()
 
@@ -402,7 +402,7 @@ func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 
 			defer func() {
 				stats.Incr("bricksllm.web.get_update_provider_setting_handler.update_setting_error", []string{
-					errType,
+					"error_type:" + errType,
 				}, 1)
 			}()
 
@@ -503,7 +503,7 @@ func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 			errType := "internal"
 			defer func() {
 				stats.Incr("bricksllm.web.get_update_key_handler.update_key_error", []string{
-					errType,
+					"error_type:" + errType,
 				}, 1)
 			}()
 
@@ -762,7 +762,7 @@ func getGetKeyReportingHandler(m KeyReportingManager, log *zap.Logger, prod bool
 
 			defer func() {
 				stats.Incr("bricksllm.web.get_get_key_reporting_hanlder.get_key_reporting_error", []string{
-					errType,
+					"error_type:" + errType,
 				}, 1)
 			}()
 

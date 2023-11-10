@@ -1,3 +1,8 @@
+## 1.0.3 - 2023-11-09
+### Fixed
+- Fixed Datadog tags being in the wrong format
+
+
 ## 1.0.2 - 2023-11-09
 ### Added
 - Added Datadog integration

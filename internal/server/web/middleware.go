@@ -111,7 +111,7 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 			}
 
 			stats.Incr("bricksllm.web.get_middleware.responses", []string{
-				strconv.Itoa(c.Writer.Status()),
+				"status:" + strconv.Itoa(c.Writer.Status()),
 			}, 1)
 
 			evt := &event.Event{
@@ -130,9 +130,7 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 
 			err := r.RecordEvent(evt)
 			if err != nil {
-				stats.Incr("bricksllm.web.get_middleware.record_event_error", []string{
-					strconv.Itoa(c.Writer.Status()),
-				}, 1)
+				stats.Incr("bricksllm.web.get_middleware.record_event_error", nil, 1)
 
 				logError(log, "error when recording openai event", prod, cid, err)
 			}
