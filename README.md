@@ -18,7 +18,7 @@ The vision of BricksLLM is to support many more large language models such as LL
 ## Roadmap
 - [x] Access control via API key with rate limit, cost limit and ttl
 - [x] Logging integration
-- [ ] Statsd integration :construction:
+- [x] Statsd integration :construction:
 - [ ] Routes configuration :construction:
 - [ ] PII detection and masking :construction:
 
@@ -35,32 +35,43 @@ git clone https://github.com/bricks-cloud/BricksLLM-Docker
 cd BricksLLM-Docker
 ```
 
-### Step 3 - Export your OpenAI API Key as environment variable
-```bash
-export OPENAI_API_KEY=YOUR_OPENAI_API_KEY
-```
-
-### Step 4 - Deploy BricksLLM with Postgresql and Redis
+### Step 3 - Deploy BricksLLM locally with Postgresql and Redis
 ```bash
 docker-compose up
 ```
 You can run this in detach mode use the -d flag: `docker-compose up -d`
 
-### Congradulations you are done!!!
-Create an API key through the [create key endpoint](#configuration-endpoints). For example, create a key with a rate limit of 2 req/min and a spend limit of 25 cents.
+
+### Step 4 - Create a provider setting
+```bash
+curl -X PUT http://localhost:8001/api/provider-settings \
+   -H "Content-Type: application/json" \
+   -d '{
+    "provider":"openai",
+    "setting": {
+        "apikey": "YOUR_OPENAI_KEY"
+    }
+}'   
+```
+Copy the `id` from the response.
+
+### Step 5 - Create a Bricks API key
+Use `id` from the previous step as `settingId` to create a key with a rate limit of 2 req/min and a spend limit of 25 cents.
 ```bash
 curl -X PUT http://localhost:8001/api/key-management/keys \
    -H "Content-Type: application/json" \
    -d '{
-          "name": "My Development Key",
-          "key": "my-secret-key",
-          "tags": ["mykey"],
-          "rateLimitOverTime": 2,
-          "rateLimitUnit": "m",
-          "costLimitInUsd": 0.25
+	      "name": "My Secret Key",
+	      "key": "my-secret-key",
+	      "tags": ["mykey"],
+        "settingId": "ID_FROM_STEP_FOUR"
+        "rateLimitOverTime": 2,
+        "rateLimitUnit": "m",
+        "costLimitInUsd": 0.25
       }'   
 ```
 
+### Congradulations you are done!!!
 Then, just redirect your requests to us and use OpenAI as you would normally. For example:
 ```bash
 curl -X POST http://localhost:8002/api/providers/openai/v1/chat/completions \
@@ -92,8 +103,7 @@ const openai = new OpenAI({
 ## Environment variables
 > | Name | type | description | default |
 > |---------------|-----------------------------------|----------|-|
-> | `OPENAI_API_KEY`         | required | OpenAI API Key |
-> | `POSTGRESQL_HOSTS`       | optional | Hosts for Postgresql DB. Seperated by , | `localhost` |
+> | `POSTGRESQL_HOSTS`       | required | Hosts for Postgresql DB. Seperated by , | `localhost` |
 > | `POSTGRESQL_DB_NAME`       | optional | Name for Postgresql DB. |
 > | `POSTGRESQL_USERNAME`         | required | Postgresql DB username |
 > | `POSTGRESQL_PASSWORD`         | required | Postgresql DB password |
@@ -106,7 +116,7 @@ const openai = new OpenAI({
 > | `REDIS_PORT`         | optional | The port that Redis DB runs on | `6379`
 > | `REDIS_READ_TIME_OUT`         | optional | Timeout for Redis read operations | `1s`
 > | `REDIS_WRITE_TIME_OUT`         | optional | Timeout for Redis write operations | `500ms`
-> | `IN_MEMORY_DB_UPDATE_INTERVAL`         | optional | The interval BricksLLM API gateway polls Postgresql DB for latest key configurations | `10s`
+> | `IN_MEMORY_DB_UPDATE_INTERVAL`         | optional | The interval BricksLLM API gateway polls Postgresql DB for latest key configurations | `1s`
 
 ## Configuration Endpoints
 The configuration server runs on Port `8001`.
@@ -130,7 +140,7 @@ This endpoint is set up for retrieving key configurations using a query param ca
 
 > | Field     | type | example                      |
 > |---------------|-----------------------------------|-|
-> | status         | `number` | 400            |
+> | status         | `int` | 400            |
 > | title         | `string` | request body reader error             |
 > | type         | `string` | /errors/request-body-read             |
 > | detail         | `string` | something is wrong            |
@@ -146,17 +156,16 @@ Fields of KeyConfiguration
 > | Field | type | example                      | description |
 > |---------------|-----------------------------------|-|-|
 > | name | `string` | spike's developer key | Name of the API key. |
-> | createdAt | `number` | 1257894000 | Key configuration creation time in unix.  |
-> | updatedAt | `number` | 1257894000 | Key configuration update time in unix.  |
+> | createdAt | `int64` | 1257894000 | Key configuration creation time in unix.  |
+> | updatedAt | `int64` | 1257894000 | Key configuration update time in unix.  |
 > | revoked | `boolean` | true | Indicator for whether the key is revoked.  |
 > | revokedReason | `string` | The key has expired | Reason for why the key is revoked.  |
 > | tags | `[]string` | ["org-tag-12345"]             | Identifiers associated with the key. |
 > | keyId | `string` | 550e8400-e29b-41d4-a716-446655440000 | Unique identifier for the key.  |
-> | costLimitInUsd | `number` | 5.5 | Total spend limit of the API key.
-> | costLimitInUsdOverTime | `string` | 2 | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
+> | costLimitInUsd | `float64` | `5.5` | Total spend limit of the API key.
+> | costLimitInUsdOverTime | `float64` | `2` | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
 > | costLimitInUsdUnit | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `m`, `s`, `d`].      |
-> | rateLimitOverTime | `string` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
-> | rateLimitOverTime | `string` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitOverTime | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | `string` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
 > | ttl | `string` | 2d | time to live. Available units are [`s`, `m`, `h`] |
 
@@ -173,10 +182,11 @@ This endpoint is set up for retrieving key configurations using a query param ca
 > | Field | type | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | name | required | `string` | spike's developer key | Name of the API key. |
-> | tags | optional | `[]string` | ["org-tag-12345"]             | Identifiers associated with the key. |
+> | tags | optional | `[]string` | `["org-tag-12345"] `            | Identifiers associated with the key. |
 > | key | required | `string` | abcdef12345 | API key |
-> | costLimitInUsd | optional | `number` | 5.5 | Total spend limit of the API key.
-> | costLimitInUsdOverTime | optional | `string` | 2 | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
+> | settingId | required | `string` | 98daa3ae-961d-4253-bf6a-322a32fdca3d | API key |
+> | costLimitInUsd | optional | `float64` | `5.5` | Total spend limit of the API key.
+> | costLimitInUsdOverTime | optional | `float64` | `2` | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
 > | costLimitInUsdUnit | optional | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `d`].      |
 > | rateLimitOverTime | optional | `string` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | optional | `enum` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
@@ -191,7 +201,7 @@ This endpoint is set up for retrieving key configurations using a query param ca
 
 > | Field     | type | example                      |
 > |---------------|-----------------------------------|-|
-> | status         | `number` | 400            |
+> | status         | `int` | `400`            |
 > | title         | `string` | request body reader error             |
 > | type         | `string` | /errors/request-body-read             |
 > | detail         | `string` | something is wrong            |
@@ -201,17 +211,17 @@ This endpoint is set up for retrieving key configurations using a query param ca
 > | Field | type | example                      | description |
 > |---------------|-----------------------------------|-|-|
 > | name | `string` | spike's developer key | Name of the API key. |
-> | createdAt | `number` | 1257894000 | Key configuration creation time in unix.  |
-> | updatedAt | `number` | 1257894000 | Key configuration update time in unix.  |
-> | revoked | `boolean` | true | Indicator for whether the key is revoked.  |
+> | createdAt | `int64` | `1257894000` | Key configuration creation time in unix.  |
+> | updatedAt | `int64` | `1257894000` | Key configuration update time in unix.  |
+> | revoked | `boolean` | `true` | Indicator for whether the key is revoked.  |
 > | revokedReason | `string` | The key has expired | Reason for why the key is revoked.  |
 > | tags | `[]string` | ["org-tag-12345"]             | Identifiers associated with the key. |
 > | keyId | `string` | 550e8400-e29b-41d4-a716-446655440000 | Unique identifier for the key.  |
-> | costLimitInUsd | `number` | 5.5 | Total spend limit of the API key.
-> | costLimitInUsdOverTime | `string` | 2 | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
+> | costLimitInUsd | `float64` | `5.5` | Total spend limit of the API key.
+> | costLimitInUsdOverTime | `float64` | 2 | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
 > | costLimitInUsdUnit | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `d`].      |
-> | rateLimitOverTime | `string` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
-> | rateLimitOverTime | `string` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitOverTime | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitOverTime | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | `string` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
 > | ttl | `string` | 2d | time to live. Available units are [`s`, `m`, `h`] |
 
@@ -232,12 +242,12 @@ This endpoint is set up for updating key configurations using key id.
 > | Field | type | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | name | optional | `string` | spike's developer key | Name of the API key. |
-> | tags | optional | `[]string` | ["org-tag-12345"]             | Identifiers associated with the key. |
-> | revoked | optional |  `boolean` | true | Indicator for whether the key is revoked.  |
+> | tags | optional | `[]string` | `["org-tag-12345"]`             | Identifiers associated with the key. |
+> | revoked | optional |  `boolean` | `true` | Indicator for whether the key is revoked.  |
 > | revokedReason| optional | `string` | The key has expired | Reason for why the key is revoked.  |
-> | costLimitInUsdOverTime | optional | `string` | 2 | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
+> | costLimitInUsdOverTime | optional | `float64` | `2` | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
 > | costLimitInUsdUnit | optional | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `d`].      |
-> | rateLimitOverTime | optional | `string` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitOverTime | optional | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | optional | `enum` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
 
 ##### Error Response
@@ -248,7 +258,7 @@ This endpoint is set up for updating key configurations using key id.
 
 > | Field     | type | example                      |
 > |---------------|-----------------------------------|-|
-> | status         | `number` | 400            |
+> | status         | `int` | 400            |
 > | title         | `string` | request body reader error             |
 > | type         | `string` | /errors/request-body-read             |
 > | detail         | `string` | something is wrong            |
@@ -258,52 +268,142 @@ This endpoint is set up for updating key configurations using key id.
 > | Field | type | example                      | description |
 > |---------------|-----------------------------------|-|-|
 > | name | `string` | spike's developer key | Name of the API key. |
-> | createdAt | `number` | 1257894000 | Key configuration creation time in unix.  |
-> | updatedAt | `number` | 1257894000 | Key configuration update time in unix.  |
-> | revoked | `boolean` | true | Indicator for whether the key is revoked.  |
+> | createdAt | `int64` | `1257894000` | Key configuration creation time in unix.  |
+> | updatedAt | `int64` | `1257894000` | Key configuration update time in unix.  |
+> | revoked | `boolean` | `true` | Indicator for whether the key is revoked.  |
 > | revokedReason | `string` | The key has expired | Reason for why the key is revoked.  |
-> | tags | `[]string` | ["org-tag-12345"]             | Identifiers associated with the key. |
+> | tags | `[]string` | `["org-tag-12345"]`           | Identifiers associated with the key. |
 > | keyId | `string` | 550e8400-e29b-41d4-a716-446655440000 | Unique identifier for the key.  |
-> | costLimitInUsd | `number` | 5.5 | Total spend limit of the API key.
-> | costLimitInUsdOverTime | `string` | 2 | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
+> | costLimitInUsd | `float64` | `5.5` | Total spend limit of the API key.
+> | costLimitInUsdOverTime | `float64` | `2` | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
 > | costLimitInUsdUnit | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `d`].      |
-> | rateLimitOverTime | `string` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
-> | rateLimitOverTime | `string` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitOverTime | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | `string` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
 > | ttl | `string` | 2d | time to live. Available units are [`s`, `m`, `h`] |
 
 </details>
 
 <details>
-  <summary>Get Key Reporting: <code>GET</code> <code><b>/api/reporting/keys/{keyId}</b></code></summary>
+  <summary>Create a provider setting: <code>POST</code> <code><b>/api/provider-settings</b></code></summary>
 
 ##### Description
-This endpoint is set up for retrieving the cumulative OpenAI cost of an API key.
+This endpoint is creating a provider setting .
 
-##### Parameters
-> | name   |  type      | data type      | description                                          |
-> |--------|------------|----------------|------------------------------------------------------|
-> | `keyId` |  required  | string         | Unique key configuration identifier.                  |
+##### Request
+> | Field | type | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | provider | required | `enum` | openai | This value can only be `openai` as for now. |
+> | setting | required | `object` | `{ "apikey": "YOUR_OPENAI_KEY" }`            | A map of values used for authenticating with the selected provider. |
+> | setting.apikey | required | `string` | xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx | This field is required if `provider` is `openai`. |
+
 
 ##### Error Response
 
 > | http code     | content-type                      |
 > |---------------|-----------------------------------|
-> | `400`, `500`, `404`         | `application/json`                |
+> | `400`, `500`         | `application/json`                |
 
 > | Field     | type | example                      |
 > |---------------|-----------------------------------|-|
-> | status         | `number` | 400            |
+> | status         | `int` | `400`            |
 > | title         | `string` | request body reader error             |
 > | type         | `string` | /errors/request-body-read             |
 > | detail         | `string` | something is wrong            |
-> | instance         | `string` | /api/key-management/keys            |
+> | instance         | `string` | /api/provider-settings           |
 
 ##### Response
 > | Field | type | example                      | description |
 > |---------------|-----------------------------------|-|-|
-> | keyId | `string` | 550e8400-e29b-41d4-a716-446655440000 | Unique identifier for the key.  |
-> | costInMicroDollars | `number` | 55 | Cumulative spend of the API key in micro dollars.
+> | createdAt | `int64` | `1699933571` | Unix timestamp for creation time.  |
+> | updatedAt | `int64` | `1699933571` | Unix timestamp for update time. |
+> | provider | `enum` | `openai` | This value can only be `openai` as for now. |
+> | id | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This value is a unique identifier |
+
+</details>
+
+<details>
+  <summary>Update a provider setting: <code>PATCH</code> <code><b>/api/provider-settings/:id</b></code></summary>
+
+##### Description
+This endpoint is updating a provider setting .
+
+##### Parameters
+> | name   |  type      | data type      | description                                          |
+> |--------|------------|----------------|------------------------------------------------------|
+> | `id` |  required  | `string`         | Unique identifier for the provider setting that you want to update.                  |
+
+##### Request
+> | Field | type | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | provider | required | `enum` | openai | This value can only be `openai` as for now. |
+> | setting | required | `object` | `{ "apikey": "YOUR_OPENAI_KEY" }`            | A map of values used for authenticating with the selected provider. |
+> | setting.apikey | required | `string` | xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx | This field is required if `provider` is `openai`. |
+
+##### Error Response
+
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `400`, `500`         | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `400`            |
+> | title         | `string` | request body reader error             |
+> | type         | `string` | /errors/request-body-read             |
+> | detail         | `string` | something is wrong            |
+> | instance         | `string` | /api/provider-settings           |
+
+##### Response
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | createdAt | `int64` | `1699933571` | Unix timestamp for creation time.  |
+> | updatedAt | `int64` | `1699933571` | Unix timestamp for update time. |
+> | provider | `enum` | `openai` | This value can only be `openai` as for now. |
+> | id | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This value is a unique identifier |
+
+</details>
+
+<details>
+  <summary>Retrieve Metrics: <code>POST</code> <code><b>/api/reporting/events</b></code></summary>
+
+##### Description
+This endpoint is retrieving aggregated metrics given an array of key ids and tags.
+
+##### Request
+> | Field | type | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | keyIds | required | `[]string` | `["key-1", "key-2", "key-3" ]` | Array of ids that specicify the keys that you want to aggregate stats from. |
+> | tags | required | `[]string` | `["tag-1", "tag-2"]`           | Array of tags that specicify the keys that you want to aggregate stats from. |
+> | start | required | `int64` | `1699933571` | Start timestamp for the requested timeseries data. |
+> | end | required | `int64` | `1699933571` | End timestamp for the requested timeseries data. |
+> | increment | required | `int` | `60` | This field is the increment in seconds for the requested timeseries data. |
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `500`         | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `400`            |
+> | title         | `string` | request body reader error             |
+> | type         | `string` | /errors/request-body-read             |
+> | detail         | `string` | something is wrong            |
+> | instance         | `string` | /api/provider-settings           |
+
+##### Response
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | dataPoints | `[]dataPoint` | `[{ "timeStamp": 1699933571, "numberOfRequests": 1, "costInUsd": 0.8, "latencyInMs": 600, "promptTokenCount": 0, "completionTokenCount": 0, "successCount": 1 }]` | Unix timestamp for creation time.  |
+> | latencyInMsMedian | `float64` | `656.7` | Median latency for the given time period. |
+> | latencyInMs99th | `float64` | `555.7` | 99th percentile latency for the given time period. |
+> | dataPoints.[].timeStamp | `int64` | `555.7` | Timestamp of the data point |
+> | dataPoints.[].numberOfRequests | `int64` | `555.7` | Aggregated number of http requests over the given time increment. |
+> | dataPoints.[].costInUsd | `int64` | `555.7` | Aggregated cost of http requests over the given time increment. |
+> | dataPoints.[].latencyInMs | `float64` | `555.7` | Aggregated latency of http requests over the given time increment. |
+> | dataPoints.[].promptTokenCount | `int` | `555.7` | Aggregated prompt token counts over the given time increment. |
+> | dataPoints.[].completionTokenCount | `int` | `555.7` | Aggregated completion token counts over the given time increment. |
+> | dataPoints.[].successCount | `int` | `555.7` | Aggregated number of successful http requests over the given time increment. |
 
 </details>
 
