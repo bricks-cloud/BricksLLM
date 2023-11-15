@@ -7,7 +7,9 @@ type DataPoint struct {
 	LatencyInMs          int     `json:"latencyInMs"`
 	PromptTokenCount     int     `json:"promptTokenCount"`
 	CompletionTokenCount int     `json:"completionTokenCount"`
-	SuccessCouunt        int     `json:"successCount"`
+	SuccessCount         int     `json:"successCount"`
+	Model                string  `json:"model"`
+	KeyId                string  `json:"keyId"`
 }
 
 type ReportingResponse struct {
@@ -22,4 +24,5 @@ type ReportingRequest struct {
 	Start     int64    `json:"start"`
 	End       int64    `json:"end"`
 	Increment int64    `json:"increment"`
+	Filters   []string `json:"filters"`
 }

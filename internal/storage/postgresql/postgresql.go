@@ -256,22 +256,39 @@ func (s *Store) GetLatencyPercentiles(start, end int64, tags, keyIds []string) (
 	return data, nil
 }
 
-func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []string) ([]*event.DataPoint, error) {
+func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []string, filters []string) ([]*event.DataPoint, error) {
+	groupByQuery := "GROUP BY time_series_table.series"
+	selectQuery := "SELECT series AS time_stamp, COALESCE(COUNT(events_table.event_id),0) AS num_of_requests, COALESCE(SUM(events_table.cost_in_usd),0) AS cost_in_usd, COALESCE(SUM(events_table.latency_in_ms),0) AS latency_in_ms, COALESCE(SUM(events_table.prompt_token_count),0) AS prompt_token_count, COALESCE(SUM(events_table.completion_token_count),0) AS completion_token_count, COALESCE(SUM(CASE WHEN status_code = 200 THEN 1 END),0) AS success_count"
+
+	if len(filters) != 0 {
+		for _, filter := range filters {
+			if filter == "model" {
+				groupByQuery += ",events_table.model"
+				selectQuery += ",events_table.model as model"
+			}
+
+			if filter == "keyId" {
+				groupByQuery += ",events_table.key_id"
+				selectQuery += ",events_table.key_id as keyId"
+			}
+		}
+	}
+
 	query := fmt.Sprintf(
 		`
 		,time_series_table AS
 		(
 			SELECT generate_series(%d, %d, %d) series
 		)
-		SELECT    series AS time_stamp, COALESCE(COUNT(events_table.event_id),0) AS num_of_requests, COALESCE(SUM(events_table.cost_in_usd),0) AS cost_in_usd, COALESCE(SUM(events_table.latency_in_ms),0) AS latency_in_ms, COALESCE(SUM(events_table.prompt_token_count),0) AS prompt_token_count, COALESCE(SUM(events_table.completion_token_count),0) AS completion_token_count, COALESCE(SUM(CASE WHEN status_code = 200 THEN 1 END),0) AS success_count
-		FROM      time_series_table
-		LEFT JOIN events_table
-		ON        events_table.created_at >= time_series_table.series 
-		AND       events_table.created_at < time_series_table.series + %d
-		GROUP BY  time_series_table.series
+		%s
+		FROM       time_series_table
+		RIGHT JOIN events_table
+		ON         events_table.created_at >= time_series_table.series 
+		AND        events_table.created_at < time_series_table.series + %d
+		%s
 		ORDER BY  time_series_table.series;
 		`,
-		start, end, increment, increment,
+		start, end, increment, selectQuery, increment, groupByQuery,
 	)
 
 	eventSelectionBlock := `
@@ -313,19 +330,42 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 	data := []*event.DataPoint{}
 	for rows.Next() {
 		var e event.DataPoint
-		if err := rows.Scan(
+		var model sql.NullString
+		var keyId sql.NullString
+
+		additional := []any{
 			&e.TimeStamp,
 			&e.NumberOfRequests,
 			&e.CostInUsd,
 			&e.LatencyInMs,
 			&e.PromptTokenCount,
 			&e.CompletionTokenCount,
-			&e.SuccessCouunt,
+			&e.SuccessCount,
+		}
+
+		if len(filters) != 0 {
+			for _, filter := range filters {
+				if filter == "model" {
+					additional = append(additional, &model)
+				}
+
+				if filter == "keyId" {
+					additional = append(additional, &keyId)
+				}
+			}
+		}
+
+		if err := rows.Scan(
+			additional...,
 		); err != nil {
 			return nil, err
 		}
 
-		data = append(data, &e)
+		pe := &e
+		pe.Model = model.String
+		pe.KeyId = keyId.String
+
+		data = append(data, pe)
 	}
 
 	return data, nil
