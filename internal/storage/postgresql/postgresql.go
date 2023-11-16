@@ -202,7 +202,7 @@ func (s *Store) GetLatencyPercentiles(start, end int64, tags, keyIds []string) (
 			SELECT * FROM events 
 	`
 
-	conditionBlock := fmt.Sprintf("WHERE created_at >= %d AND created_at <= %d", start, end)
+	conditionBlock := fmt.Sprintf("WHERE created_at >= %d AND created_at < %d ", start, end)
 	if len(tags) != 0 {
 		conditionBlock += fmt.Sprintf("AND tags @> '%s' ", sliceToSqlStringArray(tags))
 	}
@@ -282,7 +282,7 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 		)
 		%s
 		FROM       time_series_table
-		RIGHT JOIN events_table
+		LEFT JOIN  events_table
 		ON         events_table.created_at >= time_series_table.series 
 		AND        events_table.created_at < time_series_table.series + %d
 		%s
@@ -297,23 +297,16 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 			SELECT * FROM events 
 	`
 
-	conditionBlock := "WHERE "
+	conditionBlock := fmt.Sprintf("WHERE created_at >= %d AND created_at < %d ", start, end)
 	if len(tags) != 0 {
-		conditionBlock += fmt.Sprintf("tags @> '%s' ", sliceToSqlStringArray(tags))
-	}
-
-	if len(tags) != 0 && len(keyIds) != 0 {
-		conditionBlock += "AND "
+		conditionBlock += fmt.Sprintf("AND tags @> '%s' ", sliceToSqlStringArray(tags))
 	}
 
 	if len(keyIds) != 0 {
-		conditionBlock += fmt.Sprintf("key_id = ANY('%s')", sliceToSqlStringArray(keyIds))
+		conditionBlock += fmt.Sprintf("AND key_id = ANY('%s')", sliceToSqlStringArray(keyIds))
 	}
 
-	if len(tags) != 0 || len(keyIds) != 0 {
-		eventSelectionBlock += conditionBlock
-	}
-
+	eventSelectionBlock += conditionBlock
 	eventSelectionBlock += ")"
 
 	query = eventSelectionBlock + query
