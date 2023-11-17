@@ -12,7 +12,6 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
-	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -53,7 +52,9 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 	router := gin.New()
 
 	prod := mode == "production"
-	router.Use(getAdminLogger(log, "admin", prod))
+	router.Use(getAdminLoggerMiddleware(log, "admin", prod))
+
+	router.GET("/api/health", getGetHealthCheckHandler())
 
 	router.GET("/api/key-management/keys", getGetKeysHandler(m, log, prod))
 	router.PUT("/api/key-management/keys", getCreateKeyHandler(m, log, prod))
@@ -81,6 +82,7 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 func (as *AdminServer) Run() {
 	go func() {
 		as.log.Info("admin server listening at 8001")
+		as.log.Info("PORT 8001 | GET   | /api/health is set up for health checking the admin server")
 		as.log.Info("PORT 8001 | GET   | /api/key-management/keys is set up for retrieving keys using a query param called tag")
 		as.log.Info("PORT 8001 | PUT   | /api/key-management/keys is set up for creating a key")
 		as.log.Info("PORT 8001 | PATCH | /api/key-management/keys/:id is set up for updating a key using an id")
@@ -101,6 +103,12 @@ func (as *AdminServer) Shutdown(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func getGetHealthCheckHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	}
 }
 
 func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
@@ -126,12 +134,12 @@ func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc
 			return
 		}
 
-		id := c.Param(correlationId)
+		cid := c.GetString(correlationId)
 		keys, err := m.GetKeysByTag(tag)
 		if err != nil {
 			stats.Incr("bricksllm.web.get_get_keys_handler.get_keys_by_tag_err", nil, 1)
 
-			logError(log, "error when getting api keys by tag", prod, id, err)
+			logError(log, "error when getting api keys by tag", prod, cid, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/getting-keys",
 				Title:    "getting keys errored out",
@@ -174,7 +182,7 @@ func getCreateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 			return
 		}
 
-		cid := c.Param(correlationId)
+		cid := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
 			logError(log, "error when reading api key create request body", prod, cid, err)
@@ -368,7 +376,7 @@ func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 		}
 
 		id := c.Param("id")
-		cid := c.Param(correlationId)
+		cid := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
 			logError(log, "error when reading api key update request body", prod, cid, err)
@@ -458,7 +466,7 @@ func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 		}
 
 		id := c.Param("id")
-		cid := c.Param(correlationId)
+		cid := c.GetString(correlationId)
 		if len(id) == 0 {
 			c.JSON(http.StatusBadRequest, &ErrorResponse{
 				Type:     "/errors/missing-param-id",
@@ -549,28 +557,6 @@ func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 	}
 }
 
-func getAdminLogger(log *zap.Logger, prefix string, prod bool) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Set(correlationId, util.NewUuid())
-		start := time.Now()
-		c.Next()
-		latency := time.Now().Sub(start).Milliseconds()
-		if !prod {
-			log.Sugar().Infof("%s | %d | %s | %s | %dms", prefix, c.Writer.Status(), c.Request.Method, c.FullPath(), latency)
-		}
-
-		if prod {
-			log.Info("request to admin management api",
-				zap.String(correlationId, c.GetString(correlationId)),
-				zap.Int("code", c.Writer.Status()),
-				zap.String("method", c.Request.Method),
-				zap.String("path", c.FullPath()),
-				zap.Int64("lantecyInMs", latency),
-			)
-		}
-	}
-}
-
 func getDeleteKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := "/api/key-management/keys/:id"
@@ -586,7 +572,7 @@ func getDeleteKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 		}
 
 		id := c.Param("id")
-		cid := c.Param(correlationId)
+		cid := c.GetString(correlationId)
 		if len(id) == 0 {
 			c.JSON(http.StatusBadRequest, &ErrorResponse{
 				Type:     "/errors/missing-param-id",
@@ -656,7 +642,7 @@ func getGetEventMetrics(m KeyReportingManager, log *zap.Logger, prod bool) gin.H
 			return
 		}
 
-		cid := c.Param(correlationId)
+		cid := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
 			logError(log, "error when reading event reporting request body", prod, cid, err)
@@ -743,7 +729,7 @@ func getGetKeyReportingHandler(m KeyReportingManager, log *zap.Logger, prod bool
 		}
 
 		id := c.Param("id")
-		cid := c.Param(correlationId)
+		cid := c.GetString(correlationId)
 		if len(id) == 0 {
 			c.JSON(http.StatusBadRequest, &ErrorResponse{
 				Type:     "/errors/missing-param-id",
