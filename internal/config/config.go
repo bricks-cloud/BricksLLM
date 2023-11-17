@@ -15,6 +15,7 @@ type Config struct {
 	PostgresqlPort           string        `env:"POSTGRESQL_PORT" envDefault:"5432"`
 	RedisHosts               string        `env:"REDIS_HOSTS" envSeparator:":" envDefault:"localhost"`
 	RedisPort                string        `env:"REDIS_PORT" envDefault:"6379"`
+	RedisUsername            string        `env:"REDIS_USERNAME"`
 	RedisPassword            string        `env:"REDIS_PASSWORD"`
 	RedisReadTimeout         time.Duration `env:"REDIS_READ_TIME_OUT" envDefault:"1s"`
 	RedisWriteTimeout        time.Duration `env:"REDIS_WRITE_TIME_OUT" envDefault:"500ms"`
@@ -23,6 +24,7 @@ type Config struct {
 	InMemoryDbUpdateInterval time.Duration `env:"IN_MEMORY_DB_UPDATE_INTERVAL" envDefault:"1s"`
 	OpenAiKey                string        `env:"OPENAI_API_KEY"`
 	StatsProvider            string        `env:"STATS_PROVIDER"`
+	ProxyTimeout             time.Duration `env:"PROXY_TIMEOUT" envDefault:"180s"`
 }
 
 func ParseEnvVariables() (*Config, error) {
