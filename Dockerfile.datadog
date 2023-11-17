@@ -14,4 +14,4 @@ COPY --from=datadog/serverless-init:1-alpine /datadog-init /go/bin/datadog-init
 EXPOSE 8001 8002
 ENTRYPOINT ["/go/bin/datadog-init"]
 
-CMD ["/go/bin/bricksllm", "-m", "production", "-p", "verbose"]
+CMD ["/go/bin/bricksllm", "-m", "production"]
