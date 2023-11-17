@@ -14,4 +14,6 @@ type Event struct {
 	PromptTokenCount     int
 	CompletionTokenCount int
 	LatencyInMs          int
+	Path                 string
+	Method               string
 }
