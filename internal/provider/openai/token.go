@@ -14,23 +14,30 @@ type encoder interface {
 }
 
 type TokenCounter struct {
-	encoder encoder
 }
 
-func NewTokenCounter() (*TokenCounter, error) {
+func NewTokenCounter() *TokenCounter {
 	tiktoken.SetBpeLoader(tiktoken_loader.NewOfflineLoader())
-	e, err := tiktoken.GetEncoding("cl100k_base")
-	if err != nil {
-		return nil, err
-	}
-
-	return &TokenCounter{
-		encoder: e,
-	}, nil
+	return &TokenCounter{}
 }
 
 func (tc *TokenCounter) Count(model string, input string) (int, error) {
-	token := tc.encoder.Encode(input, nil, nil)
+	encoder, err := tiktoken.GetEncoding("r50k_base")
+	if err != nil {
+		return 0, err
+	}
+
+	if strings.HasPrefix(model, "text-search") || strings.HasPrefix(model, "text-similarity") {
+		token := encoder.Encode(input, nil, nil)
+		return len(token), nil
+	}
+
+	encoder, err = tiktoken.EncodingForModel(model)
+	if err != nil {
+		return 0, err
+	}
+
+	token := encoder.Encode(input, nil, nil)
 	return len(token), nil
 }
 
