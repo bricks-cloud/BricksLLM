@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,7 +32,7 @@ type recorder interface {
 	RecordEvent(e *event.Event) error
 }
 
-func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, psm ProviderSettingsManager, ks keyStorage, kms keyMemStorage, e estimator, v validator, r recorder, credential string, enc encrypter, rlm rateLimitManager) (*ProxyServer, error) {
+func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, psm ProviderSettingsManager, ks keyStorage, kms keyMemStorage, e estimator, v validator, r recorder, credential string, enc encrypter, rlm rateLimitManager, timeOut time.Duration) (*ProxyServer, error) {
 	router := gin.New()
 	prod := mode == "production"
 	private := mode == "strict"
@@ -40,7 +41,34 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, psm
 
 	client := http.Client{}
 
-	router.POST("/api/providers/openai/v1/chat/completions", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e))
+	router.POST("/api/health", getGetHealthCheckHandler())
+	router.POST("/api/providers/openai/v1/chat/completions", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+	// router.POST("/api/providers/openai/v1/embeddings", getEmbeddingHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+
+	// router.GET("/api/providers/openai/v1/assistants", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+	// router.POST("/api/providers/openai/v1/assistants", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+	// router.GET("/api/providers/openai/v1/assistants/:assistant_id", getEmbeddingHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+	// router.POST("/api/providers/openai/v1/assistants/:assistant_id", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+	// router.DELETE("/api/providers/openai/v1/assistants/:assistant_id", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+
+	// router.GET("/api/providers/openai/v1/assistants", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+	// router.POST("/api/providers/openai/v1/assistants", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+	// router.GET("/api/providers/openai/v1/assistants/:assistant_id", getEmbeddingHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+	// router.POST("/api/providers/openai/v1/assistants/:assistant_id", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+	// router.DELETE("/api/providers/openai/v1/assistants/:assistant_id", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+
+	// router.POST("/api/providers/openai/v1/threads", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+	// router.GET("/api/providers/openai/v1/threads/:thread_id", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+	// router.POST("/api/providers/openai/v1/threads/:thread_id", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+	// router.DELETE("/api/providers/openai/v1/threads/:thread_id", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+
+	// router.POST("/api/providers/openai/v1/threads/:thread_id/messages", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+	// router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+	// router.POST("/api/providers/openai/v1/threads/:thread_id/messages/:message_id", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+	// router.GET("/api/providers/openai/v1/threads/:thread_id/messages", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+
+	// router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files/:file_id", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+	// router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
 
 	srv := &http.Server{
 		Addr:    ":8002",
@@ -53,7 +81,218 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, psm
 	}, nil
 }
 
-func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettingsManager, client http.Client, kms keyMemStorage, log *zap.Logger, enc encrypter, e estimator) gin.HandlerFunc {
+func createAuthenticatedHttpRequest(ctx context.Context, c *gin.Context, log *zap.Logger, prod bool, psm ProviderSettingsManager, functionId, cid, settingId string, targetUrl string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetUrl, c.Request.Body)
+	if err != nil {
+		logError(log, "error when creating openai http request", prod, cid, err)
+		JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai http request")
+		return nil, errors.New("error creating http request")
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	setting, err := psm.GetSetting(settingId)
+	if err != nil {
+		stats.Incr(fmt.Sprintf("bricksllm.web.%s.provider_setting_not_found", functionId), nil, 1)
+
+		logError(log, "openai api key is not set", prod, cid, err)
+		JSON(c, http.StatusInternalServerError, "[BricksLLM] openai api key is not set")
+		return nil, errors.New("open ai key is not set")
+	}
+
+	key, ok := setting.Setting["apikey"]
+	if !ok || len(key) == 0 {
+		stats.Incr(fmt.Sprintf("bricksllm.web.%s.provider_setting_api_key_not_found", functionId), nil, 1)
+
+		logError(log, "openai api key is not found in setting", prod, cid, err)
+		JSON(c, http.StatusInternalServerError, "[BricksLLM] openai api key is not found in setting")
+		return nil, errors.New("open ai key is not found in setting")
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", key))
+	return req, nil
+}
+
+func getPassThroughHandler(r recorder, prod, private bool, psm ProviderSettingsManager, client http.Client, kms keyMemStorage, log *zap.Logger, enc encrypter, e estimator, timeOut time.Duration, targetUrl string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		stats.Incr("bricksllm.web.get_pass_through_handler.requests", nil, 1)
+
+		if c == nil || c.Request == nil {
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
+			return
+		}
+
+		raw, exists := c.Get("key")
+		kc, ok := raw.(*key.ResponseKey)
+		if !exists || !ok {
+			stats.Incr("bricksllm.web.get_pass_through_handler.api_key_not_registered", nil, 1)
+			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
+			return
+		}
+
+		id := c.GetString(correlationId)
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		defer cancel()
+
+		req, err := createAuthenticatedHttpRequest(ctx, c, log, prod, psm, "get_pass_through_handler", id, kc.SettingId, targetUrl)
+		if err != nil {
+			return
+		}
+
+		start := time.Now()
+
+		res, err := client.Do(req)
+		if err != nil {
+			stats.Incr("bricksllm.web.get_pass_through_handler.http_client_error", nil, 1)
+
+			logError(log, "error when sending embedding request to openai", prod, id, err)
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send embedding request to openai")
+			return
+		}
+		defer res.Body.Close()
+
+		dur := time.Now().Sub(start)
+		stats.Timing("bricksllm.web.get_pass_through_handler.latency", dur, nil, 1)
+
+		bytes, err := io.ReadAll(res.Body)
+		if err != nil {
+			logError(log, "error when reading openai embedding response body", prod, id, err)
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read openai embedding response body")
+			return
+		}
+
+		if res.StatusCode == http.StatusOK {
+			stats.Incr("bricksllm.web.get_pass_through_handler.success", nil, 1)
+			stats.Timing("bricksllm.web.get_pass_through_handler.success_latency", dur, nil, 1)
+		}
+
+		if res.StatusCode != http.StatusOK {
+			stats.Timing("bricksllm.web.get_pass_through_handler.error_latency", dur, nil, 1)
+			stats.Incr("bricksllm.web.get_pass_through_handler.error_response", nil, 1)
+
+			errorRes := &goopenai.ErrorResponse{}
+			err = json.Unmarshal(bytes, errorRes)
+			if err != nil {
+				logError(log, "error when unmarshalling openai pass through error response body", prod, id, err)
+			}
+
+			logOpenAiError(log, prod, id, errorRes)
+		}
+
+		for name, values := range res.Header {
+			for _, value := range values {
+				c.Header(name, value)
+			}
+		}
+
+		c.Data(res.StatusCode, "application/json", bytes)
+	}
+}
+
+func getEmbeddingHandler(r recorder, prod, private bool, psm ProviderSettingsManager, client http.Client, kms keyMemStorage, log *zap.Logger, enc encrypter, e estimator, timeOut time.Duration) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		stats.Incr("bricksllm.web.get_embedding_handler.requests", nil, 1)
+		if c == nil || c.Request == nil {
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
+			return
+		}
+
+		raw, exists := c.Get("key")
+		kc, ok := raw.(*key.ResponseKey)
+		if !exists || !ok {
+			stats.Incr("bricksllm.web.get_embedding_handler.api_key_not_registered", nil, 1)
+			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
+			return
+		}
+
+		id := c.GetString(correlationId)
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		defer cancel()
+
+		req, err := createAuthenticatedHttpRequest(ctx, c, log, prod, psm, "get_embedding_handler", id, kc.SettingId, "https://api.openai.com/v1/embeddings")
+		if err != nil {
+			return
+		}
+
+		start := time.Now()
+
+		res, err := client.Do(req)
+		if err != nil {
+			stats.Incr("bricksllm.web.get_embedding_handler.http_client_error", nil, 1)
+
+			logError(log, "error when sending embedding request to openai", prod, id, err)
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send embedding request to openai")
+			return
+		}
+		defer res.Body.Close()
+
+		dur := time.Now().Sub(start)
+		stats.Timing("bricksllm.web.get_embedding_handler.latency", dur, nil, 1)
+
+		bytes, err := io.ReadAll(res.Body)
+		if err != nil {
+			logError(log, "error when reading openai embedding response body", prod, id, err)
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read openai embedding response body")
+			return
+		}
+
+		var cost float64 = 0
+		chatRes := &goopenai.EmbeddingResponse{}
+		if res.StatusCode == http.StatusOK {
+			stats.Incr("bricksllm.web.get_embedding_handler.success", nil, 1)
+			stats.Timing("bricksllm.web.get_embedding_handler.success_latency", dur, nil, 1)
+
+			err = json.Unmarshal(bytes, chatRes)
+			if err != nil {
+				logError(log, "error when unmarshalling openai embedding response body", prod, id, err)
+			}
+
+			if err == nil {
+				logEmbeddingResponse(log, prod, private, id, chatRes)
+				cost, err = e.EstimateEmbeddingsInputCost(chatRes.Model.String(), chatRes.Usage.TotalTokens)
+				if err != nil {
+					stats.Incr("bricksllm.web.get_embedding_handler.estimate_total_cost_error", nil, 1)
+					logError(log, "error when estimating openai cost for embedding", prod, id, err)
+				}
+
+				micros := int64(cost * 1000000)
+				err = r.RecordKeySpend(kc.KeyId, chatRes.Model.String(), micros, kc.CostLimitInUsdUnit)
+				if err != nil {
+					stats.Incr("bricksllm.web.get_embedding_handler.record_key_spend_error", nil, 1)
+					logError(log, "error when recording openai spend for embedding", prod, id, err)
+				}
+			}
+		}
+
+		c.Set("costInUsd", cost)
+		c.Set("promptTokenCount", chatRes.Usage.PromptTokens)
+		c.Set("completionTokenCount", chatRes.Usage.CompletionTokens)
+
+		if res.StatusCode != http.StatusOK {
+			stats.Timing("bricksllm.web.get_embedding_handler.error_latency", dur, nil, 1)
+			stats.Incr("bricksllm.web.get_embedding_handler.error_response", nil, 1)
+
+			errorRes := &goopenai.ErrorResponse{}
+			err = json.Unmarshal(bytes, errorRes)
+			if err != nil {
+				logError(log, "error when unmarshalling openai embedding error response body", prod, id, err)
+			}
+
+			logOpenAiError(log, prod, id, errorRes)
+		}
+
+		for name, values := range res.Header {
+			for _, value := range values {
+				c.Header(name, value)
+			}
+		}
+
+		c.Data(res.StatusCode, "application/json", bytes)
+	}
+}
+
+func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettingsManager, client http.Client, kms keyMemStorage, log *zap.Logger, enc encrypter, e estimator, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.web.get_chat_completion_handler.requests", nil, 1)
 
@@ -62,7 +301,10 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 			return
 		}
 
-		req, err := http.NewRequest(http.MethodPost, "https://api.openai.com/v1/chat/completions", c.Request.Body)
+		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		defer cancel()
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/chat/completions", c.Request.Body)
 		id := c.GetString(correlationId)
 		if err != nil {
 			logError(log, "error when creating openai http request", prod, id, err)
@@ -116,7 +358,7 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 
 		bytes, err := io.ReadAll(res.Body)
 		if err != nil {
-			logError(log, "error when reading openai http response body", prod, id, err)
+			logError(log, "error when reading openai http chat completion response body", prod, id, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read openai response body")
 			return
 		}
@@ -124,15 +366,16 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 		var cost float64 = 0
 		chatRes := &goopenai.ChatCompletionResponse{}
 		if res.StatusCode == http.StatusOK {
+			stats.Incr("bricksllm.web.get_chat_completion_handler.success", nil, 1)
 			stats.Timing("bricksllm.web.get_chat_completion_handler.success_latency", dur, nil, 1)
 
 			err = json.Unmarshal(bytes, chatRes)
 			if err != nil {
-				logError(log, "error when unmarshalling openai http response body", prod, id, err)
+				logError(log, "error when unmarshalling openai http chat completion response body", prod, id, err)
 			}
 
 			if err == nil {
-				logResponse(log, prod, private, id, chatRes)
+				logChatCompletionResponse(log, prod, private, id, chatRes)
 				cost, err = e.EstimateTotalCost(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
 				if err != nil {
 					stats.Incr("bricksllm.web.get_chat_completion_handler.estimate_total_cost_error", nil, 1)
@@ -171,8 +414,6 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 			}
 		}
 
-		stats.Incr("bricksllm.web.get_chat_completion_handler.success", nil, 1)
-
 		c.Data(res.StatusCode, "application/json", bytes)
 	}
 }
@@ -180,7 +421,8 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 func (ps *ProxyServer) Run() {
 	go func() {
 		ps.log.Info("proxy server listening at 8002")
-		ps.log.Info("PORT 8002 | POST  | /api/providers/openai/v1/chat/completions is ready for forwarding requests to openai")
+		ps.log.Info("PORT 8002 | POST  | /api/providers/openai/v1/chat/completions is ready for forwarding chat completion requests to openai")
+		// ps.log.Info("PORT 8002 | POST  | /api/providers/openai/v1/embeddings is ready for forwarding embeddings requests to openai")
 
 		if err := ps.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			ps.log.Sugar().Fatalf("error proxy server listening: %v", err)
@@ -189,9 +431,56 @@ func (ps *ProxyServer) Run() {
 	}()
 }
 
-func logResponse(log *zap.Logger, prod, private bool, cid string, r *goopenai.ChatCompletionResponse) {
+func logEmbeddingResponse(log *zap.Logger, prod, private bool, cid string, r *goopenai.EmbeddingResponse) {
 	if prod {
-		log.Info("openai response",
+		log.Info("openai chat completion response",
+			zap.Time("createdAt", time.Now()),
+			zap.String(correlationId, cid),
+			zap.Object("response", zapcore.ObjectMarshalerFunc(
+				func(enc zapcore.ObjectEncoder) error {
+					enc.AddString("object", r.Object)
+					enc.AddString("model", r.Model.String())
+					enc.AddArray("data", zapcore.ArrayMarshalerFunc(
+						func(enc zapcore.ArrayEncoder) error {
+							for _, d := range r.Data {
+								enc.AppendObject(zapcore.ObjectMarshalerFunc(
+									func(enc zapcore.ObjectEncoder) error {
+										enc.AddInt("index", d.Index)
+										enc.AddString("object", d.Object)
+										enc.AddArray("embedding", zapcore.ArrayMarshalerFunc(
+											func(enc zapcore.ArrayEncoder) error {
+												for _, e := range d.Embedding {
+													enc.AppendFloat32(e)
+												}
+												return nil
+											}))
+
+										return nil
+									},
+								))
+							}
+							return nil
+						},
+					))
+
+					enc.AddObject("usage", zapcore.ObjectMarshalerFunc(
+						func(enc zapcore.ObjectEncoder) error {
+							enc.AddInt("prompt_tokens", r.Usage.PromptTokens)
+							enc.AddInt("completion_tokens", r.Usage.CompletionTokens)
+							enc.AddInt("total_tokens", r.Usage.TotalTokens)
+							return nil
+						},
+					))
+					return nil
+				},
+			)),
+		)
+	}
+}
+
+func logChatCompletionResponse(log *zap.Logger, prod, private bool, cid string, r *goopenai.ChatCompletionResponse) {
+	if prod {
+		log.Info("openai chat completion response",
 			zap.Time("createdAt", time.Now()),
 			zap.String(correlationId, cid),
 			zap.Object("response", zapcore.ObjectMarshalerFunc(
@@ -240,9 +529,23 @@ func logResponse(log *zap.Logger, prod, private bool, cid string, r *goopenai.Ch
 	}
 }
 
+func logEmbeddingRequest(log *zap.Logger, prod, private bool, id string, r *goopenai.EmbeddingRequest) {
+	if prod {
+		fields := []zapcore.Field{
+			zap.String(correlationId, id),
+			zap.String("model", r.Model.String()),
+			zap.String("encoding_format", string(r.EncodingFormat)),
+			zap.String("user", r.User),
+			zap.Any("input", r.Input),
+		}
+
+		log.Info("openai embedding request", fields...)
+	}
+}
+
 func logRequest(log *zap.Logger, prod, private bool, id string, r *goopenai.ChatCompletionRequest) {
 	if prod {
-		log.Info("openai request",
+		log.Info("openai chat completion request",
 			zap.Time("createdAt", time.Now()),
 			zap.String(correlationId, id),
 			zap.Object("request", zapcore.ObjectMarshalerFunc(
