@@ -40,7 +40,9 @@ type keyStorage interface {
 
 type estimator interface {
 	EstimateChatCompletionPromptCost(r *goopenai.ChatCompletionRequest) (float64, error)
+	EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (float64, error)
 	EstimateTotalCost(model string, promptTks, completionTks int) (float64, error)
+	EstimateEmbeddingsInputCost(model string, tks int) (float64, error)
 }
 
 type validator interface {
@@ -64,10 +66,37 @@ func JSON(c *gin.Context, code int, message string) {
 	})
 }
 
+func getAdminLoggerMiddleware(log *zap.Logger, prefix string, prod bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set(correlationId, util.NewUuid())
+		start := time.Now()
+		c.Next()
+		latency := time.Now().Sub(start).Milliseconds()
+		if !prod {
+			log.Sugar().Infof("%s | %d | %s | %s | %dms", prefix, c.Writer.Status(), c.Request.Method, c.FullPath(), latency)
+		}
+
+		if prod {
+			log.Info("request to admin management api",
+				zap.String(correlationId, c.GetString(correlationId)),
+				zap.Int("code", c.Writer.Status()),
+				zap.String("method", c.Request.Method),
+				zap.String("path", c.FullPath()),
+				zap.Int64("lantecyInMs", latency),
+			)
+		}
+	}
+}
+
 func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validator, ks keyStorage, log *zap.Logger, enc encrypter, rlm rateLimitManager, r recorder, prefix string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] request is empty")
+			c.Abort()
+			return
+		}
+
+		if c.FullPath() == "/api/health" {
 			c.Abort()
 			return
 		}
@@ -100,7 +129,7 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 			stats.Timing("bricksllm.web.get_middleware.proxy_latency_in_ms", dur, nil, 1)
 
 			if prod {
-				log.Info("request to openai proxy",
+				log.Info("response to openai proxy",
 					zap.String(correlationId, c.GetString(correlationId)),
 					zap.String("keyId", keyId),
 					zap.Int("code", c.Writer.Status()),
@@ -126,6 +155,8 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 				PromptTokenCount:     c.GetInt("promptTokenCount"),
 				CompletionTokenCount: c.GetInt("completionTokenCount"),
 				LatencyInMs:          latency,
+				Path:                 c.FullPath(),
+				Method:               c.Request.Method,
 			}
 
 			err := r.RecordEvent(evt)
@@ -166,33 +197,127 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 		}
 
 		c.Set("key", kc)
-		id := c.GetString(correlationId)
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading request body", prod, id, err)
+			logError(log, "error when reading request body", prod, cid, err)
 			return
 		}
 
 		c.Request.Body = io.NopCloser(bytes.NewReader(body))
-		ccr := &goopenai.ChatCompletionRequest{}
-		err = json.Unmarshal(body, ccr)
-		if err != nil {
-			logError(log, "error when unmarshalling json", prod, id, err)
-			return
+
+		var cost float64 = 0
+		model := ""
+		if strings.HasSuffix(c.FullPath(), "/chat/completions") {
+			ccr := &goopenai.ChatCompletionRequest{}
+			err = json.Unmarshal(body, ccr)
+			if err != nil {
+				logError(log, "error when unmarshalling chat completion request", prod, cid, err)
+				return
+			}
+
+			model = ccr.Model
+			c.Set("model", ccr.Model)
+
+			logRequest(log, prod, private, cid, ccr)
+
+			cost, err = e.EstimateChatCompletionPromptCost(ccr)
+			if err != nil {
+				stats.Incr("bricksllm.web.get_middleware.estimate_chat_completion_prompt_cost_error", nil, 1)
+
+				logError(log, "error when estimating prompt cost", prod, cid, err)
+			}
+
 		}
 
-		c.Set("model", ccr.Model)
+		// if strings.HasSuffix(c.FullPath(), "/embeddings") {
+		// 	er := &goopenai.EmbeddingRequest{}
+		// 	err = json.Unmarshal(body, er)
+		// 	if err != nil {
+		// 		logError(log, "error when unmarshalling embedding request", prod, cid, err)
+		// 		return
+		// 	}
 
-		logRequest(log, prod, private, id, ccr)
+		// 	model = er.Model.String()
+		// 	c.Set("model", er.Model.String())
 
-		cost, err := e.EstimateChatCompletionPromptCost(ccr)
-		if err != nil {
-			stats.Incr("bricksllm.web.get_middleware.estimate_chat_completion_prompt_cost_error", nil, 1)
+		// 	logEmbeddingRequest(log, prod, private, cid, er)
 
-			logError(log, "error when estimating prompt cost", prod, id, err)
-		}
+		// 	cost, err = e.EstimateEmbeddingsCost(er)
+		// 	if err != nil {
+		// 		stats.Incr("bricksllm.web.get_middleware.estimate_embeddings_cost_error", nil, 1)
+		// 		logError(log, "error when estimating embeddings cost", prod, cid, err)
+		// 	}
+		// }
 
-		err = v.Validate(kc, cost, ccr.Model)
+		// if c.FullPath() == "/assistants" && c.Request.Method == http.MethodPost {
+		// 	logCreateAssistantRequest(log, body, prod, private, cid)
+		// }
+
+		// if strings.HasSuffix(c.FullPath(), "/assistants/:assistant_id") && c.Request.Method == http.MethodGet {
+		// 	assistantId := c.Param("assistant_id")
+		// 	logRetrieveAssistantRequest(log, body, prod, cid, assistantId)
+		// }
+
+		// if strings.HasSuffix(c.FullPath(), "/assistants") && c.Request.Method == http.MethodGet {
+		// 	logListAssistantsRequest(log, prod, cid)
+		// }
+
+		// if strings.HasSuffix(c.FullPath(), "/assistants/:assistant_id") && c.Request.Method == http.MethodDelete {
+		// 	assistantId := c.Param("assistant_id")
+		// 	logDeleteAssistantRequest(log, body, prod, cid, assistantId)
+		// }
+
+		// if strings.HasSuffix(c.FullPath(), "/assistants/:id") && c.Request.Method == http.MethodPost {
+		// 	assistantId := c.Param("id")
+		// 	ar := &goopenai.AssistantRequest{}
+		// 	err = json.Unmarshal(body, ar)
+		// 	if err != nil {
+		// 		logError(log, "error when unmarshalling assistant request", prod, cid, err)
+		// 		return
+		// 	}
+
+		// 	if prod {
+		// 		fields := []zapcore.Field{
+		// 			zap.String(correlationId, cid),
+		// 			zap.String("id", assistantId),
+		// 			zap.String("model", ar.Model),
+		// 			zap.Any("tools", ar.Tools),
+		// 			zap.Any("file_ids", ar.FileIDs),
+		// 			zap.Any("metadata", ar.Metadata),
+		// 		}
+
+		// 		if ar.Name != nil {
+		// 			fields = append(fields, zap.String("name", *ar.Name))
+		// 		}
+
+		// 		if ar.Description != nil {
+		// 			fields = append(fields, zap.String("description", *ar.Description))
+		// 		}
+
+		// 		if !private {
+		// 			if ar.Instructions != nil {
+		// 				fields = append(fields, zap.String("instructions", *ar.Instructions))
+		// 			}
+		// 		}
+
+		// 		log.Info("openai modify assistant request", fields...)
+		// 	}
+		// }
+
+		// if strings.HasSuffix(c.FullPath(), "/assistants/:id") && c.Request.Method == http.MethodDelete {
+		// 	assistantId := c.Param("id")
+
+		// 	if prod {
+		// 		fields := []zapcore.Field{
+		// 			zap.String(correlationId, cid),
+		// 			zap.String("id", assistantId),
+		// 		}
+
+		// 		log.Info("openai delete assistant request", fields...)
+		// 	}
+		// }
+
+		err = v.Validate(kc, cost, model)
 		if err != nil {
 			stats.Incr("bricksllm.web.get_middleware.validation_error", nil, 1)
 
@@ -222,7 +347,7 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 				return
 			}
 
-			logError(log, "error when validating api key", prod, id, err)
+			logError(log, "error when validating api key", prod, cid, err)
 			return
 		}
 
@@ -230,7 +355,7 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 			if err := rlm.Increment(kc.KeyId, kc.RateLimitUnit); err != nil {
 				stats.Incr("bricksllm.web.get_middleware.rate_limit_increment_error", nil, 1)
 
-				logError(log, "error when incrementing rate limit counter", prod, id, err)
+				logError(log, "error when incrementing rate limit counter", prod, cid, err)
 			}
 		}
 
