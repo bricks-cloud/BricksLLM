@@ -127,6 +127,21 @@ func (s *Store) CreateEventsTable() error {
 	return nil
 }
 
+func (s *Store) AlterEventsTable() error {
+	alterTableQuery := `
+		ALTER TABLE events ADD COLUMN IF NOT EXISTS path VARCHAR(255), ADD COLUMN IF NOT EXISTS method VARCHAR(255)
+	`
+
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+	_, err := s.db.ExecContext(ctxTimeout, alterTableQuery)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *Store) DropProviderSettingsTable() error {
 	dropTableQuery := `DROP TABLE provider_settings`
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -168,8 +183,8 @@ func (s *Store) DropKeysTable() error {
 
 func (s *Store) InsertEvent(e *event.Event) error {
 	query := `
-		INSERT INTO events (event_id, created_at, tags, key_id, cost_in_usd, provider, model, status_code, prompt_token_count, completion_token_count, latency_in_ms)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		INSERT INTO events (event_id, created_at, tags, key_id, cost_in_usd, provider, model, status_code, prompt_token_count, completion_token_count, latency_in_ms, path, method)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 
 	values := []any{
@@ -184,6 +199,8 @@ func (s *Store) InsertEvent(e *event.Event) error {
 		e.PromptTokenCount,
 		e.CompletionTokenCount,
 		e.LatencyInMs,
+		e.Path,
+		e.Method,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -574,11 +591,11 @@ func (s *Store) GetAllKeys() ([]*key.ResponseKey, error) {
 	return keys, nil
 }
 
-func (s *Store) GetUpdatedProviderSettings(interval time.Duration) ([]*provider.Setting, error) {
+func (s *Store) GetUpdatedProviderSettings(updatedAt int64) ([]*provider.Setting, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
-	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM provider_settings WHERE updated_at >= $1", time.Now().Unix()-int64(interval.Seconds()))
+	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM provider_settings WHERE updated_at >= $1", updatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -610,11 +627,11 @@ func (s *Store) GetUpdatedProviderSettings(interval time.Duration) ([]*provider.
 	return settings, nil
 }
 
-func (s *Store) GetUpdatedKeys(interval time.Duration) ([]*key.ResponseKey, error) {
+func (s *Store) GetUpdatedKeys(updatedAt int64) ([]*key.ResponseKey, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
-	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM keys WHERE updated_at >= $1", time.Now().Unix()-int64(interval.Seconds()))
+	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM keys WHERE updated_at >= $1", updatedAt)
 	if err != nil {
 		return nil, err
 	}
