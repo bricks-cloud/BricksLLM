@@ -11,16 +11,17 @@ import (
 
 type ProviderSettingsStorage interface {
 	GetAllProviderSettings() ([]*provider.Setting, error)
-	GetUpdatedProviderSettings(interval time.Duration) ([]*provider.Setting, error)
+	GetUpdatedProviderSettings(updatedAt int64) ([]*provider.Setting, error)
 }
 
 type ProviderSettingsMemDb struct {
-	external ProviderSettingsStorage
-	settings map[string]*provider.Setting
-	lock     sync.RWMutex
-	done     chan bool
-	interval time.Duration
-	log      *zap.Logger
+	external    ProviderSettingsStorage
+	lastUpdated int64
+	settings    map[string]*provider.Setting
+	lock        sync.RWMutex
+	done        chan bool
+	interval    time.Duration
+	log         *zap.Logger
 }
 
 func NewProviderSettingsMemDb(ex ProviderSettingsStorage, log *zap.Logger, interval time.Duration) (*ProviderSettingsMemDb, error) {
@@ -30,16 +31,21 @@ func NewProviderSettingsMemDb(ex ProviderSettingsStorage, log *zap.Logger, inter
 		return nil, err
 	}
 
+	var latetest int64 = -1
 	for _, s := range settings {
 		m[s.Id] = s
+		if s.UpdatedAt > latetest {
+			latetest = s.UpdatedAt
+		}
 	}
 
 	return &ProviderSettingsMemDb{
-		external: ex,
-		settings: m,
-		log:      log,
-		interval: interval,
-		done:     make(chan bool),
+		external:    ex,
+		settings:    m,
+		log:         log,
+		lastUpdated: latetest,
+		interval:    interval,
+		done:        make(chan bool),
 	}, nil
 }
 
@@ -52,11 +58,11 @@ func (mdb *ProviderSettingsMemDb) GetSetting(k string) *provider.Setting {
 	return nil
 }
 
-func (mdb *ProviderSettingsMemDb) SetSetting(k string, v *provider.Setting) {
+func (mdb *ProviderSettingsMemDb) SetSetting(s *provider.Setting) {
 	mdb.lock.RLock()
 	defer mdb.lock.RUnlock()
 
-	mdb.settings[k] = v
+	mdb.settings[s.Id] = s
 }
 
 func (mdb *ProviderSettingsMemDb) RemoveSetting(k string) {
@@ -72,14 +78,15 @@ func (mdb *ProviderSettingsMemDb) Listen() {
 
 	go func() {
 		for {
+			lastUpdated := mdb.lastUpdated
 			select {
 			case <-mdb.done:
 				mdb.log.Info("provider settings memdb stopped")
 				return
 			case <-ticker.C:
-				settings, err := mdb.external.GetUpdatedProviderSettings(mdb.interval)
+				settings, err := mdb.external.GetUpdatedProviderSettings(lastUpdated)
 				if err != nil {
-					stats.Incr("bricksllm.memdb.provider_settings_memdb.listen.get_updated_provider_settings", nil, 1)
+					stats.Incr("bricksllm.memdb.provider_settings_memdb.listen.get_updated_provider_settings_err", nil, 1)
 
 					mdb.log.Sugar().Debugf("priovider settings memdb failed to update a provider setting: %v", err)
 					continue
@@ -89,11 +96,21 @@ func (mdb *ProviderSettingsMemDb) Listen() {
 					continue
 				}
 
-				mdb.log.Sugar().Debugf("provider settings memdb updated at %s", time.Now().UTC().String())
-
+				numberOfUpdated := 0
 				for _, setting := range settings {
-					mdb.SetSetting(setting.Id, setting)
+					if setting.UpdatedAt > lastUpdated {
+						lastUpdated = setting.UpdatedAt
+					}
+
+					existing := mdb.GetSetting(setting.Id)
+					if setting.UpdatedAt > existing.UpdatedAt {
+						mdb.log.Sugar().Infof("provider settings memdb updated a setting: %s", setting.Id)
+						numberOfUpdated += 1
+						mdb.SetSetting(setting)
+					}
 				}
+
+				mdb.log.Sugar().Infof("provider settings memdb updated at %d with %d provider settings", lastUpdated, numberOfUpdated)
 			}
 		}
 	}()

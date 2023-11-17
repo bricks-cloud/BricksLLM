@@ -11,11 +11,12 @@ import (
 
 type Storage interface {
 	GetAllKeys() ([]*key.ResponseKey, error)
-	GetUpdatedKeys(interval time.Duration) ([]*key.ResponseKey, error)
+	GetUpdatedKeys(updatedAt int64) ([]*key.ResponseKey, error)
 }
 
 type MemDb struct {
 	external       Storage
+	lastUpdated    int64
 	hashToKeys     map[string]*key.ResponseKey
 	hashToKeysLock sync.RWMutex
 	done           chan bool
@@ -31,16 +32,21 @@ func NewMemDb(ex Storage, log *zap.Logger, interval time.Duration) (*MemDb, erro
 		return nil, err
 	}
 
+	var latetest int64 = -1
 	for _, k := range keys {
 		hashToKeys[k.Key] = k
+		if k.UpdatedAt > latetest {
+			latetest = k.UpdatedAt
+		}
 	}
 
 	return &MemDb{
-		external:   ex,
-		hashToKeys: hashToKeys,
-		log:        log,
-		interval:   interval,
-		done:       make(chan bool),
+		external:    ex,
+		hashToKeys:  hashToKeys,
+		log:         log,
+		lastUpdated: latetest,
+		interval:    interval,
+		done:        make(chan bool),
 	}, nil
 }
 
@@ -72,13 +78,14 @@ func (mdb *MemDb) Listen() {
 	mdb.log.Info("memdb started listening for key updates")
 
 	go func() {
+		lastUpdated := mdb.lastUpdated
 		for {
 			select {
 			case <-mdb.done:
 				mdb.log.Info("memdb stopped")
 				return
 			case <-ticker.C:
-				keys, err := mdb.external.GetUpdatedKeys(mdb.interval)
+				keys, err := mdb.external.GetUpdatedKeys(lastUpdated)
 				if err != nil {
 					stats.Incr("bricksllm.memdb.memdb.listen.get_updated_keys_error", nil, 1)
 
@@ -90,13 +97,21 @@ func (mdb *MemDb) Listen() {
 					continue
 				}
 
-				mdb.log.Sugar().Debugf("memdb updated at %s", time.Now().UTC().String())
-
+				numberOfUpdated := 0
 				for _, k := range keys {
-					mdb.log.Sugar().Debugf("memdb updated a key: %s", k.KeyId)
+					if k.UpdatedAt > lastUpdated {
+						lastUpdated = k.UpdatedAt
+					}
 
-					mdb.SetKey(k)
+					existing := mdb.GetKey(k.Key)
+					if k.UpdatedAt > existing.UpdatedAt {
+						mdb.log.Sugar().Infof("key settings memdb updated a key: %s", k.KeyId)
+						numberOfUpdated += 1
+						mdb.SetKey(k)
+					}
 				}
+
+				mdb.log.Sugar().Infof("key settings memdb updated at %d with %d keys settings", lastUpdated, numberOfUpdated)
 			}
 		}
 	}()
