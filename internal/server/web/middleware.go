@@ -207,7 +207,8 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 
 		var cost float64 = 0
 		model := ""
-		if strings.HasSuffix(c.FullPath(), "/chat/completions") {
+
+		if c.FullPath() == "/api/providers/openai/v1/chat/completions" {
 			ccr := &goopenai.ChatCompletionRequest{}
 			err = json.Unmarshal(body, ccr)
 			if err != nil {
@@ -216,7 +217,7 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 			}
 
 			model = ccr.Model
-			c.Set("model", ccr.Model)
+			c.Set("model", model)
 
 			logRequest(log, prod, private, cid, ccr)
 
@@ -229,25 +230,26 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 
 		}
 
-		// if strings.HasSuffix(c.FullPath(), "/embeddings") {
-		// 	er := &goopenai.EmbeddingRequest{}
-		// 	err = json.Unmarshal(body, er)
-		// 	if err != nil {
-		// 		logError(log, "error when unmarshalling embedding request", prod, cid, err)
-		// 		return
-		// 	}
+		if c.FullPath() == "/api/providers/openai/v1/embeddings" {
+			er := &goopenai.EmbeddingRequest{}
+			err = json.Unmarshal(body, er)
+			if err != nil {
+				logError(log, "error when unmarshalling embedding request", prod, cid, err)
+				return
+			}
 
-		// 	model = er.Model.String()
-		// 	c.Set("model", er.Model.String())
+			model = er.Model.String()
+			c.Set("model", model)
+			c.Set("encoding_format", string(er.EncodingFormat))
 
-		// 	logEmbeddingRequest(log, prod, private, cid, er)
+			logEmbeddingRequest(log, prod, private, cid, er)
 
-		// 	cost, err = e.EstimateEmbeddingsCost(er)
-		// 	if err != nil {
-		// 		stats.Incr("bricksllm.web.get_middleware.estimate_embeddings_cost_error", nil, 1)
-		// 		logError(log, "error when estimating embeddings cost", prod, cid, err)
-		// 	}
-		// }
+			cost, err = e.EstimateEmbeddingsCost(er)
+			if err != nil {
+				stats.Incr("bricksllm.web.get_middleware.estimate_embeddings_cost_error", nil, 1)
+				logError(log, "error when estimating embeddings cost", prod, cid, err)
+			}
+		}
 
 		// if c.FullPath() == "/assistants" && c.Request.Method == http.MethodPost {
 		// 	logCreateAssistantRequest(log, body, prod, private, cid)
