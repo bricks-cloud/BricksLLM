@@ -799,12 +799,18 @@ func (s *Store) UpdateProviderSetting(id string, setting *provider.Setting) (*pr
 	updated := &provider.Setting{}
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()
-	if err := s.db.QueryRowContext(ctxTimeout, query, values...).Scan(
+
+	row := s.db.QueryRowContext(ctxTimeout, query, values...)
+	if err := row.Scan(
 		&updated.Id,
 		&updated.CreatedAt,
 		&updated.UpdatedAt,
 		&updated.Provider,
 	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, internal_errors.NewNotFoundError("provider setting is not found for: " + id)
+		}
+
 		return nil, err
 	}
 
