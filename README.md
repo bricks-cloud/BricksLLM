@@ -417,3 +417,11 @@ The OpenAI proxy runs on Port `8002`.
 This endpoint is set up for proxying OpenAI API requests. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/chat).
 
 </details>
+
+<details>
+  <summary>Call OpenAI embeddings: <code>POST</code> <code><b>/api/providers/openai/v1/embeddings</b></code></summary>
+
+##### Description
+This endpoint is set up for proxying OpenAI API requests. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/embeddings/create).
+
+</details>
