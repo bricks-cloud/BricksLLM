@@ -1,3 +1,8 @@
+## 1.1.0 - 2023-11-20
+### Fixed
+- ### Added
+- Added support for OpenAI's embeddings API
+
 ## 1.0.4 - 2023-11-20
 ### Fixed
 - Fixed configuration not found inconsistency with key and provider settings
