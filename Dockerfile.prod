@@ -13,4 +13,4 @@ COPY --from=build /go/src/github.com/bricks-cloud/bricksllm/bin /go/bin
 EXPOSE 8001 8002
 ENTRYPOINT ["/go/bin/bricksllm"]
 
-CMD ["-m", "production", "-p", "verbose"]
+CMD ["-m", "production"]

@@ -127,6 +127,21 @@ func (s *Store) CreateEventsTable() error {
 	return nil
 }
 
+func (s *Store) AlterEventsTable() error {
+	alterTableQuery := `
+		ALTER TABLE events ADD COLUMN IF NOT EXISTS path VARCHAR(255), ADD COLUMN IF NOT EXISTS method VARCHAR(255)
+	`
+
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+	_, err := s.db.ExecContext(ctxTimeout, alterTableQuery)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *Store) DropProviderSettingsTable() error {
 	dropTableQuery := `DROP TABLE provider_settings`
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -168,8 +183,8 @@ func (s *Store) DropKeysTable() error {
 
 func (s *Store) InsertEvent(e *event.Event) error {
 	query := `
-		INSERT INTO events (event_id, created_at, tags, key_id, cost_in_usd, provider, model, status_code, prompt_token_count, completion_token_count, latency_in_ms)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		INSERT INTO events (event_id, created_at, tags, key_id, cost_in_usd, provider, model, status_code, prompt_token_count, completion_token_count, latency_in_ms, path, method)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 
 	values := []any{
@@ -184,6 +199,8 @@ func (s *Store) InsertEvent(e *event.Event) error {
 		e.PromptTokenCount,
 		e.CompletionTokenCount,
 		e.LatencyInMs,
+		e.Path,
+		e.Method,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -202,7 +219,7 @@ func (s *Store) GetLatencyPercentiles(start, end int64, tags, keyIds []string) (
 			SELECT * FROM events 
 	`
 
-	conditionBlock := fmt.Sprintf("WHERE created_at >= %d AND created_at <= %d", start, end)
+	conditionBlock := fmt.Sprintf("WHERE created_at >= %d AND created_at < %d ", start, end)
 	if len(tags) != 0 {
 		conditionBlock += fmt.Sprintf("AND tags @> '%s' ", sliceToSqlStringArray(tags))
 	}
@@ -256,22 +273,39 @@ func (s *Store) GetLatencyPercentiles(start, end int64, tags, keyIds []string) (
 	return data, nil
 }
 
-func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []string) ([]*event.DataPoint, error) {
+func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []string, filters []string) ([]*event.DataPoint, error) {
+	groupByQuery := "GROUP BY time_series_table.series"
+	selectQuery := "SELECT series AS time_stamp, COALESCE(COUNT(events_table.event_id),0) AS num_of_requests, COALESCE(SUM(events_table.cost_in_usd),0) AS cost_in_usd, COALESCE(SUM(events_table.latency_in_ms),0) AS latency_in_ms, COALESCE(SUM(events_table.prompt_token_count),0) AS prompt_token_count, COALESCE(SUM(events_table.completion_token_count),0) AS completion_token_count, COALESCE(SUM(CASE WHEN status_code = 200 THEN 1 END),0) AS success_count"
+
+	if len(filters) != 0 {
+		for _, filter := range filters {
+			if filter == "model" {
+				groupByQuery += ",events_table.model"
+				selectQuery += ",events_table.model as model"
+			}
+
+			if filter == "keyId" {
+				groupByQuery += ",events_table.key_id"
+				selectQuery += ",events_table.key_id as keyId"
+			}
+		}
+	}
+
 	query := fmt.Sprintf(
 		`
 		,time_series_table AS
 		(
 			SELECT generate_series(%d, %d, %d) series
 		)
-		SELECT    series AS time_stamp, COALESCE(COUNT(events_table.event_id),0) AS num_of_requests, COALESCE(SUM(events_table.cost_in_usd),0) AS cost_in_usd, COALESCE(SUM(events_table.latency_in_ms),0) AS latency_in_ms, COALESCE(SUM(events_table.prompt_token_count),0) AS prompt_token_count, COALESCE(SUM(events_table.completion_token_count),0) AS completion_token_count, COALESCE(SUM(CASE WHEN status_code = 200 THEN 1 END),0) AS success_count
-		FROM      time_series_table
-		LEFT JOIN events_table
-		ON        events_table.created_at >= time_series_table.series 
-		AND       events_table.created_at < time_series_table.series + %d
-		GROUP BY  time_series_table.series
+		%s
+		FROM       time_series_table
+		LEFT JOIN  events_table
+		ON         events_table.created_at >= time_series_table.series 
+		AND        events_table.created_at < time_series_table.series + %d
+		%s
 		ORDER BY  time_series_table.series;
 		`,
-		start, end, increment, increment,
+		start, end, increment, selectQuery, increment, groupByQuery,
 	)
 
 	eventSelectionBlock := `
@@ -280,23 +314,16 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 			SELECT * FROM events 
 	`
 
-	conditionBlock := "WHERE "
+	conditionBlock := fmt.Sprintf("WHERE created_at >= %d AND created_at < %d ", start, end)
 	if len(tags) != 0 {
-		conditionBlock += fmt.Sprintf("tags @> '%s' ", sliceToSqlStringArray(tags))
-	}
-
-	if len(tags) != 0 && len(keyIds) != 0 {
-		conditionBlock += "AND "
+		conditionBlock += fmt.Sprintf("AND tags @> '%s' ", sliceToSqlStringArray(tags))
 	}
 
 	if len(keyIds) != 0 {
-		conditionBlock += fmt.Sprintf("key_id = ANY('%s')", sliceToSqlStringArray(keyIds))
+		conditionBlock += fmt.Sprintf("AND key_id = ANY('%s')", sliceToSqlStringArray(keyIds))
 	}
 
-	if len(tags) != 0 || len(keyIds) != 0 {
-		eventSelectionBlock += conditionBlock
-	}
-
+	eventSelectionBlock += conditionBlock
 	eventSelectionBlock += ")"
 
 	query = eventSelectionBlock + query
@@ -313,19 +340,42 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 	data := []*event.DataPoint{}
 	for rows.Next() {
 		var e event.DataPoint
-		if err := rows.Scan(
+		var model sql.NullString
+		var keyId sql.NullString
+
+		additional := []any{
 			&e.TimeStamp,
 			&e.NumberOfRequests,
 			&e.CostInUsd,
 			&e.LatencyInMs,
 			&e.PromptTokenCount,
 			&e.CompletionTokenCount,
-			&e.SuccessCouunt,
+			&e.SuccessCount,
+		}
+
+		if len(filters) != 0 {
+			for _, filter := range filters {
+				if filter == "model" {
+					additional = append(additional, &model)
+				}
+
+				if filter == "keyId" {
+					additional = append(additional, &keyId)
+				}
+			}
+		}
+
+		if err := rows.Scan(
+			additional...,
 		); err != nil {
 			return nil, err
 		}
 
-		data = append(data, &e)
+		pe := &e
+		pe.Model = model.String
+		pe.KeyId = keyId.String
+
+		data = append(data, pe)
 	}
 
 	return data, nil
@@ -541,11 +591,11 @@ func (s *Store) GetAllKeys() ([]*key.ResponseKey, error) {
 	return keys, nil
 }
 
-func (s *Store) GetUpdatedProviderSettings(interval time.Duration) ([]*provider.Setting, error) {
+func (s *Store) GetUpdatedProviderSettings(updatedAt int64) ([]*provider.Setting, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
-	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM provider_settings WHERE updated_at >= $1", time.Now().Unix()-int64(interval.Seconds()))
+	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM provider_settings WHERE updated_at >= $1", updatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -577,11 +627,11 @@ func (s *Store) GetUpdatedProviderSettings(interval time.Duration) ([]*provider.
 	return settings, nil
 }
 
-func (s *Store) GetUpdatedKeys(interval time.Duration) ([]*key.ResponseKey, error) {
+func (s *Store) GetUpdatedKeys(updatedAt int64) ([]*key.ResponseKey, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
-	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM keys WHERE updated_at >= $1", time.Now().Unix()-int64(interval.Seconds()))
+	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM keys WHERE updated_at >= $1", updatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -749,12 +799,18 @@ func (s *Store) UpdateProviderSetting(id string, setting *provider.Setting) (*pr
 	updated := &provider.Setting{}
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()
-	if err := s.db.QueryRowContext(ctxTimeout, query, values...).Scan(
+
+	row := s.db.QueryRowContext(ctxTimeout, query, values...)
+	if err := row.Scan(
 		&updated.Id,
 		&updated.CreatedAt,
 		&updated.UpdatedAt,
 		&updated.Provider,
 	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, internal_errors.NewNotFoundError("provider setting is not found for: " + id)
+		}
+
 		return nil, err
 	}
 

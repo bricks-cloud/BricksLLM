@@ -135,10 +135,7 @@ func main() {
 		log.Sugar().Fatalf("error creating admin http server: %v", err)
 	}
 
-	tc, err := openai.NewTokenCounter()
-	if err != nil {
-		log.Sugar().Fatalf("error creating token counter: %v", err)
-	}
+	tc := openai.NewTokenCounter()
 
 	as.Run()
 
@@ -147,7 +144,7 @@ func main() {
 	rec := recorder.NewRecorder(costStorage, costLimitCache, ce, store)
 	rlm := manager.NewRateLimitManager(rateLimitCache)
 
-	ps, err := web.NewProxyServer(log, *modePtr, *privacyPtr, m, psm, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm)
+	ps, err := web.NewProxyServer(log, *modePtr, *privacyPtr, m, psm, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm, cfg.ProxyTimeout)
 	if err != nil {
 		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}
