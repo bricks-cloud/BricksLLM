@@ -155,7 +155,7 @@ func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc
 	}
 }
 
-type ValidationError interface {
+type validationError interface {
 	Error() string
 	Validation()
 }
@@ -220,7 +220,7 @@ func getCreateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 				}, 1)
 			}()
 
-			if _, ok := err.(ValidationError); ok {
+			if _, ok := err.(validationError); ok {
 				errType = "validation"
 
 				c.JSON(http.StatusBadRequest, &ErrorResponse{
@@ -310,7 +310,7 @@ func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 				}, 1)
 			}()
 
-			if _, ok := err.(ValidationError); ok {
+			if _, ok := err.(validationError); ok {
 				errType = "validation"
 
 				c.JSON(http.StatusBadRequest, &ErrorResponse{
@@ -414,7 +414,19 @@ func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 				}, 1)
 			}()
 
-			if _, ok := err.(ValidationError); ok {
+			if _, ok := err.(notFoundError); ok {
+				errType = "not_found"
+				c.JSON(http.StatusNotFound, &ErrorResponse{
+					Type:     "/errors/not-found",
+					Title:    "update provider setting failed",
+					Status:   http.StatusNotFound,
+					Detail:   err.Error(),
+					Instance: path,
+				})
+				return
+			}
+
+			if _, ok := err.(validationError); ok {
 				errType = "validation"
 				c.JSON(http.StatusBadRequest, &ErrorResponse{
 					Type:     "/errors/validation",
@@ -515,7 +527,7 @@ func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 				}, 1)
 			}()
 
-			if _, ok := err.(ValidationError); ok {
+			if _, ok := err.(validationError); ok {
 				errType = "validation"
 				c.JSON(http.StatusBadRequest, &ErrorResponse{
 					Type:     "/errors/validation",
@@ -529,7 +541,6 @@ func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 
 			if _, ok := err.(notFoundError); ok {
 				errType = "not_found"
-
 				c.JSON(http.StatusNotFound, &ErrorResponse{
 					Type:     "/errors/not-found",
 					Title:    "update key failed",
