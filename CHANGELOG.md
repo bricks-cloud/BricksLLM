@@ -1,7 +1,20 @@
+## 1.0.4 - 2023-11-20
+### Fixed
+- Fixed configuration not found inconsistency with key and provider settings
+
+- ### Changed
+- Updated admin server to pull configurations every 5 sec by default
+- Updated prod Dockerfile to have privacy mode turned on
+
+- ### Added
+- Added a default OpenAI proxy timeout of 180s
+- Added model and keyId filters to the metrics API
+- Added health check endpoints for both admin and proxy servers
+- Started recording path and method for each proxy request
+
 ## 1.0.3 - 2023-11-09
 ### Fixed
 - Fixed Datadog tags being in the wrong format
-
 
 ## 1.0.2 - 2023-11-09
 ### Added
