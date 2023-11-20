@@ -32,12 +32,18 @@ func NewMemDb(ex Storage, log *zap.Logger, interval time.Duration) (*MemDb, erro
 		return nil, err
 	}
 
+	numberOfKeys := 0
 	var latetest int64 = -1
 	for _, k := range keys {
 		hashToKeys[k.Key] = k
+		numberOfKeys++
 		if k.UpdatedAt > latetest {
 			latetest = k.UpdatedAt
 		}
+	}
+
+	if numberOfKeys != 0 {
+		log.Sugar().Infof("key settings memdb updated at %d with %d keys settings", latetest, numberOfKeys)
 	}
 
 	return &MemDb{
@@ -97,6 +103,7 @@ func (mdb *MemDb) Listen() {
 					continue
 				}
 
+				any := false
 				numberOfUpdated := 0
 				for _, k := range keys {
 					if k.UpdatedAt > lastUpdated {
@@ -104,14 +111,17 @@ func (mdb *MemDb) Listen() {
 					}
 
 					existing := mdb.GetKey(k.Key)
-					if k.UpdatedAt > existing.UpdatedAt {
+					if existing == nil || k.UpdatedAt > existing.UpdatedAt {
 						mdb.log.Sugar().Infof("key settings memdb updated a key: %s", k.KeyId)
 						numberOfUpdated += 1
+						any = true
 						mdb.SetKey(k)
 					}
 				}
 
-				mdb.log.Sugar().Infof("key settings memdb updated at %d with %d keys settings", lastUpdated, numberOfUpdated)
+				if any {
+					mdb.log.Sugar().Infof("key settings memdb updated at %d with %d keys settings", lastUpdated, numberOfUpdated)
+				}
 			}
 		}
 	}()

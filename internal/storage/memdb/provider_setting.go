@@ -31,12 +31,18 @@ func NewProviderSettingsMemDb(ex ProviderSettingsStorage, log *zap.Logger, inter
 		return nil, err
 	}
 
+	numberOfSettings := 0
 	var latetest int64 = -1
 	for _, s := range settings {
 		m[s.Id] = s
+		numberOfSettings++
 		if s.UpdatedAt > latetest {
 			latetest = s.UpdatedAt
 		}
+	}
+
+	if numberOfSettings != 0 {
+		log.Sugar().Infof("provider settings memdb updated at %d with %d provider settings", latetest, numberOfSettings)
 	}
 
 	return &ProviderSettingsMemDb{
@@ -96,6 +102,7 @@ func (mdb *ProviderSettingsMemDb) Listen() {
 					continue
 				}
 
+				any := false
 				numberOfUpdated := 0
 				for _, setting := range settings {
 					if setting.UpdatedAt > lastUpdated {
@@ -103,14 +110,18 @@ func (mdb *ProviderSettingsMemDb) Listen() {
 					}
 
 					existing := mdb.GetSetting(setting.Id)
-					if setting.UpdatedAt > existing.UpdatedAt {
+					if existing == nil || setting.UpdatedAt > existing.UpdatedAt {
 						mdb.log.Sugar().Infof("provider settings memdb updated a setting: %s", setting.Id)
 						numberOfUpdated += 1
+						any = true
 						mdb.SetSetting(setting)
 					}
 				}
 
-				mdb.log.Sugar().Infof("provider settings memdb updated at %d with %d provider settings", lastUpdated, numberOfUpdated)
+				if any {
+					mdb.log.Sugar().Infof("provider settings memdb updated at %d with %d provider settings", lastUpdated, numberOfUpdated)
+				}
+
 			}
 		}
 	}()
