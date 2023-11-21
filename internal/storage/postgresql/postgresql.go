@@ -142,6 +142,21 @@ func (s *Store) AlterEventsTable() error {
 	return nil
 }
 
+func (s *Store) AlterProviderSettingsTable() error {
+	alterTableQuery := `
+		ALTER TABLE provider_settings ADD COLUMN IF NOT EXISTS name VARCHAR(255)
+	`
+
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+	_, err := s.db.ExecContext(ctxTimeout, alterTableQuery)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *Store) DropProviderSettingsTable() error {
 	dropTableQuery := `DROP TABLE provider_settings`
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -526,12 +541,14 @@ func (s *Store) GetAllProviderSettings() ([]*provider.Setting, error) {
 	for rows.Next() {
 		setting := &provider.Setting{}
 		var data []byte
+		var name sql.NullString
 		if err := rows.Scan(
 			&setting.Id,
 			&setting.CreatedAt,
 			&setting.UpdatedAt,
 			&setting.Provider,
 			&data,
+			&name,
 		); err != nil {
 			return nil, err
 		}
@@ -542,6 +559,7 @@ func (s *Store) GetAllProviderSettings() ([]*provider.Setting, error) {
 		}
 
 		setting.Setting = m
+		setting.Name = name.String
 		settings = append(settings, setting)
 	}
 
@@ -605,12 +623,14 @@ func (s *Store) GetUpdatedProviderSettings(updatedAt int64) ([]*provider.Setting
 	for rows.Next() {
 		setting := &provider.Setting{}
 		var data []byte
+		var name sql.NullString
 		if err := rows.Scan(
 			&setting.Id,
 			&setting.CreatedAt,
 			&setting.UpdatedAt,
 			&setting.Provider,
 			&data,
+			&name,
 		); err != nil {
 			return nil, err
 		}
@@ -621,6 +641,7 @@ func (s *Store) GetUpdatedProviderSettings(updatedAt int64) ([]*provider.Setting
 		}
 
 		setting.Setting = m
+		setting.Name = name.String
 		settings = append(settings, setting)
 	}
 
@@ -795,7 +816,7 @@ func (s *Store) UpdateProviderSetting(id string, setting *provider.Setting) (*pr
 		setting.UpdatedAt,
 	}
 
-	query := "UPDATE provider_settings SET setting = $2, updated_at = $3 WHERE id = $1 RETURNING id, created_at, updated_at, provider;"
+	query := "UPDATE provider_settings SET setting = $2, updated_at = $3 WHERE id = $1 RETURNING id, created_at, updated_at, provider, name;"
 	updated := &provider.Setting{}
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()
@@ -806,6 +827,7 @@ func (s *Store) UpdateProviderSetting(id string, setting *provider.Setting) (*pr
 		&updated.CreatedAt,
 		&updated.UpdatedAt,
 		&updated.Provider,
+		&updated.Name,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, internal_errors.NewNotFoundError("provider setting is not found for: " + id)
@@ -840,9 +862,9 @@ func (s *Store) CreateProviderSetting(setting *provider.Setting) (*provider.Sett
 	}
 
 	query := `
-		INSERT INTO provider_settings (id, created_at, updated_at, provider, setting)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, created_at, updated_at, provider
+		INSERT INTO provider_settings (id, created_at, updated_at, provider, setting, name)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, created_at, updated_at, provider, name
 	`
 
 	data, err := json.Marshal(setting.Setting)
@@ -856,18 +878,22 @@ func (s *Store) CreateProviderSetting(setting *provider.Setting) (*provider.Sett
 		setting.UpdatedAt,
 		setting.Provider,
 		data,
+		setting.Name,
 	}
 
 	created := &provider.Setting{}
+	var name sql.NullString
 	if err := s.db.QueryRowContext(ctxTimeout, query, values...).Scan(
 		&created.Id,
 		&created.CreatedAt,
 		&created.UpdatedAt,
 		&created.Provider,
+		&name,
 	); err != nil {
 		return nil, err
 	}
 
+	created.Name = name.String
 	return created, nil
 }
 
