@@ -136,7 +136,7 @@ func NewZapLogger(mode string) *zap.Logger {
 	}
 
 	if mode == "production" {
-		cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+		// cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
 		return zap.Must(cfg.Build())
 	}
 
