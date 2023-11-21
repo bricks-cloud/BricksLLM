@@ -181,10 +181,15 @@ func (ce *CostEstimator) EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (f
 		return 0, errors.New("model is not provided")
 	}
 
-	if inputs, ok := r.Input.([]string); ok {
+	if inputs, ok := r.Input.([]interface{}); ok {
 		total := 0
 		for _, input := range inputs {
-			tks, err := ce.tc.Count(r.Model.String(), input)
+			converted, ok := input.(string)
+			if !ok {
+				return 0, errors.New("input is not string")
+			}
+
+			tks, err := ce.tc.Count(r.Model.String(), converted)
 			if err != nil {
 				return 0, err
 			}
