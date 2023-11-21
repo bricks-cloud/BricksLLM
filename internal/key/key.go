@@ -8,12 +8,6 @@ import (
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
 )
 
-type Provider string
-
-const (
-	OpenAiProvider Provider = "openai"
-)
-
 type UpdateKey struct {
 	Name                   string   `json:"name"`
 	UpdatedAt              int64    `json:"updatedAt"`
