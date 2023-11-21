@@ -69,9 +69,19 @@ func main() {
 		log.Sugar().Fatalf("error creating events table: %v", err)
 	}
 
+	err = store.AlterEventsTable()
+	if err != nil {
+		log.Sugar().Fatalf("error altering events table: %v", err)
+	}
+
 	err = store.CreateProviderSettingsTable()
 	if err != nil {
 		log.Sugar().Fatalf("error creating provider settings table: %v", err)
+	}
+
+	err = store.AlterProviderSettingsTable()
+	if err != nil {
+		log.Sugar().Fatalf("error altering provider settings table: %v", err)
 	}
 
 	memStore, err := memdb.NewMemDb(store, log, cfg.InMemoryDbUpdateInterval)
