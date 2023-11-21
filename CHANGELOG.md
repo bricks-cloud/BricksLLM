@@ -1,17 +1,23 @@
-## 1.1.0 - 2023-11-20
+## 1.1.1 - 2023-11-21
+### Added
+- Introduced new field called `name` to provider settings
+
 ### Fixed
-- ### Added
+- Fixed issues with PostgreSQL schema inconsistencies
+
+## 1.1.0 - 2023-11-20
+### Added
 - Added support for OpenAI's embeddings API
 
 ## 1.0.4 - 2023-11-20
 ### Fixed
 - Fixed configuration not found inconsistency with key and provider settings
 
-- ### Changed
+### Changed
 - Updated admin server to pull configurations every 5 sec by default
 - Updated prod Dockerfile to have privacy mode turned on
 
-- ### Added
+### Added
 - Added a default OpenAI proxy timeout of 180s
 - Added model and keyId filters to the metrics API
 - Added health check endpoints for both admin and proxy servers

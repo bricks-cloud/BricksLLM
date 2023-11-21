@@ -295,10 +295,10 @@ This endpoint is creating a provider setting .
 > | provider | required | `enum` | openai | This value can only be `openai` as for now. |
 > | setting | required | `object` | `{ "apikey": "YOUR_OPENAI_KEY" }`            | A map of values used for authenticating with the selected provider. |
 > | setting.apikey | required | `string` | xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx | This field is required if `provider` is `openai`. |
+> | name | optional | `string` | YOUR_PROVIDER_SETTING_NAME | This field is used for giving a name to provider setting |
 
 
 ##### Error Response
-
 > | http code     | content-type                      |
 > |---------------|-----------------------------------|
 > | `400`, `500`         | `application/json`                |
@@ -317,7 +317,8 @@ This endpoint is creating a provider setting .
 > | createdAt | `int64` | `1699933571` | Unix timestamp for creation time.  |
 > | updatedAt | `int64` | `1699933571` | Unix timestamp for update time. |
 > | provider | `enum` | `openai` | This value can only be `openai` as for now. |
-> | id | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This value is a unique identifier |
+> | id | `string` | 98daa3ae-961d-4253-bf6a-322a32fdca3d | This value is a unique identifier. |
+> | name | `string` | YOUR_PROVIDER_SETTING_NAME | Provider setting name. |
 
 </details>
 
@@ -338,6 +339,7 @@ This endpoint is updating a provider setting .
 > | provider | required | `enum` | openai | This value can only be `openai` as for now. |
 > | setting | required | `object` | `{ "apikey": "YOUR_OPENAI_KEY" }`            | A map of values used for authenticating with the selected provider. |
 > | setting.apikey | required | `string` | xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx | This field is required if `provider` is `openai`. |
+> | name | optional | `string` | YOUR_PROVIDER_SETTING_NAME | This field is used for giving a name to provider setting |
 
 ##### Error Response
 
@@ -360,6 +362,7 @@ This endpoint is updating a provider setting .
 > | updatedAt | `int64` | `1699933571` | Unix timestamp for update time. |
 > | provider | `enum` | `openai` | This value can only be `openai` as for now. |
 > | id | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This value is a unique identifier |
+> | name | `string` | YOUR_PROVIDER_SETTING_NAME | Provider setting name. |
 
 </details>
 
