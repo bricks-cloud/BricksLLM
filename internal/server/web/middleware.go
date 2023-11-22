@@ -105,6 +105,7 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 		c.Set(correlationId, cid)
 		start := time.Now()
 
+		customId := c.Request.Header.Get("X-CUSTOM-EVENT-ID")
 		defer func() {
 			dur := time.Now().Sub(start)
 			latency := int(dur.Milliseconds())
@@ -157,6 +158,7 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 				LatencyInMs:          latency,
 				Path:                 c.FullPath(),
 				Method:               c.Request.Method,
+				CustomId:             customId,
 			}
 
 			err := r.RecordEvent(evt)
