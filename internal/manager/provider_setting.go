@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	brickserrors "github.com/bricks-cloud/bricksllm/internal/errors"
+	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 )
@@ -12,6 +12,8 @@ import (
 type ProviderSettingsStorage interface {
 	UpdateProviderSetting(id string, setting *provider.Setting) (*provider.Setting, error)
 	CreateProviderSetting(setting *provider.Setting) (*provider.Setting, error)
+	GetProviderSetting(id string) (*provider.Setting, error)
+	GetProviderSettings(withSecret bool) ([]*provider.Setting, error)
 }
 
 type ProviderSettingsMemStorage interface {
@@ -32,15 +34,15 @@ func NewProviderSettingsManager(s ProviderSettingsStorage, memdb ProviderSetting
 
 func (m *ProviderSettingsManager) CreateSetting(setting *provider.Setting) (*provider.Setting, error) {
 	if len(setting.Provider) == 0 {
-		return nil, brickserrors.NewValidationError("provider field cannot be empty")
+		return nil, internal_errors.NewValidationError("provider field cannot be empty")
 	}
 
 	if setting.Provider != "openai" {
-		return nil, brickserrors.NewValidationError(fmt.Sprintf("provider %s is not supported ", setting.Provider))
+		return nil, internal_errors.NewValidationError(fmt.Sprintf("provider %s is not supported ", setting.Provider))
 	}
 
 	if len(setting.Setting) == 0 {
-		return nil, brickserrors.NewValidationError("setting field cannot be empty")
+		return nil, internal_errors.NewValidationError("setting field cannot be empty")
 	}
 
 	setting.Id = util.NewUuid()
@@ -50,7 +52,7 @@ func (m *ProviderSettingsManager) CreateSetting(setting *provider.Setting) (*pro
 	if setting.Provider == "openai" {
 		v, ok := setting.Setting["apikey"]
 		if !ok || len(v) == 0 {
-			return nil, brickserrors.NewValidationError("setting for openai is not valid")
+			return nil, internal_errors.NewValidationError("setting for openai is not valid")
 		}
 	}
 
@@ -59,11 +61,11 @@ func (m *ProviderSettingsManager) CreateSetting(setting *provider.Setting) (*pro
 
 func (m *ProviderSettingsManager) UpdateSetting(id string, setting *provider.Setting) (*provider.Setting, error) {
 	if len(id) == 0 {
-		return nil, brickserrors.NewValidationError("id cannot be empty")
+		return nil, internal_errors.NewValidationError("id cannot be empty")
 	}
 
 	if len(setting.Setting) == 0 {
-		return nil, brickserrors.NewValidationError("settings field cannot be empty")
+		return nil, internal_errors.NewValidationError("settings field cannot be empty")
 	}
 
 	setting.UpdatedAt = time.Now().Unix()
@@ -75,8 +77,17 @@ func (m *ProviderSettingsManager) GetSetting(id string) (*provider.Setting, erro
 	setting := m.MemDb.GetSetting(id)
 
 	if setting == nil {
-		return nil, brickserrors.NewNotFoundError("provider setting is not found")
+		return nil, internal_errors.NewNotFoundError("provider setting is not found")
 	}
 
 	return setting, nil
+}
+
+func (m *ProviderSettingsManager) GetSettings() ([]*provider.Setting, error) {
+	settings, err := m.Storage.GetProviderSettings(false)
+	if err != nil {
+		return nil, internal_errors.NewNotFoundError("provider setting is not found")
+	}
+
+	return settings, nil
 }
