@@ -20,10 +20,11 @@ type ProviderSettingsManager interface {
 	CreateSetting(setting *provider.Setting) (*provider.Setting, error)
 	UpdateSetting(id string, setting *provider.Setting) (*provider.Setting, error)
 	GetSetting(id string) (*provider.Setting, error)
+	GetSettings() ([]*provider.Setting, error)
 }
 
 type KeyManager interface {
-	GetKeysByTag(tag string) ([]*key.ResponseKey, error)
+	GetKeys(tag []string, provider string) ([]*key.ResponseKey, error)
 	UpdateKey(id string, key *key.UpdateKey) (*key.ResponseKey, error)
 	CreateKey(key *key.RequestKey) (*key.ResponseKey, error)
 	DeleteKey(id string) error
@@ -31,6 +32,7 @@ type KeyManager interface {
 
 type KeyReportingManager interface {
 	GetKeyReporting(keyId string) (*key.KeyReporting, error)
+	GetEvent(customId string) (*event.Event, error)
 	GetEventReporting(e *event.ReportingRequest) (*event.ReportingResponse, error)
 }
 
@@ -62,9 +64,12 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 	router.DELETE("/api/key-management/keys/:id", getDeleteKeyHandler(m, log, prod))
 
 	router.GET("/api/reporting/keys/:id", getGetKeyReportingHandler(krm, log, prod))
-	router.POST("/api/reporting/events", getGetEventMetrics(krm, log, prod))
+	router.POST("/api/reporting/events", getGetEventMetricsHandler(krm, log, prod))
+
+	router.GET("/api/events", getGetEventsHandler(krm, log, prod))
 
 	router.PUT("/api/provider-settings", getCreateProviderSettingHandler(psm, log, prod))
+	router.GET("/api/provider-settings", getGetProviderSettingsHandler(psm, log, prod))
 	router.PATCH("/api/provider-settings/:id", getUpdateProviderSettingHandler(psm, log, prod))
 
 	srv := &http.Server{
@@ -86,6 +91,7 @@ func (as *AdminServer) Run() {
 		as.log.Info("PORT 8001 | GET   | /api/key-management/keys is set up for retrieving keys using a query param called tag")
 		as.log.Info("PORT 8001 | PUT   | /api/key-management/keys is set up for creating a key")
 		as.log.Info("PORT 8001 | PATCH | /api/key-management/keys/:id is set up for updating a key using an id")
+		as.log.Info("PORT 8001 | GET   | /api/provider-settings is set up for getting provider settings")
 		as.log.Info("PORT 8001 | PUT   | /api/provider-settings is set up for creating a provider setting")
 		as.log.Info("PORT 8001 | PATCH | /api/provider-settings:id is set up for updating provider setting")
 		as.log.Info("PORT 8001 | POST  | /api/reporting/events is set up for retrieving api metrics")
@@ -122,20 +128,36 @@ func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc
 		}()
 
 		tag := c.Query("tag")
+		tags := c.QueryArray("tags")
+		provider := c.Query("provider")
+
 		path := "/api/key-management/keys"
-		if len(tag) == 0 {
+
+		if len(tags) == 0 && len(tag) == 0 && len(provider) == 0 {
 			c.JSON(http.StatusBadRequest, &ErrorResponse{
-				Type:     "/errors/missing-query-tag",
-				Title:    "tag is empty",
+				Type:     "/errors/missing-filteres",
+				Title:    "filters are not found",
 				Status:   http.StatusBadRequest,
-				Detail:   "query param tag is missing from the request url. it is required for retrieving keys.",
+				Detail:   "filters are missing from the request url. it is required for retrieving keys.",
 				Instance: path,
 			})
 			return
 		}
 
+		selected := []string{}
+
+		if len(tag) != 0 {
+			selected = append(selected, tag)
+		}
+
+		for _, t := range tags {
+			if len(t) != 0 && t != tag {
+				selected = append(selected, t)
+			}
+		}
+
 		cid := c.GetString(correlationId)
-		keys, err := m.GetKeysByTag(tag)
+		keys, err := m.GetKeys(selected, provider)
 		if err != nil {
 			stats.Incr("bricksllm.web.get_get_keys_handler.get_keys_by_tag_err", nil, 1)
 
@@ -158,6 +180,56 @@ func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc
 type validationError interface {
 	Error() string
 	Validation()
+}
+
+func getGetProviderSettingsHandler(m ProviderSettingsManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		stats.Incr("bricksllm.web.get_get_provider_settings.requests", nil, 1)
+
+		start := time.Now()
+		defer func() {
+			dur := time.Now().Sub(start)
+			stats.Timing("bricksllm.web.get_get_provider_settings.latency", dur, nil, 1)
+		}()
+
+		path := "/api/provider-settings"
+		if c == nil || c.Request == nil {
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/empty-context",
+				Title:    "context is empty error",
+				Status:   http.StatusInternalServerError,
+				Detail:   "gin context is empty",
+				Instance: path,
+			})
+			return
+		}
+
+		cid := c.GetString(correlationId)
+		created, err := m.GetSettings()
+		if err != nil {
+			errType := "internal"
+
+			defer func() {
+				stats.Incr("bricksllm.web.get_get_provider_settings.get_settings_error", []string{
+					"error_type:" + errType,
+				}, 1)
+			}()
+
+			logError(log, "error when getting provider settings", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/provider-settings-manager",
+				Title:    "get provider settings failed",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		stats.Incr("bricksllm.web.get_get_provider_settings.success", nil, 1)
+
+		c.JSON(http.StatusOK, created)
+	}
 }
 
 func getCreateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger, prod bool) gin.HandlerFunc {
@@ -630,7 +702,7 @@ func validateEventReportingRequest(r *event.ReportingRequest) bool {
 	return true
 }
 
-func getGetEventMetrics(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getGetEventMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.web.get_get_event_metrics.requests", nil, 1)
 
@@ -714,6 +786,70 @@ func getGetEventMetrics(m KeyReportingManager, log *zap.Logger, prod bool) gin.H
 		stats.Incr("bricksllm.web.get_get_event_metrics.success", nil, 1)
 
 		c.JSON(http.StatusOK, reportingResponse)
+	}
+}
+
+type GetEventsResponse struct {
+	Events []*event.Event `json:"events"`
+}
+
+func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		stats.Incr("bricksllm.web.get_get_events_handler.requests", nil, 1)
+
+		start := time.Now()
+		defer func() {
+			dur := time.Now().Sub(start)
+			stats.Timing("bricksllm.web.get_get_events_handler.latency", dur, nil, 1)
+		}()
+
+		path := "/api/reporting/events"
+
+		if c == nil || c.Request == nil {
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/empty-context",
+				Title:    "context is empty error",
+				Status:   http.StatusInternalServerError,
+				Detail:   "gin context is empty",
+				Instance: path,
+			})
+			return
+		}
+
+		cid := c.GetString(correlationId)
+		customId, ok := c.GetQuery("customId")
+		if !ok {
+			c.JSON(http.StatusBadRequest, &ErrorResponse{
+				Type:     "/errors/custom-id-empty",
+				Title:    "custom id is empty",
+				Status:   http.StatusBadRequest,
+				Detail:   "query param customId is empty. it is required for retrieving an event.",
+				Instance: path,
+			})
+
+			return
+		}
+
+		ev, err := m.GetEvent(customId)
+		if err != nil {
+			stats.Incr("bricksllm.web.get_get_events_handler.get_event_error", nil, 1)
+
+			logError(log, "error when getting an event", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/event-manager",
+				Title:    "getting an event error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		stats.Incr("bricksllm.web.get_get_events_handler.success", nil, 1)
+
+		c.JSON(http.StatusOK, &GetEventsResponse{
+			Events: []*event.Event{ev},
+		})
 	}
 }
 
