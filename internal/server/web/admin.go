@@ -65,7 +65,6 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 
 	router.GET("/api/reporting/keys/:id", getGetKeyReportingHandler(krm, log, prod))
 	router.POST("/api/reporting/events", getGetEventMetricsHandler(krm, log, prod))
-
 	router.GET("/api/events", getGetEventsHandler(krm, log, prod))
 
 	router.PUT("/api/provider-settings", getCreateProviderSettingHandler(psm, log, prod))
@@ -95,6 +94,7 @@ func (as *AdminServer) Run() {
 		as.log.Info("PORT 8001 | PUT   | /api/provider-settings is set up for creating a provider setting")
 		as.log.Info("PORT 8001 | PATCH | /api/provider-settings:id is set up for updating provider setting")
 		as.log.Info("PORT 8001 | POST  | /api/reporting/events is set up for retrieving api metrics")
+		as.log.Info("PORT 8001 | GET   | /api/events is set up for retrieving events")
 
 		if err := as.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			as.log.Sugar().Fatalf("error admin server listening: %v", err)
@@ -789,10 +789,6 @@ func getGetEventMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bool
 	}
 }
 
-type GetEventsResponse struct {
-	Events []*event.Event `json:"events"`
-}
-
 func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.web.get_get_events_handler.requests", nil, 1)
@@ -847,9 +843,7 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 
 		stats.Incr("bricksllm.web.get_get_events_handler.success", nil, 1)
 
-		c.JSON(http.StatusOK, &GetEventsResponse{
-			Events: []*event.Event{ev},
-		})
+		c.JSON(http.StatusOK, []*event.Event{ev})
 	}
 }
 
