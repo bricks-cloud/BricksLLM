@@ -1,3 +1,13 @@
+## 1.2.0 - 2023-11-21
+### Added
+- Added new filters tags and provider to getting keys API 
+- Added a new API endpoint for fetching an event
+- Added a new API endpoint for fetching all provider settings
+- Added more integration tests that cover critical paths
+
+### Fixed
+- Fixed issues with API key creation
+
 ## 1.1.1 - 2023-11-21
 ### Added
 - Introduced new field called `name` to provider settings
