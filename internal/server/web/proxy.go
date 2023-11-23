@@ -622,7 +622,10 @@ func logEmbeddingRequest(log *zap.Logger, prod, private bool, id string, r *goop
 			zap.String("model", r.Model.String()),
 			zap.String("encoding_format", string(r.EncodingFormat)),
 			zap.String("user", r.User),
-			zap.Any("input", r.Input),
+		}
+
+		if !private {
+			fields = append(fields, zap.Any("input", r.Input))
 		}
 
 		log.Info("openai embedding request", fields...)

@@ -9,7 +9,7 @@ import (
 )
 
 type Storage interface {
-	GetKeysByTag(tag string) ([]*key.ResponseKey, error)
+	GetKeys(tags []string, provider string) ([]*key.ResponseKey, error)
 	UpdateKey(id string, key *key.UpdateKey) (*key.ResponseKey, error)
 	CreateKey(key *key.RequestKey) (*key.ResponseKey, error)
 	DeleteKey(id string) error
@@ -32,8 +32,8 @@ func NewManager(s Storage, e Encrypter) *Manager {
 	}
 }
 
-func (m *Manager) GetKeysByTag(tag string) ([]*key.ResponseKey, error) {
-	return m.s.GetKeysByTag(tag)
+func (m *Manager) GetKeys(tags []string, model string) ([]*key.ResponseKey, error) {
+	return m.s.GetKeys(tags, model)
 }
 
 func (m *Manager) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {

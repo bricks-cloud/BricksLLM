@@ -10,7 +10,7 @@ import (
 )
 
 type ProviderSettingsStorage interface {
-	GetAllProviderSettings() ([]*provider.Setting, error)
+	GetProviderSettings(withSecret bool) ([]*provider.Setting, error)
 	GetUpdatedProviderSettings(updatedAt int64) ([]*provider.Setting, error)
 }
 
@@ -26,7 +26,7 @@ type ProviderSettingsMemDb struct {
 
 func NewProviderSettingsMemDb(ex ProviderSettingsStorage, log *zap.Logger, interval time.Duration) (*ProviderSettingsMemDb, error) {
 	m := map[string]*provider.Setting{}
-	settings, err := ex.GetAllProviderSettings()
+	settings, err := ex.GetProviderSettings(true)
 	if err != nil {
 		return nil, err
 	}

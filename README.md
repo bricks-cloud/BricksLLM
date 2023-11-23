@@ -117,6 +117,8 @@ const openai = new OpenAI({
 > | `REDIS_READ_TIME_OUT`         | optional | Timeout for Redis read operations | `1s`
 > | `REDIS_WRITE_TIME_OUT`         | optional | Timeout for Redis write operations | `500ms`
 > | `IN_MEMORY_DB_UPDATE_INTERVAL`         | optional | The interval BricksLLM API gateway polls Postgresql DB for latest key configurations | `1s`
+> | `STATS_PROVIDER`         | optional | This value can only be datadog. Required for integration with Datadog.  |
+> | `PROXY_TIMEOUT`         | optional | This value can only be datadog. Required for integration with Datadog.  |
 
 ## Configuration Endpoints
 The configuration server runs on Port `8001`.
@@ -126,11 +128,13 @@ The configuration server runs on Port `8001`.
 ##### Description
 This endpoint is set up for retrieving key configurations using a query param called tag.
 
-##### Parameters
+##### Query Parameters
 
 > | name   |  type      | data type      | description                                          |
 > |--------|------------|----------------|------------------------------------------------------|
-> | `tag` |  required  | string         | Identifier attached to a key configuration                  |
+> | `tag` |  optional   | string         | Identifier attached to a key configuration                  |
+> | `tags` |  optional  | array of string         | Identifiers attached to a key configuration                  |
+> | `provider` |  optional  | string         | Provider attached to a key provider configuration. Its value can only be `openai`.                 |
 
 ##### Error Response
 
@@ -287,7 +291,7 @@ This endpoint is set up for updating key configurations using key id.
   <summary>Create a provider setting: <code>POST</code> <code><b>/api/provider-settings</b></code></summary>
 
 ##### Description
-This endpoint is creating a provider setting .
+This endpoint is creating a provider setting.
 
 ##### Request
 > | Field | type | type | example                      | description |
@@ -312,6 +316,43 @@ This endpoint is creating a provider setting .
 > | instance         | `string` | /api/provider-settings           |
 
 ##### Response
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | createdAt | `int64` | `1699933571` | Unix timestamp for creation time.  |
+> | updatedAt | `int64` | `1699933571` | Unix timestamp for update time. |
+> | provider | `enum` | `openai` | This value can only be `openai` as for now. |
+> | id | `string` | 98daa3ae-961d-4253-bf6a-322a32fdca3d | This value is a unique identifier. |
+> | name | `string` | YOUR_PROVIDER_SETTING_NAME | Provider setting name. |
+
+</details>
+
+##### Description
+This endpoint is getting all provider settings.
+
+##### Request
+> | Field | type | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `500`        | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `400`            |
+> | title         | `string` | request body reader error             |
+> | type         | `string` | /errors/request-body-read             |
+> | detail         | `string` | something is wrong            |
+> | instance         | `string` | /api/provider-settings           |
+
+##### Response
+```
+[]ProviderSetting
+```
+
+ProviderSetting
 > | Field | type | example                      | description |
 > |---------------|-----------------------------------|-|-|
 > | createdAt | `int64` | `1699933571` | Unix timestamp for creation time.  |
@@ -410,8 +451,58 @@ This endpoint is retrieving aggregated metrics given an array of key ids and tag
 
 </details>
 
+##### Description
+This endpoint is getting events.
+
+##### Query Parameters
+> | name   |  type      | data type      | description                                          |
+> |--------|------------|----------------|------------------------------------------------------|
+> | `customId` |  optional   | string         | Custom identifier attached to an event                  |
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `500`        | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `400`            |
+> | title         | `string` | request body reader error             |
+> | type         | `string` | /errors/request-body-read             |
+> | detail         | `string` | something is wrong            |
+> | instance         | `string` | /api/provider-settings           |
+
+##### Response
+```
+[]Event
+```
+
+Event
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | id | `int64` | `1699933571` | Unique identifier associated with the event.  |
+> | created_at | `int64` | `1699933571` | Unix timestamp for creation time.  |
+> | tags | `int64` | `["YOUR_TAG"]` | Tags of the key. |
+> | key_id | `string` | YOUR_KEY_ID | Key Id associated with the proxy request. |
+> | cost_in_usd | `float64` | 0.0004 | Cost incured by the proxy request. |
+> | model | `string` | gpt-4-1105-preview | Model used in the proxy request. |
+> | provider | `string` | `openai` | Provider for the proxy request. |
+> | status | `int` | `200` | Http status. |
+> | prompt_token_count | `int` | `8` | Prompt token count of the proxy request. |
+> | completion_token_count | `int` | `16` | Completion token counts of the proxy request. |
+> | latency_in_ms | `int` | `160` | Provider setting name. |
+> | path | `string` | /api/v1/chat/completion | Provider setting name. |
+> | method | `string` | POST | Http method for the assoicated proxu request. |
+> | custom_id | `string` | YOUR_CUSTOM_ID | Custom Id passed by the user in the headers of proxy requests. |
+</details>
+
 ## OpenAI Proxy
 The OpenAI proxy runs on Port `8002`.
+
+##### Headers
+> | name   |  type      | data type      | description                                          |
+> |--------|------------|----------------|------------------------------------------------------|
+> | `x-custom-event-id` |  optional  | `string`         | Custom Id that can be used to retrieve an event associated with each proxy request.
 
 <details>
   <summary>Call OpenAI chat completions: <code>POST</code> <code><b>/api/providers/openai/v1/chat/completions</b></code></summary>

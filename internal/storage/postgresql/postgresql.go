@@ -129,7 +129,7 @@ func (s *Store) CreateEventsTable() error {
 
 func (s *Store) AlterEventsTable() error {
 	alterTableQuery := `
-		ALTER TABLE events ADD COLUMN IF NOT EXISTS path VARCHAR(255), ADD COLUMN IF NOT EXISTS method VARCHAR(255)
+		ALTER TABLE events ADD COLUMN IF NOT EXISTS path VARCHAR(255), ADD COLUMN IF NOT EXISTS method VARCHAR(255), ADD COLUMN IF NOT EXISTS custom_id VARCHAR(255)
 	`
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -198,8 +198,8 @@ func (s *Store) DropKeysTable() error {
 
 func (s *Store) InsertEvent(e *event.Event) error {
 	query := `
-		INSERT INTO events (event_id, created_at, tags, key_id, cost_in_usd, provider, model, status_code, prompt_token_count, completion_token_count, latency_in_ms, path, method)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		INSERT INTO events (event_id, created_at, tags, key_id, cost_in_usd, provider, model, status_code, prompt_token_count, completion_token_count, latency_in_ms, path, method, custom_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 	`
 
 	values := []any{
@@ -216,6 +216,7 @@ func (s *Store) InsertEvent(e *event.Event) error {
 		e.LatencyInMs,
 		e.Path,
 		e.Method,
+		e.CustomId,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -227,6 +228,60 @@ func (s *Store) InsertEvent(e *event.Event) error {
 	return nil
 }
 
+func (s *Store) GetEvents(customId string) ([]*event.Event, error) {
+	query := `
+		SELECT * FROM events WHERE $1 = custom_id
+	`
+
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	events := []*event.Event{}
+	rows, err := s.db.QueryContext(ctxTimeout, query, customId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return events, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var e event.Event
+		var path sql.NullString
+		var method sql.NullString
+		var customId sql.NullString
+
+		if err := rows.Scan(
+			&e.Id,
+			&e.CreatedAt,
+			pq.Array(&e.Tags),
+			&e.KeyId,
+			&e.CostInUsd,
+			&e.Provider,
+			&e.Model,
+			&e.Status,
+			&e.PromptTokenCount,
+			&e.CompletionTokenCount,
+			&e.LatencyInMs,
+			&path,
+			&method,
+			&customId,
+		); err != nil {
+			return nil, err
+		}
+
+		pe := &e
+		pe.Path = path.String
+		pe.Method = method.String
+		pe.CustomId = customId.String
+
+		events = append(events, pe)
+	}
+
+	return events, nil
+}
+
 func (s *Store) GetLatencyPercentiles(start, end int64, tags, keyIds []string) ([]float64, error) {
 	eventSelectionBlock := `
 	WITH events_table AS
@@ -234,7 +289,7 @@ func (s *Store) GetLatencyPercentiles(start, end int64, tags, keyIds []string) (
 			SELECT * FROM events 
 	`
 
-	conditionBlock := fmt.Sprintf("WHERE created_at >= %d AND created_at < %d ", start, end)
+	conditionBlock := fmt.Sprintf("WHERE created_at >= %d AND created_at <= %d ", start, end)
 	if len(tags) != 0 {
 		conditionBlock += fmt.Sprintf("AND tags @> '%s' ", sliceToSqlStringArray(tags))
 	}
@@ -329,7 +384,7 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 			SELECT * FROM events 
 	`
 
-	conditionBlock := fmt.Sprintf("WHERE created_at >= %d AND created_at < %d ", start, end)
+	conditionBlock := fmt.Sprintf("WHERE created_at >= %d AND created_at <= %d ", start, end)
 	if len(tags) != 0 {
 		conditionBlock += fmt.Sprintf("AND tags @> '%s' ", sliceToSqlStringArray(tags))
 	}
@@ -396,11 +451,43 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 	return data, nil
 }
 
-func (s *Store) GetKeysByTag(tag string) ([]*key.ResponseKey, error) {
+func (s *Store) GetKeys(tags []string, provider string) ([]*key.ResponseKey, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
-	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM keys WHERE $1 = ANY(tags)", tag)
+	args := []any{}
+
+	query := ""
+
+	selectionQuery := "SELECT * FROM keys "
+
+	index := 1
+	if len(tags) != 0 {
+		args = append(args, pq.Array(tags))
+		index += 1
+		selectionQuery += "WHERE tags @> $1"
+	}
+
+	query = selectionQuery
+
+	if len(provider) != 0 {
+		args = append(args, provider)
+		query = fmt.Sprintf(`
+			WITH keys_table AS
+			(
+				%s
+			),provider_settings_table AS
+			(
+				SELECT * FROM provider_settings WHERE $%d = provider
+			)
+			SELECT keys_table.*
+			FROM keys_table
+			JOIN provider_settings_table
+			ON keys_table.setting_id = provider_settings_table.id;
+		`, selectionQuery, index)
+	}
+
+	rows, err := s.db.QueryContext(ctxTimeout, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -501,12 +588,14 @@ func (s *Store) GetProviderSetting(id string) (*provider.Setting, error) {
 	for rows.Next() {
 		setting := &provider.Setting{}
 		var data []byte
+		var name sql.NullString
 		if err := rows.Scan(
 			&setting.Id,
 			&setting.CreatedAt,
 			&setting.UpdatedAt,
 			&setting.Provider,
 			&data,
+			&name,
 		); err != nil {
 			return nil, err
 		}
@@ -516,6 +605,7 @@ func (s *Store) GetProviderSetting(id string) (*provider.Setting, error) {
 			return nil, err
 		}
 
+		setting.Name = name.String
 		setting.Setting = m
 		settings = append(settings, setting)
 	}
@@ -527,7 +617,7 @@ func (s *Store) GetProviderSetting(id string) (*provider.Setting, error) {
 	return nil, internal_errors.NewNotFoundError("provider setting is not found")
 }
 
-func (s *Store) GetAllProviderSettings() ([]*provider.Setting, error) {
+func (s *Store) GetProviderSettings(withSecret bool) ([]*provider.Setting, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
@@ -553,12 +643,14 @@ func (s *Store) GetAllProviderSettings() ([]*provider.Setting, error) {
 			return nil, err
 		}
 
-		m := map[string]string{}
-		if err := json.Unmarshal(data, &m); err != nil {
-			return nil, err
+		if withSecret {
+			m := map[string]string{}
+			if err := json.Unmarshal(data, &m); err != nil {
+				return nil, err
+			}
+			setting.Setting = m
 		}
 
-		setting.Setting = m
 		setting.Name = name.String
 		settings = append(settings, setting)
 	}
@@ -925,7 +1017,7 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		rk.Name,
 		rk.CreatedAt,
 		rk.UpdatedAt,
-		sliceToSqlStringArray(rk.Tags),
+		pq.Array(rk.Tags),
 		false,
 		rk.KeyId,
 		rk.Key,
