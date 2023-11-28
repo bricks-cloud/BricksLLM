@@ -580,6 +580,10 @@ func (s *Store) GetProviderSetting(id string) (*provider.Setting, error) {
 
 	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM provider_settings WHERE $1 = id", id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, internal_errors.NewNotFoundError("provider setting is not found")
+		}
+
 		return nil, err
 	}
 	defer rows.Close()
@@ -610,7 +614,7 @@ func (s *Store) GetProviderSetting(id string) (*provider.Setting, error) {
 		settings = append(settings, setting)
 	}
 
-	if len(settings) == 1 {
+	if len(settings) >= 1 {
 		return settings[0], nil
 	}
 
@@ -904,11 +908,24 @@ func (s *Store) UpdateProviderSetting(id string, setting *provider.Setting) (*pr
 
 	values := []any{
 		id,
-		data,
 		setting.UpdatedAt,
 	}
+	fields := []string{"updated_at = $2"}
 
-	query := "UPDATE provider_settings SET setting = $2, updated_at = $3 WHERE id = $1 RETURNING id, created_at, updated_at, provider, name;"
+	d := 3
+
+	if len(setting.Setting) != 0 {
+		values = append(values, data)
+		fields = append(fields, fmt.Sprintf("setting = $%d", d))
+		d++
+	}
+
+	if len(setting.Name) != 0 {
+		values = append(values, setting.Name)
+		fields = append(fields, fmt.Sprintf("name = $%d", d))
+	}
+
+	query := fmt.Sprintf("UPDATE provider_settings SET %s WHERE id = $1 RETURNING id, created_at, updated_at, provider, name;", strings.Join(fields, ","))
 	updated := &provider.Setting{}
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()

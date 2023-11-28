@@ -377,7 +377,6 @@ This endpoint is updating a provider setting .
 ##### Request
 > | Field | type | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
-> | provider | required | `enum` | openai | This value can only be `openai` as for now. |
 > | setting | required | `object` | `{ "apikey": "YOUR_OPENAI_KEY" }`            | A map of values used for authenticating with the selected provider. |
 > | setting.apikey | required | `string` | xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx | This field is required if `provider` is `openai`. |
 > | name | optional | `string` | YOUR_PROVIDER_SETTING_NAME | This field is used for giving a name to provider setting |
