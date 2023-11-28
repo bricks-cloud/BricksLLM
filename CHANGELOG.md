@@ -1,6 +1,9 @@
 ## 1.2.1 - 2023-11-27
+### Added
+- Added validation for changing setting when updating provider setting
+
 ### Changed
-- Remove support for changing provider when updating provider setting
+- Removed support for changing provider when updating provider setting
 
 ### Fixed
 - Fixed issues with not being able to update provider setting name
