@@ -64,8 +64,15 @@ func (m *ProviderSettingsManager) UpdateSetting(id string, setting *provider.Set
 		return nil, internal_errors.NewValidationError("id cannot be empty")
 	}
 
-	if len(setting.Setting) == 0 {
-		return nil, internal_errors.NewValidationError("settings field cannot be empty")
+	existing, _ := m.Storage.GetProviderSetting(id)
+	if existing == nil {
+		return nil, internal_errors.NewNotFoundError("provider setting is not found")
+	}
+
+	if len(setting.Setting) != 0 && existing.Provider == "openai" {
+		if val, _ := setting.Setting["apikey"]; len(val) == 0 {
+			return nil, internal_errors.NewValidationError("api key cannot be empty when the provider is openai")
+		}
 	}
 
 	setting.UpdatedAt = time.Now().Unix()
