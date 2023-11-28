@@ -1,3 +1,10 @@
+## 1.2.1 - 2023-11-27
+### Changed
+- Remove support for changing provider when updating provider setting
+
+### Fixed
+- Fixed issues with not being able to update provider setting name
+
 ## 1.2.0 - 2023-11-21
 ### Added
 - Added new filters tags and provider to getting keys API 
