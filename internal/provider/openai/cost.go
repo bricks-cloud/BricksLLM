@@ -164,16 +164,44 @@ func (ce *CostEstimator) EstimateCompletionCost(model string, tks int) (float64,
 	return tksInFloat / 1000 * cost, nil
 }
 
-func (ce *CostEstimator) EstimateChatCompletionPromptCost(r *goopenai.ChatCompletionRequest) (float64, error) {
+func (ce *CostEstimator) EstimateChatCompletionPromptCostWithTokenCounts(r *goopenai.ChatCompletionRequest) (int, float64, error) {
 	if len(r.Model) == 0 {
-		return 0, errors.New("model is not provided")
+		return 0, 0, errors.New("model is not provided")
 	}
 
 	tks, err := countTotalTokens(r, ce.tc)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	return ce.EstimatePromptCost(r.Model, tks)
+
+	cost, err := ce.EstimatePromptCost(r.Model, tks)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return tks, cost, nil
+}
+
+func (ce *CostEstimator) EstimateChatCompletionStreamCostWithTokenCounts(model string, resp *goopenai.ChatCompletionStreamResponse) (int, float64, error) {
+	if len(model) == 0 {
+		return 0, 0, errors.New("model is not provided")
+	}
+
+	if len(resp.Choices) == 0 {
+		return 0, 0, errors.New("there are no choices in the chat completion stream")
+	}
+
+	tks, err := ce.tc.Count(model, resp.Choices[0].Delta.Content)
+	if err != nil {
+		return 0, 0, errors.New("there are no choices in the chat completion stream")
+	}
+
+	cost, err := ce.EstimateCompletionCost(model, tks)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return tks, cost, nil
 }
 
 func (ce *CostEstimator) EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (float64, error) {
