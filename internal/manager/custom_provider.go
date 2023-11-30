@@ -17,7 +17,7 @@ type CustomProvidersStorage interface {
 	GetCustomProviders() ([]*custom.Provider, error)
 	GetCustomProviderByName(name string) (*custom.Provider, error)
 	GetCustomProvider(id string) (*custom.Provider, error)
-	UpdateCustomProvider(id string, provider *custom.Provider) (*custom.Provider, error)
+	UpdateCustomProvider(id string, provider *custom.UpdateProvider) (*custom.Provider, error)
 }
 
 type CustomProvidersMemStorage interface {
@@ -73,7 +73,7 @@ func gatherEmptyFieldsFromRouteConfig(index int, rc *custom.RouteConfig) []strin
 
 }
 
-func validateCustomProviderUpdate(existing *custom.Provider, updated *custom.Provider) error {
+func validateCustomProviderUpdate(existing *custom.Provider, updated *custom.UpdateProvider) error {
 	invalidFields := []string{}
 	pathToRouteMap := map[string]*custom.RouteConfig{}
 
@@ -226,7 +226,7 @@ func (m *CustomProvidersManager) GetCustomProviders() ([]*custom.Provider, error
 	return m.Storage.GetCustomProviders()
 }
 
-func (m *CustomProvidersManager) UpdateCustomProvider(id string, provider *custom.Provider) (*custom.Provider, error) {
+func (m *CustomProvidersManager) UpdateCustomProvider(id string, provider *custom.UpdateProvider) (*custom.Provider, error) {
 	provider.UpdatedAt = time.Now().Unix()
 
 	existing, err := m.Storage.GetCustomProvider(id)

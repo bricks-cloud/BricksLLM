@@ -133,6 +133,10 @@ func (s *Store) GetCustomProvider(id string) (*custom.Provider, error) {
 		return nil, err
 	}
 
+	if err := json.Unmarshal(data, &retrieved.RouteConfigs); err != nil {
+		return nil, err
+	}
+
 	return retrieved, nil
 }
 
@@ -171,7 +175,7 @@ func (s *Store) GetCustomProviders() ([]*custom.Provider, error) {
 	return providers, nil
 }
 
-func (s *Store) UpdateCustomProvider(id string, provider *custom.Provider) (*custom.Provider, error) {
+func (s *Store) UpdateCustomProvider(id string, provider *custom.UpdateProvider) (*custom.Provider, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
@@ -186,7 +190,7 @@ func (s *Store) UpdateCustomProvider(id string, provider *custom.Provider) (*cus
 		id,
 	}
 
-	if len(provider.AuthenticationParam) != 0 {
+	if provider.AuthenticationParam != nil {
 		values = append(values, provider.AuthenticationParam)
 		fields = append(fields, fmt.Sprintf("authentication_param = $%d", counter))
 		counter++
@@ -339,6 +343,18 @@ func mergeRouterConfigs(existingConfigs []*custom.RouteConfig, targetConfigs []*
 			merged.StreamResponseCompletionLocation = existing.StreamResponseCompletionLocation
 		}
 
+		if target.StreamMaxEmptyMessages != 0 {
+			merged.StreamMaxEmptyMessages = target.StreamMaxEmptyMessages
+		}
+
+		if target.StreamMaxEmptyMessages == 0 {
+			merged.StreamMaxEmptyMessages = existing.StreamMaxEmptyMessages
+		}
+
+		if len(target.StreamResponseCompletionLocation) == 0 {
+			merged.StreamResponseCompletionLocation = existing.StreamResponseCompletionLocation
+		}
+
 		if len(target.TargetUrl) != 0 {
 			merged.TargetUrl = target.TargetUrl
 		}
@@ -347,7 +363,7 @@ func mergeRouterConfigs(existingConfigs []*custom.RouteConfig, targetConfigs []*
 			merged.TargetUrl = existing.TargetUrl
 		}
 
-		pathToRouteMap[target.Path] = merged
+		pathToRouteMap[merged.Path] = merged
 	}
 
 	for _, v := range pathToRouteMap {

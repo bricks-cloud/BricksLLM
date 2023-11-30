@@ -924,7 +924,7 @@ type CustomProvidersManager interface {
 	GetCustomProviders() ([]*custom.Provider, error)
 	GetRouteConfigFromMem(name, path string) *custom.RouteConfig
 	GetCustomProviderFromMem(name string) *custom.Provider
-	UpdateCustomProvider(id string, setting *custom.Provider) (*custom.Provider, error)
+	UpdateCustomProvider(id string, setting *custom.UpdateProvider) (*custom.Provider, error)
 }
 
 func getCreateCustomProviderHandler(m CustomProvidersManager, log *zap.Logger, prod bool) gin.HandlerFunc {
@@ -1100,7 +1100,7 @@ func getUpdateCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, 
 			return
 		}
 
-		setting := &custom.Provider{}
+		setting := &custom.UpdateProvider{}
 		err = json.Unmarshal(data, setting)
 		if err != nil {
 			logError(log, "error when unmarshalling update a custom provider request body", prod, cid, err)

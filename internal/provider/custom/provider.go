@@ -20,3 +20,9 @@ type RouteConfig struct {
 	StreamResponseCompletionLocation string `json:"stream_response_completion_location"`
 	StreamMaxEmptyMessages           int    `json:"stream_max_empty_messages"`
 }
+
+type UpdateProvider struct {
+	UpdatedAt           int64          `json:"updated_at"`
+	RouteConfigs        []*RouteConfig `json:"route_configs"`
+	AuthenticationParam *string        `json:"authentication_param"`
+}
