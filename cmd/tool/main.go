@@ -13,6 +13,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/encrypter"
 	logger "github.com/bricks-cloud/bricksllm/internal/logger/zap"
 	"github.com/bricks-cloud/bricksllm/internal/manager"
+	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
 	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	"github.com/bricks-cloud/bricksllm/internal/recorder"
 	"github.com/bricks-cloud/bricksllm/internal/server/web"
@@ -52,6 +53,11 @@ func main() {
 
 	if err != nil {
 		log.Sugar().Fatalf("cannot connect to postgresql: %v", err)
+	}
+
+	err = store.CreateCustomProvidersTable()
+	if err != nil {
+		log.Sugar().Fatalf("error creating custom providers table: %v", err)
 	}
 
 	err = store.CreateKeysTable()
@@ -96,6 +102,12 @@ func main() {
 	}
 	psMemStore.Listen()
 
+	cpMemStore, err := memdb.NewCustomProvidersMemDb(store, log, cfg.InMemoryDbUpdateInterval)
+	if err != nil {
+		log.Sugar().Fatalf("cannot initialize custom providers memdb: %v", err)
+	}
+	cpMemStore.Listen()
+
 	rateLimitRedisCache := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
 		Password: cfg.RedisPassword,
@@ -139,13 +151,15 @@ func main() {
 	m := manager.NewManager(store, e)
 	krm := manager.NewReportingManager(costStorage, store, store)
 	psm := manager.NewProviderSettingsManager(store, psMemStore)
+	cpm := manager.NewCustomProvidersManager(store, cpMemStore)
 
-	as, err := web.NewAdminServer(log, *modePtr, m, krm, psm)
+	as, err := web.NewAdminServer(log, *modePtr, m, krm, psm, cpm)
 	if err != nil {
 		log.Sugar().Fatalf("error creating admin http server: %v", err)
 	}
 
 	tc := openai.NewTokenCounter()
+	custom.NewTokenCounter()
 
 	as.Run()
 
@@ -154,7 +168,7 @@ func main() {
 	rec := recorder.NewRecorder(costStorage, costLimitCache, ce, store)
 	rlm := manager.NewRateLimitManager(rateLimitCache)
 
-	ps, err := web.NewProxyServer(log, *modePtr, *privacyPtr, m, psm, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm, cfg.ProxyTimeout)
+	ps, err := web.NewProxyServer(log, *modePtr, *privacyPtr, m, psm, cpm, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm, cfg.ProxyTimeout)
 	if err != nil {
 		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}
@@ -167,6 +181,7 @@ func main() {
 
 	memStore.Stop()
 	psMemStore.Stop()
+	cpMemStore.Stop()
 
 	log.Sugar().Info("shutting down server...")
 
@@ -195,6 +210,11 @@ func main() {
 	err = store.DropEventsTable()
 	if err != nil {
 		log.Sugar().Fatalf("error dropping events table: %v", err)
+	}
+
+	err = store.DropCustomProvidersTable()
+	if err != nil {
+		log.Sugar().Fatalf("error dropping custom providers table: %v", err)
 	}
 
 	err = store.DropProviderSettingsTable()
