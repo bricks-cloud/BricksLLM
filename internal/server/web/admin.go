@@ -100,6 +100,9 @@ func (as *AdminServer) Run() {
 		as.log.Info("PORT 8001 | PATCH | /api/provider-settings:id is set up for updating provider setting")
 		as.log.Info("PORT 8001 | POST  | /api/reporting/events is set up for retrieving api metrics")
 		as.log.Info("PORT 8001 | GET   | /api/events is set up for retrieving events")
+		as.log.Info("PORT 8001 | POST  | /api/custom/providers is set up for creating a custom provider")
+		as.log.Info("PORT 8001 | GET   | /api/custom/providers is set up for retrieving all custom providers")
+		as.log.Info("PORT 8001 | PATCH | /api/custom/providers/:id is set up for updating a custom provider")
 
 		if err := as.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			as.log.Sugar().Fatalf("error admin server listening: %v", err)
@@ -400,19 +403,6 @@ func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 				return
 			}
 
-			if _, ok := err.(notFoundError); ok {
-				errType = "not_found"
-
-				c.JSON(http.StatusNotFound, &ErrorResponse{
-					Type:     "/errors/not-found",
-					Title:    "key creation failed",
-					Status:   http.StatusNotFound,
-					Detail:   err.Error(),
-					Instance: path,
-				})
-				return
-			}
-
 			logError(log, "error when creating api key", prod, id, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/key-manager",
@@ -495,7 +485,7 @@ func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 				errType = "not_found"
 				c.JSON(http.StatusNotFound, &ErrorResponse{
 					Type:     "/errors/not-found",
-					Title:    "update provider setting failed",
+					Title:    "provider setting is not found",
 					Status:   http.StatusNotFound,
 					Detail:   err.Error(),
 					Instance: path,
@@ -997,6 +987,18 @@ func getCreateCustomProviderHandler(m CustomProvidersManager, log *zap.Logger, p
 				}, 1)
 			}()
 
+			if _, ok := err.(validationError); ok {
+				errType = "validation"
+				c.JSON(http.StatusBadRequest, &ErrorResponse{
+					Type:     "/errors/validation",
+					Title:    "custom provider validation failed",
+					Status:   http.StatusBadRequest,
+					Detail:   err.Error(),
+					Instance: path,
+				})
+				return
+			}
+
 			logError(log, "error when creating a custom provider", prod, cid, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/custom-provider-manager",
@@ -1120,6 +1122,30 @@ func getUpdateCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, 
 					"error_type:" + errType,
 				}, 1)
 			}()
+
+			if _, ok := err.(validationError); ok {
+				errType = "validation"
+				c.JSON(http.StatusBadRequest, &ErrorResponse{
+					Type:     "/errors/validation",
+					Title:    "custom provider validation failed",
+					Status:   http.StatusBadRequest,
+					Detail:   err.Error(),
+					Instance: path,
+				})
+				return
+			}
+
+			if _, ok := err.(notFoundError); ok {
+				errType = "not_found"
+				c.JSON(http.StatusNotFound, &ErrorResponse{
+					Type:     "/errors/not-found",
+					Title:    "custom provider is not found",
+					Status:   http.StatusNotFound,
+					Detail:   err.Error(),
+					Instance: path,
+				})
+				return
+			}
 
 			logError(log, "error when updating a custom provider", prod, cid, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{

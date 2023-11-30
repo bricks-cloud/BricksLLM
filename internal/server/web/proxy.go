@@ -833,6 +833,7 @@ func (ps *ProxyServer) Run() {
 		ps.log.Info("PORT 8002 | POST  | /api/providers/openai/v1/chat/completions is ready for forwarding chat completion requests to openai")
 		ps.log.Info("PORT 8002 | POST  | /api/providers/openai/v1/embeddings is ready for forwarding embeddings requests to openai")
 		ps.log.Info("PORT 8002 | POST  | /api/providers/openai/v1/moderations is ready for forwarding moderation requests to openai")
+		ps.log.Info("PORT 8002 | POST  | /api/custom/providers/:provider/*wildcard is ready for forwarding requests to custom providers")
 
 		if err := ps.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			ps.log.Sugar().Fatalf("error proxy server listening: %v", err)
