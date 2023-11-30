@@ -94,7 +94,7 @@ func (mdb *ProviderSettingsMemDb) Listen() {
 				if err != nil {
 					stats.Incr("bricksllm.memdb.provider_settings_memdb.listen.get_updated_provider_settings_err", nil, 1)
 
-					mdb.log.Sugar().Debugf("priovider settings memdb failed to update a provider setting: %v", err)
+					mdb.log.Sugar().Debugf("provider settings memdb failed to update a provider setting: %v", err)
 					continue
 				}
 
