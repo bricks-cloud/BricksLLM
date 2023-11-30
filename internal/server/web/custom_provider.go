@@ -187,8 +187,6 @@ func getCustomProviderHandler(prod, private bool, psm ProviderSettingsManager, c
 				totalTokens += tks
 			}
 
-			fmt.Println(totalTokens)
-
 			c.Set("completionTokenCount", totalTokens)
 
 			return false

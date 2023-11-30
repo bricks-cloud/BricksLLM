@@ -3,7 +3,6 @@ package web
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -246,12 +245,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private 
 
 			result := gjson.Get(string(body), rc.StreamLocation)
 
-			fmt.Println(rc.StreamLocation)
-			fmt.Println(result.IsBool())
-
 			if result.IsBool() {
-				fmt.Println(result.Bool())
-
 				c.Set("streaming", result.Bool())
 			}
 
