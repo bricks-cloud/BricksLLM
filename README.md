@@ -532,7 +532,7 @@ This endpoint is creating custom providers.
 ##### Error Response
 > | http code     | content-type                      |
 > |---------------|-----------------------------------|
-> | `500`        | `application/json`                |
+> | `500`, `400`        | `application/json`                |
 
 > | Field     | type | example                      |
 > |---------------|-----------------------------------|-|
@@ -554,7 +554,7 @@ This endpoint is creating custom providers.
 </details>
 
 <details>
-  <summary>Update custom provider: <code>PUT</code> <code><b>/api/custom/providers/:id</b></code></summary>
+  <summary>Update custom provider: <code>PATCH</code> <code><b>/api/custom/providers/:id</b></code></summary>
 
 ##### Description
 This endpoint is updating a custom provider.
@@ -582,7 +582,7 @@ This endpoint is updating a custom provider.
 ##### Error Response
 > | http code     | content-type                      |
 > |---------------|-----------------------------------|
-> | `500, 404`        | `application/json`                |
+> | `500`, `404`, `400`        | `application/json`                |
 
 > | Field     | type | example                      |
 > |---------------|-----------------------------------|-|
@@ -632,7 +632,7 @@ This endpoint is for getting custom providers.
 ##### Error Response
 > | http code     | content-type                      |
 > |---------------|-----------------------------------|
-> | `500, 404`        | `application/json`                |
+> | `500`        | `application/json`                |
 
 > | Field     | type | example                      |
 > |---------------|-----------------------------------|-|
