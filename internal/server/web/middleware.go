@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -11,10 +12,10 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
-	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 
 	goopenai "github.com/sashabaranov/go-openai"
@@ -39,14 +40,16 @@ type keyStorage interface {
 }
 
 type estimator interface {
-	EstimateChatCompletionPromptCost(r *goopenai.ChatCompletionRequest) (float64, error)
+	EstimateChatCompletionPromptCostWithTokenCounts(r *goopenai.ChatCompletionRequest) (int, float64, error)
 	EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (float64, error)
+	EstimateChatCompletionStreamCostWithTokenCounts(model string, resp *goopenai.ChatCompletionStreamResponse) (int, float64, error)
+	EstimateCompletionCost(model string, tks int) (float64, error)
 	EstimateTotalCost(model string, promptTks, completionTks int) (float64, error)
 	EstimateEmbeddingsInputCost(model string, tks int) (float64, error)
 }
 
 type validator interface {
-	Validate(k *key.ResponseKey, promptCost float64, model string) error
+	Validate(k *key.ResponseKey, promptCost float64) error
 }
 
 type rateLimitManager interface {
@@ -88,7 +91,7 @@ func getAdminLoggerMiddleware(log *zap.Logger, prefix string, prod bool) gin.Han
 	}
 }
 
-func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validator, ks keyStorage, log *zap.Logger, enc encrypter, rlm rateLimitManager, r recorder, prefix string) gin.HandlerFunc {
+func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private bool, e estimator, v validator, ks keyStorage, log *zap.Logger, enc encrypter, rlm rateLimitManager, r recorder, prefix string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] request is empty")
@@ -104,6 +107,8 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 		cid := util.NewUuid()
 		c.Set(correlationId, cid)
 		start := time.Now()
+
+		selectedProvider := "openai"
 
 		customId := c.Request.Header.Get("X-CUSTOM-EVENT-ID")
 		defer func() {
@@ -150,7 +155,7 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 				Tags:                 tags,
 				KeyId:                keyId,
 				CostInUsd:            c.GetFloat64("costInUsd"),
-				Provider:             provider.OpenAiProvider,
+				Provider:             selectedProvider,
 				Model:                c.GetString("model"),
 				Status:               c.Writer.Status(),
 				PromptTokenCount:     c.GetInt("promptTokenCount"),
@@ -208,7 +213,53 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 		c.Request.Body = io.NopCloser(bytes.NewReader(body))
 
 		var cost float64 = 0
-		model := ""
+		if strings.HasPrefix(c.FullPath(), "/api/custom/providers/:provider") {
+			providerName := c.Param("provider")
+
+			rc := cpm.GetRouteConfigFromMem(providerName, c.Param("wildcard"))
+			cp := cpm.GetCustomProviderFromMem(providerName)
+			if cp == nil {
+				stats.Incr("bricksllm.web.get_middleware.provider_not_found", nil, 1)
+				JSON(c, http.StatusNotFound, "[BricksLLM] requested custom provider is not found")
+				c.Abort()
+				return
+			}
+
+			if rc == nil {
+				stats.Incr("bricksllm.web.get_middleware.route_config_not_found", nil, 1)
+				JSON(c, http.StatusNotFound, "[BricksLLM] route config is not found")
+				c.Abort()
+				return
+			}
+
+			selectedProvider = cp.Provider
+
+			c.Set("provider", cp)
+			c.Set("route_config", rc)
+
+			tks, err := countTokensFromJson(body, rc.RequestPromptLocation)
+			if err != nil {
+				logError(log, "error when counting tokens for custom provider request", prod, cid, err)
+			}
+
+			c.Set("promptTokenCount", tks)
+
+			result := gjson.Get(string(body), rc.StreamLocation)
+
+			fmt.Println(rc.StreamLocation)
+			fmt.Println(result.IsBool())
+
+			if result.IsBool() {
+				fmt.Println(result.Bool())
+
+				c.Set("streaming", result.Bool())
+			}
+
+			result = gjson.Get(string(body), rc.ModelLocation)
+			if len(result.Str) != 0 {
+				c.Set("model", result.Str)
+			}
+		}
 
 		if c.FullPath() == "/api/providers/openai/v1/chat/completions" {
 			ccr := &goopenai.ChatCompletionRequest{}
@@ -218,18 +269,22 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 				return
 			}
 
-			model = ccr.Model
-			c.Set("model", model)
+			c.Set("model", ccr.Model)
 
 			logRequest(log, prod, private, cid, ccr)
 
-			cost, err = e.EstimateChatCompletionPromptCost(ccr)
+			tks, cost, err := e.EstimateChatCompletionPromptCostWithTokenCounts(ccr)
 			if err != nil {
-				stats.Incr("bricksllm.web.get_middleware.estimate_chat_completion_prompt_cost_error", nil, 1)
+				stats.Incr("bricksllm.web.get_middleware.estimate_chat_completion_prompt_cost_with_token_counts_error", nil, 1)
 
 				logError(log, "error when estimating prompt cost", prod, cid, err)
 			}
 
+			if ccr.Stream {
+				c.Set("stream", true)
+				c.Set("estimatedPromptCostInUsd", cost)
+				c.Set("promptTokenCount", tks)
+			}
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/embeddings" {
@@ -240,8 +295,7 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 				return
 			}
 
-			model = er.Model.String()
-			c.Set("model", model)
+			c.Set("model", er.Model.String())
 			c.Set("encoding_format", string(er.EncodingFormat))
 
 			logEmbeddingRequest(log, prod, private, cid, er)
@@ -253,75 +307,160 @@ func getMiddleware(kms keyMemStorage, prod, private bool, e estimator, v validat
 			}
 		}
 
-		// if c.FullPath() == "/assistants" && c.Request.Method == http.MethodPost {
-		// 	logCreateAssistantRequest(log, body, prod, private, cid)
-		// }
+		aid := c.Param("assistant_id")
+		fid := c.Param("file_id")
+		tid := c.Param("thread_id")
+		mid := c.Param("message_id")
+		rid := c.Param("run_id")
+		sid := c.Param("step_id")
+		md := c.Param("model")
+		qm := map[string]string{}
 
-		// if strings.HasSuffix(c.FullPath(), "/assistants/:assistant_id") && c.Request.Method == http.MethodGet {
-		// 	assistantId := c.Param("assistant_id")
-		// 	logRetrieveAssistantRequest(log, body, prod, cid, assistantId)
-		// }
+		if val, ok := c.GetQuery("limit"); ok {
+			qm["limit"] = val
+		}
 
-		// if strings.HasSuffix(c.FullPath(), "/assistants") && c.Request.Method == http.MethodGet {
-		// 	logListAssistantsRequest(log, prod, cid)
-		// }
+		if val, ok := c.GetQuery("order"); ok {
+			qm["order"] = val
+		}
 
-		// if strings.HasSuffix(c.FullPath(), "/assistants/:assistant_id") && c.Request.Method == http.MethodDelete {
-		// 	assistantId := c.Param("assistant_id")
-		// 	logDeleteAssistantRequest(log, body, prod, cid, assistantId)
-		// }
+		if val, ok := c.GetQuery("after"); ok {
+			qm["after"] = val
+		}
 
-		// if strings.HasSuffix(c.FullPath(), "/assistants/:id") && c.Request.Method == http.MethodPost {
-		// 	assistantId := c.Param("id")
-		// 	ar := &goopenai.AssistantRequest{}
-		// 	err = json.Unmarshal(body, ar)
-		// 	if err != nil {
-		// 		logError(log, "error when unmarshalling assistant request", prod, cid, err)
-		// 		return
-		// 	}
+		if val, ok := c.GetQuery("before"); ok {
+			qm["before"] = val
+		}
 
-		// 	if prod {
-		// 		fields := []zapcore.Field{
-		// 			zap.String(correlationId, cid),
-		// 			zap.String("id", assistantId),
-		// 			zap.String("model", ar.Model),
-		// 			zap.Any("tools", ar.Tools),
-		// 			zap.Any("file_ids", ar.FileIDs),
-		// 			zap.Any("metadata", ar.Metadata),
-		// 		}
+		if c.FullPath() == "/api/providers/openai/v1/assistants" && c.Request.Method == http.MethodPost {
+			logCreateAssistantRequest(log, body, prod, private, cid)
+		}
 
-		// 		if ar.Name != nil {
-		// 			fields = append(fields, zap.String("name", *ar.Name))
-		// 		}
+		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id" && c.Request.Method == http.MethodGet {
+			logRetrieveAssistantRequest(log, body, prod, cid, aid)
+		}
 
-		// 		if ar.Description != nil {
-		// 			fields = append(fields, zap.String("description", *ar.Description))
-		// 		}
+		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id" && c.Request.Method == http.MethodPost {
+			logModifyAssistantRequest(log, body, prod, private, cid, aid)
+		}
 
-		// 		if !private {
-		// 			if ar.Instructions != nil {
-		// 				fields = append(fields, zap.String("instructions", *ar.Instructions))
-		// 			}
-		// 		}
+		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id" && c.Request.Method == http.MethodDelete {
+			logDeleteAssistantRequest(log, body, prod, cid, aid)
+		}
 
-		// 		log.Info("openai modify assistant request", fields...)
-		// 	}
-		// }
+		if c.FullPath() == "/api/providers/openai/v1/assistants" && c.Request.Method == http.MethodGet {
+			logListAssistantsRequest(log, prod, cid)
+		}
 
-		// if strings.HasSuffix(c.FullPath(), "/assistants/:id") && c.Request.Method == http.MethodDelete {
-		// 	assistantId := c.Param("id")
+		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files" && c.Request.Method == http.MethodPost {
+			logCreateAssistantFileRequest(log, body, prod, cid, aid)
+		}
 
-		// 	if prod {
-		// 		fields := []zapcore.Field{
-		// 			zap.String(correlationId, cid),
-		// 			zap.String("id", assistantId),
-		// 		}
+		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files/:file_id" && c.Request.Method == http.MethodGet {
+			logRetrieveAssistantFileRequest(log, prod, cid, fid, aid)
+		}
 
-		// 		log.Info("openai delete assistant request", fields...)
-		// 	}
-		// }
+		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files/:file_id" && c.Request.Method == http.MethodDelete {
+			logRetrieveAssistantFileRequest(log, prod, cid, fid, aid)
+		}
 
-		err = v.Validate(kc, cost, model)
+		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files" && c.Request.Method == http.MethodGet {
+			logListAssistantFilesRequest(log, prod, cid, aid, qm)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/threads" && c.Request.Method == http.MethodPost {
+			logCreateThreadRequest(log, body, prod, private, cid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodGet {
+			logCreateThreadRequest(log, body, prod, private, cid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodPost {
+			logModifyThreadRequest(log, body, prod, cid, tid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodDelete {
+			logDeleteThreadRequest(log, prod, cid, tid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages" && c.Request.Method == http.MethodPost {
+			logCreateMessageRequest(log, body, prod, private, cid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id" && c.Request.Method == http.MethodGet {
+			logRetrieveMessageRequest(log, prod, cid, mid, tid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id" && c.Request.Method == http.MethodPost {
+			logModifyMessageRequest(log, body, prod, private, cid, tid, mid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages" && c.Request.Method == http.MethodGet {
+			logListMessagesRequest(log, body, prod, cid, aid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files/:file_id" && c.Request.Method == http.MethodGet {
+			logRetrieveMessageFileRequest(log, prod, cid, mid, tid, fid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files" && c.Request.Method == http.MethodGet {
+			logListAssistantFilesRequest(log, prod, cid, aid, qm)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs" && c.Request.Method == http.MethodPost {
+			logCreateRunRequest(log, body, prod, cid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id" && c.Request.Method == http.MethodGet {
+			logRetrieveRunRequest(log, body, prod, cid, tid, rid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id" && c.Request.Method == http.MethodPost {
+			logModifyRunRequest(log, body, prod, cid, tid, rid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs" && c.Request.Method == http.MethodGet {
+			logListRunsRequest(log, body, prod, cid, tid, qm)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs" && c.Request.Method == http.MethodPost {
+			logSubmitToolOutputsRequest(log, body, prod, cid, tid, rid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/cancel" && c.Request.Method == http.MethodPost {
+			logCancelARunRequest(log, body, prod, cid, tid, rid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/threads/runs" && c.Request.Method == http.MethodPost {
+			logCreateThreadAndRunRequest(log, body, prod, private, cid, tid, rid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps/:step_id" && c.Request.Method == http.MethodGet {
+			logRetrieveRunStepRequest(log, body, prod, cid, tid, rid, sid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps" && c.Request.Method == http.MethodGet {
+			logListRunStepsRequest(log, body, prod, cid, tid, rid, qm)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/moderations" && c.Request.Method == http.MethodPost {
+			logCreateModerationRequest(log, body, prod, private, cid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/models" && c.Request.Method == http.MethodGet {
+			logCreateModerationRequest(log, body, prod, private, cid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/models/:model" && c.Request.Method == http.MethodGet {
+			logRetrieveModelRequest(log, body, prod, cid, md)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/models/:model" && c.Request.Method == http.MethodDelete {
+			logDeleteModelRequest(log, body, prod, cid, md)
+		}
+
+		err = v.Validate(kc, cost)
 		if err != nil {
 			stats.Incr("bricksllm.web.get_middleware.validation_error", nil, 1)
 

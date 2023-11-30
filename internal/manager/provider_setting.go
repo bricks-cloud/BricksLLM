@@ -6,6 +6,7 @@ import (
 
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
+	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 )
 
@@ -13,6 +14,7 @@ type ProviderSettingsStorage interface {
 	UpdateProviderSetting(id string, setting *provider.Setting) (*provider.Setting, error)
 	CreateProviderSetting(setting *provider.Setting) (*provider.Setting, error)
 	GetProviderSetting(id string) (*provider.Setting, error)
+	GetCustomProviderByName(name string) (*custom.Provider, error)
 	GetProviderSettings(withSecret bool) ([]*provider.Setting, error)
 }
 
@@ -32,17 +34,39 @@ func NewProviderSettingsManager(s ProviderSettingsStorage, memdb ProviderSetting
 	}
 }
 
+func (m *ProviderSettingsManager) validateSettings(name string, setting *provider.Setting) error {
+	if setting.Provider != "openai" {
+		provider, err := m.Storage.GetCustomProviderByName(name)
+		_, ok := err.(notFoundError)
+		if ok {
+			return internal_errors.NewValidationError(fmt.Sprintf("provider %s is not supported", name))
+		}
+
+		if len(provider.AuthenticationParam) != 0 {
+			val, _ := setting.Setting[provider.AuthenticationParam]
+			if len(val) == 0 {
+				return internal_errors.NewValidationError(fmt.Sprintf("provider %s is missing value for field %s", setting.Provider, provider.AuthenticationParam))
+			}
+		}
+	}
+
+	if setting.Provider == "openai" {
+		val, _ := setting.Setting["apikey"]
+		if len(val) == 0 {
+			return internal_errors.NewValidationError("api key is required for openai")
+		}
+	}
+
+	return nil
+}
+
 func (m *ProviderSettingsManager) CreateSetting(setting *provider.Setting) (*provider.Setting, error) {
 	if len(setting.Provider) == 0 {
 		return nil, internal_errors.NewValidationError("provider field cannot be empty")
 	}
 
-	if setting.Provider != "openai" {
-		return nil, internal_errors.NewValidationError(fmt.Sprintf("provider %s is not supported ", setting.Provider))
-	}
-
-	if len(setting.Setting) == 0 {
-		return nil, internal_errors.NewValidationError("setting field cannot be empty")
+	if err := m.validateSettings(setting.Provider, setting); err != nil {
+		return nil, err
 	}
 
 	setting.Id = util.NewUuid()
@@ -69,9 +93,9 @@ func (m *ProviderSettingsManager) UpdateSetting(id string, setting *provider.Set
 		return nil, internal_errors.NewNotFoundError("provider setting is not found")
 	}
 
-	if len(setting.Setting) != 0 && existing.Provider == "openai" {
-		if val, _ := setting.Setting["apikey"]; len(val) == 0 {
-			return nil, internal_errors.NewValidationError("api key cannot be empty when the provider is openai")
+	if len(setting.Setting) != 0 {
+		if err := m.validateSettings(existing.Provider, setting); err != nil {
+			return nil, err
 		}
 	}
 

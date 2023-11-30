@@ -47,11 +47,11 @@ You can run this in detach mode use the -d flag: `docker-compose up -d`
 curl -X PUT http://localhost:8001/api/provider-settings \
    -H "Content-Type: application/json" \
    -d '{
-    "provider":"openai",
-    "setting": {
-        "apikey": "YOUR_OPENAI_KEY"
-    }
-}'   
+          "provider":"openai",
+          "setting": {
+             "apikey": "YOUR_OPENAI_KEY"
+          }
+      }'   
 ```
 Copy the `id` from the response.
 
@@ -192,7 +192,7 @@ This endpoint is set up for retrieving key configurations using a query param ca
 > | costLimitInUsd | optional | `float64` | `5.5` | Total spend limit of the API key.
 > | costLimitInUsdOverTime | optional | `float64` | `2` | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
 > | costLimitInUsdUnit | optional | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `d`].      |
-> | rateLimitOverTime | optional | `string` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitOverTime | optional | `int` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | optional | `enum` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
 > | ttl | optional | `string` | 2d | time to live. Available units are [`s`, `m`, `h`] |
 
@@ -326,6 +326,10 @@ This endpoint is creating a provider setting.
 
 </details>
 
+
+<details>
+  <summary>Get all provider settings: <code>GET</code> <code><b>/api/provider-settings</b></code></summary>
+
 ##### Description
 This endpoint is getting all provider settings.
 
@@ -450,8 +454,11 @@ This endpoint is retrieving aggregated metrics given an array of key ids and tag
 
 </details>
 
+<details>
+  <summary>Get events: <code>GET</code> <code><b>/api/events</b></code></summary>
+
 ##### Description
-This endpoint is getting events.
+This endpoint is for getting events.
 
 ##### Query Parameters
 > | name   |  type      | data type      | description                                          |
@@ -495,6 +502,162 @@ Event
 > | custom_id | `string` | YOUR_CUSTOM_ID | Custom Id passed by the user in the headers of proxy requests. |
 </details>
 
+<details>
+  <summary>Create custom provider: <code>POST</code> <code><b>/api/custom/providers</b></code></summary>
+
+##### Description
+This endpoint is creating custom providers.
+
+##### Route Config
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | path | required | `string` | `/chat/completion` | Path associated with the custom provider route. It must be unique within the custom provider. |
+> | target_url | required | `https://api.openai.com/v1/chat/completions` | `string` | Proxy destination URL for the custom provider route. |
+> | model_location | required | `string` | `model` | JSON field for the model in the HTTP request. |
+> | request_prompt_location | required | `string` | `messages.#.content` | JSON field for the prompt request in the HTTP request. |
+> | response_completion_location | required | `string` | `choices.#.message.content` | JSON field for the completion content in the HTTP response. |
+> | stream_location | required | `string` | `stream` | JSON field for the stream boolean in the HTTP request. |
+> | stream_end_word | required | `string` | `[DONE]` | End word for the stream. |
+> | stream_response_completion_location | required | `string` | `choices.#.delta.content` | JSON field for the completion content in the streaming response. |
+> | stream_max_empty_messages | required | `int` | `10` | Number of max empty messages in stream. |
+
+
+##### Request
+> | Field | type | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | provider | required | `string` | `bricks`  | Unique identifier associated with the route config. |
+> | route_configs | required | `[]RouteConfig` | `{{ "path": "/chat/completions", "target_url": "https://api.openai.com/v1/chat/completions" }}` | Route configurations for the custom provider. |
+> | authentication_param | optional | `string` | `apikey` | The authentication parameter required for. |
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `500`        | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `400`            |
+> | title         | `string` | request body reader error             |
+> | type         | `string` | /errors/request-body-read             |
+> | detail         | `string` | something is wrong            |
+> | instance         | `string` | /api/custom/providers           |
+
+##### Response
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | id | `int64` | `1699933571` | Unique identifier associated with the event.  |
+> | created_at | `int64` | `1699933571` | Unix timestamp for creation time.  |
+> | updated_at | `int64` | `1699933571` | Unix timestamp for update time.  |
+> | provider | `string` | `bricks`  | Unique identifier associated with the route config. |
+> | route_configs | `[]RouteConfig` | `{{ "path": "/chat/completions", "target_url": "https://api.openai.com/v1/chat/completions" }}` | Start timestamp for the requested timeseries data. |
+> | authentication_param | `string` | `apikey` | The authentication parameter required for. |
+</details>
+
+<details>
+  <summary>Update custom provider: <code>PUT</code> <code><b>/api/custom/providers/:id</b></code></summary>
+
+##### Description
+This endpoint is updating a custom provider.
+
+##### Route Config
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | path | required | `string` | `/chat/completion` | Path associated with the custom provider route. It must be unique within the custom provider. |
+> | target_url | required | `https://api.openai.com/v1/chat/completions` | `string` | Proxy destination URL for the custom provider route. |
+> | model_location | required | `string` | `model` | JSON field for the model in the HTTP request. |
+> | request_prompt_location | required | `string` | `messages.#.content` | JSON field for the prompt request in the HTTP request. |
+> | response_completion_location | required | `string` | `choices.#.message.content` | JSON field for the completion content in the HTTP response. |
+> | stream_location | required | `string` | `stream` | JSON field for the stream boolean in the HTTP request. |
+> | stream_end_word | required | `string` | `[DONE]` | End word for the stream. |
+> | stream_response_completion_location | required | `string` | `choices.#.delta.content` | JSON field for the completion content in the streaming response. |
+> | stream_max_empty_messages | required | `int` | `10` | Number of max empty messages in stream. |
+
+
+##### Request
+> | Field | type | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | route_configs | optional | `[]RouteConfig` | `{{ "path": "/chat/completions", "target_url": "https://api.openai.com/v1/chat/completions" }}` | Route configurations for the custom provider. |
+> | authentication_param | optional | `string` | `apikey` | The authentication parameter required for. |
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `500, 404`        | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `400`            |
+> | title         | `string` | request body reader error             |
+> | type         | `string` | /errors/request-body-read             |
+> | detail         | `string` | something is wrong            |
+> | instance         | `string` | /api/custom/providers           |
+
+##### Response
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | id | `int64` | `1699933571` | Unique identifier associated with the event.  |
+> | created_at | `int64` | `1699933571` | Unix timestamp for creation time.  |
+> | updated_at | `int64` | `1699933571` | Unix timestamp for update time.  |
+> | provider | `string` | `bricks`  | Unique identifier associated with the route config. |
+> | route_configs | `[]RouteConfig` | `{{ "path": "/chat/completions", "target_url": "https://api.openai.com/v1/chat/completions" }}` | Start timestamp for the requested timeseries data. |
+> | authentication_param | `string` | `apikey` | The authentication parameter required for. |
+</details>
+
+<details>
+  <summary>Get custom providers: <code>GET</code> <code><b>/api/custom/providers</b></code></summary>
+
+##### Description
+This endpoint is for getting custom providers.
+
+##### Route Config
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | path | required | `string` | `/chat/completion` | Path associated with the custom provider route. It must be unique within the custom provider. |
+> | target_url | required | `https://api.openai.com/v1/chat/completions` | `string` | Proxy destination URL for the custom provider route. |
+> | model_location | required | `string` | `model` | JSON field for the model in the HTTP request. |
+> | request_prompt_location | required | `string` | `messages.#.content` | JSON field for the prompt request in the HTTP request. |
+> | response_completion_location | required | `string` | `choices.#.message.content` | JSON field for the completion content in the HTTP response. |
+> | stream_location | required | `string` | `stream` | JSON field for the stream boolean in the HTTP request. |
+> | stream_end_word | required | `string` | `[DONE]` | End word for the stream. |
+> | stream_response_completion_location | required | `string` | `choices.#.delta.content` | JSON field for the completion content in the streaming response. |
+> | stream_max_empty_messages | required | `int` | `10` | Number of max empty messages in stream. |
+
+
+##### Request
+> | Field | type | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | route_configs | optional | `[]RouteConfig` | `{{ "path": "/chat/completions", "target_url": "https://api.openai.com/v1/chat/completions" }}` | Route configurations for the custom provider. |
+> | authentication_param | optional | `string` | `apikey` | The authentication parameter required for. |
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `500, 404`        | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `400`            |
+> | title         | `string` | request body reader error             |
+> | type         | `string` | /errors/request-body-read             |
+> | detail         | `string` | something is wrong            |
+> | instance         | `string` | /api/custom/providers           |
+
+##### Response
+```
+[]Provider
+```
+
+Provider
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | id | `int64` | `1699933571` | Unique identifier associated with the event.  |
+> | created_at | `int64` | `1699933571` | Unix timestamp for creation time.  |
+> | updated_at | `int64` | `1699933571` | Unix timestamp for update time.  |
+> | provider | `string` | `bricks`  | Unique identifier associated with the route config. |
+> | route_configs | `[]RouteConfig` | `{{ "path": "/chat/completions", "target_url": "https://api.openai.com/v1/chat/completions" }}` | Start timestamp for the requested timeseries data. |
+> | authentication_param | `string` | `apikey` | The authentication parameter required for. |
+</details>
+
 ## OpenAI Proxy
 The OpenAI proxy runs on Port `8002`.
 
@@ -516,5 +679,13 @@ This endpoint is set up for proxying OpenAI API requests. Documentation for this
 
 ##### Description
 This endpoint is set up for proxying OpenAI API requests. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/embeddings/create).
+
+</details>
+
+<details>
+  <summary>Call custom providers: <code>POST</code> <code><b>/api/custom/providers/:provider/*</b></code></summary>
+
+##### Description
+First you need to use create custom providers endpoint to create custom providers. Then create corresponding provider setting for the newly created custom provider. Afterward, you can start creating keys associated with the custom provider, and use the keys to access this endpoint by placing the created key in ```Authorization: Bearer YOUR_BRICKSLLM_KEY``` as part of your HTTP request headers.
 
 </details>

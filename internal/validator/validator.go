@@ -39,7 +39,7 @@ func NewValidator(
 	}
 }
 
-func (v *Validator) Validate(k *key.ResponseKey, promptCost float64, model string) error {
+func (v *Validator) Validate(k *key.ResponseKey, promptCost float64) error {
 	if k == nil {
 		return internal_errors.NewValidationError("empty api key")
 	}

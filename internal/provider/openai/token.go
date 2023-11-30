@@ -9,10 +9,6 @@ import (
 	tiktoken_loader "github.com/pkoukk/tiktoken-go-loader"
 )
 
-type encoder interface {
-	Encode(text string, allowedSpecial []string, disallowedSpecial []string) []int
-}
-
 type TokenCounter struct {
 }
 
