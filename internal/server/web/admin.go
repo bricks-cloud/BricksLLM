@@ -11,6 +11,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
+	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -50,7 +51,7 @@ type AdminServer struct {
 	m      KeyManager
 }
 
-func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReportingManager, psm ProviderSettingsManager) (*AdminServer, error) {
+func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReportingManager, psm ProviderSettingsManager, cpm CustomProvidersManager) (*AdminServer, error) {
 	router := gin.New()
 
 	prod := mode == "production"
@@ -70,6 +71,10 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 	router.PUT("/api/provider-settings", getCreateProviderSettingHandler(psm, log, prod))
 	router.GET("/api/provider-settings", getGetProviderSettingsHandler(psm, log, prod))
 	router.PATCH("/api/provider-settings/:id", getUpdateProviderSettingHandler(psm, log, prod))
+
+	router.POST("/api/custom/providers", getCreateCustomProviderHandler(cpm, log, prod))
+	router.GET("/api/custom/providers", getGetCustomProvidersHandler(cpm, log, prod))
+	router.PATCH("/api/custom/providers/:id", getUpdateCustomProvidersHandler(cpm, log, prod))
 
 	srv := &http.Server{
 		Addr:    ":8001",
@@ -921,5 +926,213 @@ func getGetKeyReportingHandler(m KeyReportingManager, log *zap.Logger, prod bool
 		stats.Incr("bricksllm.web.get_get_key_reporting_hanlder.success", nil, 1)
 
 		c.JSON(http.StatusOK, kr)
+	}
+}
+
+type CustomProvidersManager interface {
+	CreateCustomProvider(setting *custom.Provider) (*custom.Provider, error)
+	GetCustomProviders() ([]*custom.Provider, error)
+	GetRouteConfigFromMem(name, path string) *custom.RouteConfig
+	GetCustomProviderFromMem(name string) *custom.Provider
+	UpdateCustomProvider(id string, setting *custom.Provider) (*custom.Provider, error)
+}
+
+func getCreateCustomProviderHandler(m CustomProvidersManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		stats.Incr("bricksllm.web.get_create_custom_provider_handler.requests", nil, 1)
+
+		start := time.Now()
+		defer func() {
+			dur := time.Now().Sub(start)
+			stats.Timing("bricksllm.web.get_create_custom_provider_handler.latency", dur, nil, 1)
+		}()
+
+		path := "/api/providers"
+		if c == nil || c.Request == nil {
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/empty-context",
+				Title:    "context is empty error",
+				Status:   http.StatusInternalServerError,
+				Detail:   "gin context is empty",
+				Instance: path,
+			})
+			return
+		}
+
+		cid := c.GetString(correlationId)
+		data, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			logError(log, "error when reading create a custom provider request body", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/request-body-read",
+				Title:    "request body reader error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		setting := &custom.Provider{}
+		err = json.Unmarshal(data, setting)
+		if err != nil {
+			logError(log, "error when unmarshalling create a custom provider request body", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/json-unmarshal",
+				Title:    "json unmarshaller error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		cp, err := m.CreateCustomProvider(setting)
+		if err != nil {
+			errType := "internal"
+
+			defer func() {
+				stats.Incr("bricksllm.web.get_create_custom_provider_handler.create_custom_provider_err", []string{
+					"error_type:" + errType,
+				}, 1)
+			}()
+
+			logError(log, "error when creating a custom provider", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/custom-provider-manager",
+				Title:    "creating a custom provider error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		stats.Incr("bricksllm.web.get_create_custom_provider_handler.success", nil, 1)
+		c.JSON(http.StatusOK, cp)
+	}
+}
+
+func getGetCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		stats.Incr("bricksllm.web.get_get_custom_providers_handler.requests", nil, 1)
+
+		start := time.Now()
+		defer func() {
+			dur := time.Now().Sub(start)
+			stats.Timing("bricksllm.web.get_get_custom_providers_handler.latency", dur, nil, 1)
+		}()
+
+		path := "/api/providers"
+		if c == nil || c.Request == nil {
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/empty-context",
+				Title:    "context is empty error",
+				Status:   http.StatusInternalServerError,
+				Detail:   "gin context is empty",
+				Instance: path,
+			})
+			return
+		}
+
+		cid := c.GetString(correlationId)
+		cps, err := m.GetCustomProviders()
+		if err != nil {
+			errType := "internal"
+			defer func() {
+				stats.Incr("bricksllm.web.get_get_custom_providers_handler.get_custom_providers_err", []string{
+					"error_type:" + errType,
+				}, 1)
+			}()
+
+			logError(log, "error when getting custom providers", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/custom-provider-manager",
+				Title:    "getting custom providers error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		stats.Incr("bricksllm.web.get_get_custom_providers_handler.success", nil, 1)
+		c.JSON(http.StatusOK, cps)
+	}
+}
+
+func getUpdateCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		stats.Incr("bricksllm.web.get_update_custom_providers_handler.requests", nil, 1)
+
+		start := time.Now()
+		defer func() {
+			dur := time.Now().Sub(start)
+			stats.Timing("bricksllm.web.get_update_custom_providers_handler.latency", dur, nil, 1)
+		}()
+
+		path := "/api/providers/:id"
+		if c == nil || c.Request == nil {
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/empty-context",
+				Title:    "context is empty error",
+				Status:   http.StatusInternalServerError,
+				Detail:   "gin context is empty",
+				Instance: path,
+			})
+			return
+		}
+
+		id := c.Param("id")
+		cid := c.GetString(correlationId)
+		data, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			logError(log, "error when reading update a custom provider request body", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/request-body-read",
+				Title:    "request body reader error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		setting := &custom.Provider{}
+		err = json.Unmarshal(data, setting)
+		if err != nil {
+			logError(log, "error when unmarshalling update a custom provider request body", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/json-unmarshal",
+				Title:    "json unmarshaller error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		cps, err := m.UpdateCustomProvider(id, setting)
+		if err != nil {
+			errType := "internal"
+			defer func() {
+				stats.Incr("bricksllm.web.get_update_custom_provider_handler.update_custom_provider_error", []string{
+					"error_type:" + errType,
+				}, 1)
+			}()
+
+			logError(log, "error when updating a custom provider", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/custom-provider-manager",
+				Title:    "updating a custom provider error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		stats.Incr("bricksllm.web.get_update_custom_provider_handler.success", nil, 1)
+		c.JSON(http.StatusOK, cps)
 	}
 }
