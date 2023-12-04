@@ -1,3 +1,11 @@
+## 1.3.1 - 2023-11-29
+### Fixed
+- Fixed bug with updating a custom provider
+
+## 1.3.0 - 2023-11-29
+### Added
+- Added new API endpoints for custom providers
+
 ## 1.2.1 - 2023-11-27
 ### Added
 - Added validation for changing setting when updating provider setting
