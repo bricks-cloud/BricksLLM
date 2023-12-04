@@ -1,4 +1,4 @@
-package web
+package proxy
 
 import (
 	"encoding/json"
@@ -69,14 +69,14 @@ func logDeleteModelRequest(log *zap.Logger, data []byte, prod bool, cid, model s
 	}
 }
 
-type ModelDeletionResponse struct {
+type DeletionResponse struct {
 	Id      string `json:"id"`
 	Object  string `json:"object"`
 	Deleted bool   `json:"deleted"`
 }
 
 func logDeleteModelResponse(log *zap.Logger, data []byte, prod bool, cid string) {
-	resp := &ModelDeletionResponse{}
+	resp := &DeletionResponse{}
 	err := json.Unmarshal(data, resp)
 	if err != nil {
 		logError(log, "error when unmarshalling model deletion response", prod, cid, err)

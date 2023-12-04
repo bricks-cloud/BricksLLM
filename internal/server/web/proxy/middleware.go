@@ -1,4 +1,4 @@
-package web
+package proxy
 
 import (
 	"bytes"
@@ -66,28 +66,6 @@ func JSON(c *gin.Context, code int, message string) {
 			Code:    code,
 		},
 	})
-}
-
-func getAdminLoggerMiddleware(log *zap.Logger, prefix string, prod bool) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Set(correlationId, util.NewUuid())
-		start := time.Now()
-		c.Next()
-		latency := time.Now().Sub(start).Milliseconds()
-		if !prod {
-			log.Sugar().Infof("%s | %d | %s | %s | %dms", prefix, c.Writer.Status(), c.Request.Method, c.FullPath(), latency)
-		}
-
-		if prod {
-			log.Info("request to admin management api",
-				zap.String(correlationId, c.GetString(correlationId)),
-				zap.Int("code", c.Writer.Status()),
-				zap.String("method", c.Request.Method),
-				zap.String("path", c.FullPath()),
-				zap.Int64("lantecyInMs", latency),
-			)
-		}
-	}
 }
 
 func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private bool, e estimator, v validator, ks keyStorage, log *zap.Logger, enc encrypter, rlm rateLimitManager, r recorder, prefix string) gin.HandlerFunc {
@@ -203,13 +181,16 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private 
 		}
 
 		c.Set("key", kc)
+
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
 			logError(log, "error when reading request body", prod, cid, err)
 			return
 		}
 
-		c.Request.Body = io.NopCloser(bytes.NewReader(body))
+		if c.Request.Method != http.MethodGet {
+			c.Request.Body = io.NopCloser(bytes.NewReader(body))
+		}
 
 		var cost float64 = 0
 		if strings.HasPrefix(c.FullPath(), "/api/custom/providers/:provider") {
@@ -452,6 +433,26 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private 
 
 		if c.FullPath() == "/api/providers/openai/v1/models/:model" && c.Request.Method == http.MethodDelete {
 			logDeleteModelRequest(log, body, prod, cid, md)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodGet {
+			logListFilesRequest(log, prod, cid, qm)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodPost {
+			purpose := c.PostForm("purpose")
+			logUploadFileRequest(log, body, prod, cid, purpose)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/files/:file_id" && c.Request.Method == http.MethodDelete {
+			logDeleteFileRequest(log, prod, cid, fid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/files/:file_id" && c.Request.Method == http.MethodGet {
+			logRetrieveFileRequest(log, prod, cid, fid)
+		}
+		if c.FullPath() == "/api/providers/openai/v1/files/:file_id/content" && c.Request.Method == http.MethodGet {
+			logRetrieveFileContentRequest(log, body, prod, cid, fid)
 		}
 
 		err = v.Validate(kc, cost)

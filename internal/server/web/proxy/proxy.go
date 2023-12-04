@@ -1,4 +1,4 @@
-package web
+package proxy
 
 import (
 	"bufio"
@@ -8,17 +8,28 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
+	"github.com/bricks-cloud/bricksllm/internal/provider"
+	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/gin-gonic/gin"
 	goopenai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+type ProviderSettingsManager interface {
+	CreateSetting(setting *provider.Setting) (*provider.Setting, error)
+	UpdateSetting(id string, setting *provider.Setting) (*provider.Setting, error)
+	GetSetting(id string) (*provider.Setting, error)
+	GetSettings() ([]*provider.Setting, error)
+}
 
 const (
 	correlationId string = "correlationId"
@@ -32,6 +43,18 @@ type ProxyServer struct {
 type recorder interface {
 	RecordKeySpend(keyId string, model string, micros int64, costLimitUnit key.TimeUnit) error
 	RecordEvent(e *event.Event) error
+}
+
+type KeyManager interface {
+	GetKeys(tag []string, provider string) ([]*key.ResponseKey, error)
+	UpdateKey(id string, key *key.UpdateKey) (*key.ResponseKey, error)
+	CreateKey(key *key.RequestKey) (*key.ResponseKey, error)
+	DeleteKey(id string) error
+}
+
+type CustomProvidersManager interface {
+	GetRouteConfigFromMem(name, path string) *custom.RouteConfig
+	GetCustomProviderFromMem(name string) *custom.Provider
 }
 
 func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, kms keyMemStorage, e estimator, v validator, r recorder, credential string, enc encrypter, rlm rateLimitManager, timeOut time.Duration) (*ProxyServer, error) {
@@ -86,6 +109,12 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, psm
 	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps/:step_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 
+	router.GET("/api/providers/openai/v1/files", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/files", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.DELETE("/api/providers/openai/v1/files/:file_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/files/:file_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/files/:file_id/content", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+
 	router.POST("/api/custom/providers/:provider/*wildcard", getCustomProviderHandler(prod, private, psm, cpm, client, log, timeOut))
 
 	srv := &http.Server{
@@ -99,38 +128,32 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, psm
 	}, nil
 }
 
-func createAuthenticatedHttpRequest(ctx context.Context, c *gin.Context, log *zap.Logger, prod bool, psm ProviderSettingsManager, functionId, cid, settingId, targetUrl, method string, tags []string, authParam string) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetUrl, c.Request.Body)
-	if err != nil {
-		logError(log, "error when creating openai http request", prod, cid, err)
-		JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai http request")
-		return nil, errors.New("error creating http request")
+func getGetHealthCheckHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Status(http.StatusOK)
 	}
+}
 
-	req.Header.Set("Content-Type", "application/json")
+func setAuthenticationHeader(psm ProviderSettingsManager, req *http.Request, settingId, authParam string) error {
 	setting, err := psm.GetSetting(settingId)
 	if err != nil {
-		stats.Incr(fmt.Sprintf("bricksllm.web.%s.provider_setting_not_found", functionId), tags, 1)
-
-		logError(log, "openai api key is not set", prod, cid, err)
-		JSON(c, http.StatusInternalServerError, "[BricksLLM] openai api key is not set")
-		return nil, errors.New("open ai key is not set")
+		return errors.New("open ai key is not set")
 	}
 
 	if len(authParam) != 0 {
 		key, ok := setting.Setting[authParam]
 		if !ok || len(key) == 0 {
-			stats.Incr(fmt.Sprintf("bricksllm.web.%s.api_key_not_found", functionId), tags, 1)
-
-			logError(log, "api key is not found in setting", prod, cid, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] api key is not found in setting")
-			return nil, errors.New("api key is not found in setting")
+			return errors.New("api key is not found in setting")
 		}
 
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", key))
 	}
 
-	return req, nil
+	return nil
+}
+
+type Form struct {
+	File *multipart.FileHeader `form:"file" binding:"required"`
 }
 
 func getPassThroughHandler(r recorder, prod, private bool, psm ProviderSettingsManager, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
@@ -163,13 +186,78 @@ func getPassThroughHandler(r recorder, prod, private bool, psm ProviderSettingsM
 		if err != nil {
 			stats.Incr("bricksllm.web.get_pass_through_handler.proxy_url_not_found", tags, 1)
 			logError(log, "error when building proxy url", prod, cid, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot find corresponding proxy url")
+			JSON(c, http.StatusNotFound, "[BricksLLM] cannot find corresponding proxy url")
 			return
 		}
 
-		req, err := createAuthenticatedHttpRequest(ctx, c, log, prod, psm, "get_pass_through_handler", cid, kc.SettingId, targetUrl, c.Request.Method, tags, "apikey")
+		req, err := http.NewRequestWithContext(ctx, c.Request.Method, targetUrl, c.Request.Body)
 		if err != nil {
+			logError(log, "error when creating openai http request", prod, cid, err)
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai http request")
 			return
+		}
+
+		for k := range c.Request.Header {
+			if !strings.HasPrefix(strings.ToLower(k), "x") {
+				req.Header.Set(k, c.Request.Header.Get(k))
+			}
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+
+		err = setAuthenticationHeader(psm, req, kc.SettingId, "apikey")
+		if err != nil {
+			stats.Incr("bricksllm.web.get_pass_through_handler.set_authentication_header_error", tags, 1)
+			logError(log, "error when setting http request authentication header", prod, cid, err)
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] error when setting authentication header")
+			return
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodPost {
+			purpose := c.PostForm("purpose")
+
+			var b bytes.Buffer
+			writer := multipart.NewWriter(&b)
+			err := writer.WriteField("purpose", purpose)
+			if err != nil {
+				stats.Incr("bricksllm.web.get_pass_through_handler.write_field_error", tags, 1)
+				logError(log, "error when writing field", prod, cid, err)
+				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot write field")
+				return
+			}
+
+			var form Form
+			c.ShouldBind(&form)
+
+			fieldWriter, err := writer.CreateFormFile("file", form.File.Filename)
+			if err != nil {
+				stats.Incr("bricksllm.web.get_pass_through_handler.create_form_file_error", tags, 1)
+				logError(log, "error when creating form file", prod, cid, err)
+				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create form file")
+				return
+			}
+
+			opened, err := form.File.Open()
+			if err != nil {
+				stats.Incr("bricksllm.web.get_pass_through_handler.open_file_error", tags, 1)
+				logError(log, "error when openning file", prod, cid, err)
+				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open file")
+				return
+			}
+
+			_, err = io.Copy(fieldWriter, opened)
+			if err != nil {
+				stats.Incr("bricksllm.web.get_pass_through_handler.open_file_error", tags, 1)
+				logError(log, "error when openning file", prod, cid, err)
+				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open file")
+				return
+			}
+
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+
+			writer.Close()
+
+			req.Body = io.NopCloser(&b)
 		}
 
 		start := time.Now()
@@ -325,6 +413,25 @@ func getPassThroughHandler(r recorder, prod, private bool, psm ProviderSettingsM
 			if c.FullPath() == "/api/providers/openai/v1/models/:model" && c.Request.Method == http.MethodDelete {
 				logDeleteModelResponse(log, bytes, prod, cid)
 			}
+
+			if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodGet {
+				logListFilesResponse(log, bytes, prod, cid)
+			}
+
+			if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodPost {
+				logUploadFileResponse(log, bytes, prod, cid)
+			}
+
+			if c.FullPath() == "/api/providers/openai/v1/files/:file_id" && c.Request.Method == http.MethodDelete {
+				logDeleteFileResponse(log, bytes, prod, cid)
+			}
+
+			if c.FullPath() == "/api/providers/openai/v1/files/:file_id" && c.Request.Method == http.MethodGet {
+				logRetrieveFileResponse(log, bytes, prod, cid)
+			}
+			if c.FullPath() == "/api/providers/openai/v1/files/:file_id/content" && c.Request.Method == http.MethodGet {
+				logRetrieveFileContentResponse(log, bytes, prod, cid)
+			}
 		}
 
 		if res.StatusCode != http.StatusOK {
@@ -479,6 +586,26 @@ func buildProxyUrl(c *gin.Context) (string, error) {
 		return "https://api.openai.com/v1/models/" + c.Param("model"), nil
 	}
 
+	if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodGet {
+		return "https://api.openai.com/v1/files", nil
+	}
+
+	if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodPost {
+		return "https://api.openai.com/v1/files", nil
+	}
+
+	if c.FullPath() == "/api/providers/openai/v1/files/:file_id" && c.Request.Method == http.MethodDelete {
+		return "https://api.openai.com/v1/files/" + c.Param("file_id"), nil
+	}
+
+	if c.FullPath() == "/api/providers/openai/v1/files/:file_id" && c.Request.Method == http.MethodGet {
+		return "https://api.openai.com/v1/files/" + c.Param("file_id"), nil
+	}
+
+	if c.FullPath() == "/api/providers/openai/v1/files/:file_id/content" && c.Request.Method == http.MethodGet {
+		return "https://api.openai.com/v1/files/" + c.Param("file_id") + "/content", nil
+	}
+
 	return "", errors.New("cannot find corresponding OpenAI target proxy")
 }
 
@@ -519,8 +646,20 @@ func getEmbeddingHandler(r recorder, prod, private bool, psm ProviderSettingsMan
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
 
-		req, err := createAuthenticatedHttpRequest(ctx, c, log, prod, psm, "get_embedding_handler", id, kc.SettingId, "https://api.openai.com/v1/embeddings", http.MethodPost, nil, "apikey")
+		req, err := http.NewRequestWithContext(ctx, c.Request.Method, "https://api.openai.com/v1/embeddings", c.Request.Body)
 		if err != nil {
+			logError(log, "error when creating openai http request", prod, id, err)
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai http request")
+			return
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+
+		err = setAuthenticationHeader(psm, req, kc.SettingId, "apikey")
+		if err != nil {
+			stats.Incr("bricksllm.web.get_pass_through_handler.set_authentication_header_error", nil, 1)
+			logError(log, "error when setting http request authentication header", prod, id, err)
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] error when setting authentication header")
 			return
 		}
 
@@ -833,6 +972,15 @@ func (ps *ProxyServer) Run() {
 		ps.log.Info("PORT 8002 | POST  | /api/providers/openai/v1/chat/completions is ready for forwarding chat completion requests to openai")
 		ps.log.Info("PORT 8002 | POST  | /api/providers/openai/v1/embeddings is ready for forwarding embeddings requests to openai")
 		ps.log.Info("PORT 8002 | POST  | /api/providers/openai/v1/moderations is ready for forwarding moderation requests to openai")
+
+		ps.log.Info("PORT 8002 | GET   | /api/providers/openai/v1/models is ready for listing openai models")
+		ps.log.Info("PORT 8002 | GET   | /api/providers/openai/v1/models/:model is ready for retrieving an openai model")
+
+		ps.log.Info("PORT 8002 | GET   | /api/providers/openai/v1/files is ready for listing files from openai")
+		ps.log.Info("PORT 8002 | POST  | /api/providers/openai/v1/files is ready for uploading files to openai")
+		ps.log.Info("PORT 8002 | GET   | /api/providers/openai/v1/files/:file_id is ready for retrieving a file metadata from openai")
+		ps.log.Info("PORT 8002 | GET   | /api/providers/openai/v1/files/:file_id/content is ready for retrieving a file's content from openai")
+
 		ps.log.Info("PORT 8002 | POST  | /api/custom/providers/:provider/*wildcard is ready for forwarding requests to custom providers")
 
 		if err := ps.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {

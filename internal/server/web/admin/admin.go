@@ -1,4 +1,4 @@
-package web
+package admin
 
 import (
 	"context"
@@ -15,6 +15,10 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+)
+
+const (
+	correlationId string = "correlationId"
 )
 
 type ProviderSettingsManager interface {
@@ -1161,4 +1165,13 @@ func getUpdateCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, 
 		stats.Incr("bricksllm.web.get_update_custom_provider_handler.success", nil, 1)
 		c.JSON(http.StatusOK, cps)
 	}
+}
+
+func logError(log *zap.Logger, msg string, prod bool, id string, err error) {
+	if prod {
+		log.Debug(msg, zap.String(correlationId, id), zap.Error(err))
+		return
+	}
+
+	log.Sugar().Debugf("correlationId:%s | %s | %v", id, msg, err)
 }

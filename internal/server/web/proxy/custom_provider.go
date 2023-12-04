@@ -1,4 +1,4 @@
-package web
+package proxy
 
 import (
 	"bufio"
@@ -91,8 +91,21 @@ func getCustomProviderHandler(prod, private bool, psm ProviderSettingsManager, c
 		cid := c.GetString(correlationId)
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
-		req, err := createAuthenticatedHttpRequest(ctx, c, log, prod, psm, "custom_provider_handler", cid, kc.SettingId, rc.TargetUrl, c.Request.Method, tags, cp.AuthenticationParam)
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, rc.TargetUrl, c.Request.Body)
 		if err != nil {
+			logError(log, "error when creating openai http request", prod, cid, err)
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai http request")
+			return
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+
+		err = setAuthenticationHeader(psm, req, kc.SettingId, cp.AuthenticationParam)
+		if err != nil {
+			stats.Incr("bricksllm.web.get_pass_through_handler.set_authentication_header_error", tags, 1)
+			logError(log, "error when setting http request authentication header", prod, cid, err)
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] error when setting authentication header")
 			return
 		}
 

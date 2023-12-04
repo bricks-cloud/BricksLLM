@@ -16,7 +16,8 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
 	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	"github.com/bricks-cloud/bricksllm/internal/recorder"
-	"github.com/bricks-cloud/bricksllm/internal/server/web"
+	"github.com/bricks-cloud/bricksllm/internal/server/web/admin"
+	"github.com/bricks-cloud/bricksllm/internal/server/web/proxy"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/bricks-cloud/bricksllm/internal/storage/memdb"
 	"github.com/bricks-cloud/bricksllm/internal/storage/postgresql"
@@ -153,7 +154,7 @@ func main() {
 	psm := manager.NewProviderSettingsManager(store, psMemStore)
 	cpm := manager.NewCustomProvidersManager(store, cpMemStore)
 
-	as, err := web.NewAdminServer(log, *modePtr, m, krm, psm, cpm)
+	as, err := admin.NewAdminServer(log, *modePtr, m, krm, psm, cpm)
 	if err != nil {
 		log.Sugar().Fatalf("error creating admin http server: %v", err)
 	}
@@ -168,7 +169,7 @@ func main() {
 	rec := recorder.NewRecorder(costStorage, costLimitCache, ce, store)
 	rlm := manager.NewRateLimitManager(rateLimitCache)
 
-	ps, err := web.NewProxyServer(log, *modePtr, *privacyPtr, m, psm, cpm, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm, cfg.ProxyTimeout)
+	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, m, psm, cpm, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm, cfg.ProxyTimeout)
 	if err != nil {
 		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}
