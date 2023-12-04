@@ -666,21 +666,96 @@ The OpenAI proxy runs on Port `8002`.
 > |--------|------------|----------------|------------------------------------------------------|
 > | `x-custom-event-id` |  optional  | `string`         | Custom Id that can be used to retrieve an event associated with each proxy request.
 
+### Chat Completion
 <details>
   <summary>Call OpenAI chat completions: <code>POST</code> <code><b>/api/providers/openai/v1/chat/completions</b></code></summary>
 
 ##### Description
-This endpoint is set up for proxying OpenAI API requests. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/chat).
+This endpoint is set up for proxying OpenAI chat completion requests. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/chat).
 
 </details>
 
+
+### Embeddings
 <details>
   <summary>Call OpenAI embeddings: <code>POST</code> <code><b>/api/providers/openai/v1/embeddings</b></code></summary>
 
 ##### Description
-This endpoint is set up for proxying OpenAI API requests. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/embeddings/create).
+This endpoint is set up for proxying OpenAI embedding requests. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/embeddings/create).
 
 </details>
+
+### Moderations
+
+<details>
+  <summary>Call OpenAI moderations: <code>POST</code> <code><b>/api/providers/openai/v1/moderations</b></code></summary>
+
+##### Description
+This endpoint is set up for proxying OpenAI moderation requests. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/moderations/create).
+
+</details>
+
+### Models
+<details>
+  <summary>Get OpenAI models: <code>GET</code> <code><b>/api/providers/openai/v1/models</b></code></summary>
+
+##### Description
+This endpoint is set up for retrieving OpenAI models. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/models/list).
+
+</details>
+
+<details>
+  <summary>Retrieve an OpenAI model: <code>GET</code> <code><b>/api/providers/openai/v1/models/:model</b></code></summary>
+
+##### Description
+This endpoint is set up for retrieving an OpenAI model. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/models/retrieve).
+
+</details>
+
+### Files
+<details>
+  <summary>List files: <code>GET</code> <code><b>/api/providers/openai/v1/files</b></code></summary>
+
+##### Description
+This endpoint is set up for list OpenAI files. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/files/list).
+
+</details>
+
+<details>
+  <summary>Upload a file: <code>POST</code> <code><b>/api/providers/openai/v1/files</b></code></summary>
+
+##### Description
+This endpoint is set up for creating an OpenAI file. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/files/create).
+
+</details>
+
+
+<details>
+  <summary>Delete a file: <code>POST</code> <code><b>/api/providers/openai/v1/files/:file_id</b></code></summary>
+
+##### Description
+This endpoint is set up for creating an OpenAI file. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/files/delete).
+
+</details>
+
+<details>
+  <summary>Retrieve a file: <code>GET</code> <code><b>/api/providers/openai/v1/files/:file_id</b></code></summary>
+
+##### Description
+This endpoint is set up for retrieving an OpenAI file. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/files/retrieve).
+
+</details>
+
+<details>
+  <summary>Retrieve file content: <code>GET</code> <code><b>/api/providers/openai/v1/files/:file_id/content</b></code></summary>
+
+##### Description
+This endpoint is set up for retrieving an OpenAI file content. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/files/retrieve-contents).
+
+</details>
+
+## Custom Provider Proxy
+The custom provider proxy runs on Port `8002`.
 
 <details>
   <summary>Call custom providers: <code>POST</code> <code><b>/api/custom/providers/:provider/*</b></code></summary>
