@@ -1,3 +1,10 @@
+## 1.4.1 - 2023-11-29
+### Added
+- Added support for Anthropic completion endpoint
+  
+### Fixed
+- Fixed streaming latency with custom provider and openai chat completion endpoints
+
 ## 1.3.1 - 2023-11-29
 ### Fixed
 - Fixed bug with updating a custom provider
