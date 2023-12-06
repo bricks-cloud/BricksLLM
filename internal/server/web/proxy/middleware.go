@@ -11,6 +11,7 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
+	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
@@ -41,7 +42,7 @@ type keyStorage interface {
 type estimator interface {
 	EstimateChatCompletionPromptCostWithTokenCounts(r *goopenai.ChatCompletionRequest) (int, float64, error)
 	EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (float64, error)
-	EstimateChatCompletionStreamCostWithTokenCounts(model string, resp *goopenai.ChatCompletionStreamResponse) (int, float64, error)
+	EstimateChatCompletionStreamCostWithTokenCounts(model, content string) (int, float64, error)
 	EstimateCompletionCost(model string, tks int) (float64, error)
 	EstimateTotalCost(model string, promptTks, completionTks int) (float64, error)
 	EstimateEmbeddingsInputCost(model string, tks int) (float64, error)
@@ -68,7 +69,7 @@ func JSON(c *gin.Context, code int, message string) {
 	})
 }
 
-func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private bool, e estimator, v validator, ks keyStorage, log *zap.Logger, enc encrypter, rlm rateLimitManager, r recorder, prefix string) gin.HandlerFunc {
+func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private bool, e estimator, ae anthropicEstimator, v validator, ks keyStorage, log *zap.Logger, enc encrypter, rlm rateLimitManager, r recorder, prefix string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] request is empty")
@@ -109,11 +110,12 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private 
 				tags = kc.Tags
 			}
 
-			stats.Timing("bricksllm.web.get_middleware.proxy_latency_in_ms", dur, nil, 1)
+			stats.Timing("bricksllm.proxy.get_middleware.proxy_latency_in_ms", dur, nil, 1)
 
 			if prod {
-				log.Info("response to openai proxy",
+				log.Info("response to proxy",
 					zap.String(correlationId, c.GetString(correlationId)),
+					zap.String("provider", selectedProvider),
 					zap.String("keyId", keyId),
 					zap.Int("code", c.Writer.Status()),
 					zap.String("method", c.Request.Method),
@@ -122,7 +124,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private 
 				)
 			}
 
-			stats.Incr("bricksllm.web.get_middleware.responses", []string{
+			stats.Incr("bricksllm.proxy.get_middleware.responses", []string{
 				"status:" + strconv.Itoa(c.Writer.Status()),
 			}, 1)
 
@@ -145,27 +147,25 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private 
 
 			err := r.RecordEvent(evt)
 			if err != nil {
-				stats.Incr("bricksllm.web.get_middleware.record_event_error", nil, 1)
+				stats.Incr("bricksllm.proxy.get_middleware.record_event_error", nil, 1)
 
 				logError(log, "error when recording openai event", prod, cid, err)
 			}
 		}()
 
-		split := strings.Split(c.Request.Header.Get("Authorization"), "Bearer ")
-		if len(split) < 2 || len(split[1]) == 0 {
-			stats.Incr("bricksllm.web.get_middleware.missing_bearer_token", nil, 1)
-
-			JSON(c, http.StatusUnauthorized, "[BricksLLM] bearer token is not present")
+		apiKey := getAuthTokenFromHeader(c)
+		if len(apiKey) == 0 {
+			stats.Incr("bricksllm.proxy.get_middleware.missing_authorization_token", nil, 1)
+			JSON(c, http.StatusUnauthorized, "[BricksLLM] authorization token is not present")
 			c.Abort()
 			return
 		}
 
-		apiKey := split[1]
 		hash := enc.Encrypt(apiKey)
 
 		kc := kms.GetKey(hash)
 		if kc == nil {
-			stats.Incr("bricksllm.web.get_middleware.api_key_is_not_authorized", nil, 1)
+			stats.Incr("bricksllm.proxy.get_middleware.api_key_is_not_authorized", nil, 1)
 
 			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is unauthorized")
 			c.Abort()
@@ -173,7 +173,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private 
 		}
 
 		if kc.Revoked {
-			stats.Incr("bricksllm.web.get_middleware.api_key_revoked", nil, 1)
+			stats.Incr("bricksllm.proxy.get_middleware.api_key_revoked", nil, 1)
 
 			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key has been revoked")
 			c.Abort()
@@ -193,20 +193,52 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private 
 		}
 
 		var cost float64 = 0
+
+		if c.FullPath() == "/api/providers/anthropic/v1/complete" {
+			logCompletionRequest(log, body, prod, private, cid)
+
+			selectedProvider = "anthropic"
+			cr := &anthropic.CompletionRequest{}
+			err = json.Unmarshal(body, cr)
+			if err != nil {
+				logError(log, "error when unmarshalling anthropic completion request", prod, cid, err)
+				return
+			}
+
+			tks := ae.Count(cr.Prompt)
+			tks += anthropicPromptMagicNum
+			c.Set("promptTokenCount", tks)
+
+			model := cr.Model
+			cost, err = ae.EstimatePromptCost(model, tks)
+			if err != nil {
+				logError(log, "error when estimating anthropic completion prompt cost", prod, cid, err)
+			}
+
+			if cr.Stream {
+				c.Set("stream", cr.Stream)
+				c.Set("estimatedPromptCostInUsd", cost)
+			}
+
+			if len(cr.Model) != 0 {
+				c.Set("model", cr.Model)
+			}
+		}
+
 		if strings.HasPrefix(c.FullPath(), "/api/custom/providers/:provider") {
 			providerName := c.Param("provider")
 
 			rc := cpm.GetRouteConfigFromMem(providerName, c.Param("wildcard"))
 			cp := cpm.GetCustomProviderFromMem(providerName)
 			if cp == nil {
-				stats.Incr("bricksllm.web.get_middleware.provider_not_found", nil, 1)
+				stats.Incr("bricksllm.proxy.get_middleware.provider_not_found", nil, 1)
 				JSON(c, http.StatusNotFound, "[BricksLLM] requested custom provider is not found")
 				c.Abort()
 				return
 			}
 
 			if rc == nil {
-				stats.Incr("bricksllm.web.get_middleware.route_config_not_found", nil, 1)
+				stats.Incr("bricksllm.proxy.get_middleware.route_config_not_found", nil, 1)
 				JSON(c, http.StatusNotFound, "[BricksLLM] route config is not found")
 				c.Abort()
 				return
@@ -227,7 +259,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private 
 			result := gjson.Get(string(body), rc.StreamLocation)
 
 			if result.IsBool() {
-				c.Set("streaming", result.Bool())
+				c.Set("stream", result.Bool())
 			}
 
 			result = gjson.Get(string(body), rc.ModelLocation)
@@ -250,7 +282,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private 
 
 			tks, cost, err := e.EstimateChatCompletionPromptCostWithTokenCounts(ccr)
 			if err != nil {
-				stats.Incr("bricksllm.web.get_middleware.estimate_chat_completion_prompt_cost_with_token_counts_error", nil, 1)
+				stats.Incr("bricksllm.proxy.get_middleware.estimate_chat_completion_prompt_cost_with_token_counts_error", nil, 1)
 
 				logError(log, "error when estimating prompt cost", prod, cid, err)
 			}
@@ -277,7 +309,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private 
 
 			cost, err = e.EstimateEmbeddingsCost(er)
 			if err != nil {
-				stats.Incr("bricksllm.web.get_middleware.estimate_embeddings_cost_error", nil, 1)
+				stats.Incr("bricksllm.proxy.get_middleware.estimate_embeddings_cost_error", nil, 1)
 				logError(log, "error when estimating embeddings cost", prod, cid, err)
 			}
 		}
@@ -457,10 +489,10 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private 
 
 		err = v.Validate(kc, cost)
 		if err != nil {
-			stats.Incr("bricksllm.web.get_middleware.validation_error", nil, 1)
+			stats.Incr("bricksllm.proxy.get_middleware.validation_error", nil, 1)
 
 			if _, ok := err.(expirationError); ok {
-				stats.Incr("bricksllm.web.get_middleware.key_expired", nil, 1)
+				stats.Incr("bricksllm.proxy.get_middleware.key_expired", nil, 1)
 
 				truePtr := true
 				_, err = ks.UpdateKey(kc.KeyId, &key.UpdateKey{
@@ -469,7 +501,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private 
 				})
 
 				if err != nil {
-					stats.Incr("bricksllm.web.get_middleware.update_key_error", nil, 1)
+					stats.Incr("bricksllm.proxy.get_middleware.update_key_error", nil, 1)
 					log.Sugar().Debugf("error when updating revoking the api key %s: %v", kc.KeyId, err)
 				}
 
@@ -479,7 +511,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private 
 			}
 
 			if _, ok := err.(rateLimitError); ok {
-				stats.Incr("bricksllm.web.get_middleware.rate_limited", nil, 1)
+				stats.Incr("bricksllm.proxy.get_middleware.rate_limited", nil, 1)
 				JSON(c, http.StatusTooManyRequests, "[BricksLLM] too many requests")
 				c.Abort()
 				return
@@ -491,7 +523,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private 
 
 		if len(kc.RateLimitUnit) != 0 {
 			if err := rlm.Increment(kc.KeyId, kc.RateLimitUnit); err != nil {
-				stats.Incr("bricksllm.web.get_middleware.rate_limit_increment_error", nil, 1)
+				stats.Incr("bricksllm.proxy.get_middleware.rate_limit_increment_error", nil, 1)
 
 				logError(log, "error when incrementing rate limit counter", prod, cid, err)
 			}
@@ -499,4 +531,18 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private 
 
 		c.Next()
 	}
+}
+
+func getAuthTokenFromHeader(c *gin.Context) string {
+	if strings.HasPrefix(c.FullPath(), "/api/providers/anthropic") {
+		return c.GetHeader("x-api-key")
+	}
+
+	split := strings.Split(c.Request.Header.Get("Authorization"), "Bearer ")
+	if len(split) < 2 || len(split[1]) == 0 {
+		return ""
+	}
+
+	return split[1]
+
 }
