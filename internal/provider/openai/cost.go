@@ -182,18 +182,14 @@ func (ce *CostEstimator) EstimateChatCompletionPromptCostWithTokenCounts(r *goop
 	return tks, cost, nil
 }
 
-func (ce *CostEstimator) EstimateChatCompletionStreamCostWithTokenCounts(model string, resp *goopenai.ChatCompletionStreamResponse) (int, float64, error) {
+func (ce *CostEstimator) EstimateChatCompletionStreamCostWithTokenCounts(model string, content string) (int, float64, error) {
 	if len(model) == 0 {
 		return 0, 0, errors.New("model is not provided")
 	}
 
-	if len(resp.Choices) == 0 {
-		return 0, 0, errors.New("there are no choices in the chat completion stream")
-	}
-
-	tks, err := ce.tc.Count(model, resp.Choices[0].Delta.Content)
+	tks, err := ce.tc.Count(model, content)
 	if err != nil {
-		return 0, 0, errors.New("there are no choices in the chat completion stream")
+		return 0, 0, err
 	}
 
 	cost, err := ce.EstimateCompletionCost(model, tks)

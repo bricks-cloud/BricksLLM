@@ -1,4 +1,4 @@
-package web
+package admin
 
 import (
 	"context"
@@ -15,6 +15,10 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+)
+
+const (
+	correlationId string = "correlationId"
 )
 
 type ProviderSettingsManager interface {
@@ -127,12 +131,12 @@ func getGetHealthCheckHandler() gin.HandlerFunc {
 
 func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		stats.Incr("bricksllm.web.get_get_keys_handler.requests", nil, 1)
+		stats.Incr("bricksllm.admin.get_get_keys_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Now().Sub(start)
-			stats.Timing("bricksllm.web.get_get_keys_handler.latency", dur, nil, 1)
+			stats.Timing("bricksllm.admin.get_get_keys_handler.latency", dur, nil, 1)
 		}()
 
 		tag := c.Query("tag")
@@ -167,7 +171,7 @@ func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc
 		cid := c.GetString(correlationId)
 		keys, err := m.GetKeys(selected, provider)
 		if err != nil {
-			stats.Incr("bricksllm.web.get_get_keys_handler.get_keys_by_tag_err", nil, 1)
+			stats.Incr("bricksllm.admin.get_get_keys_handler.get_keys_by_tag_err", nil, 1)
 
 			logError(log, "error when getting api keys by tag", prod, cid, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -180,7 +184,7 @@ func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc
 			return
 		}
 
-		stats.Incr("bricksllm.web.get_get_keys_handler.success", nil, 1)
+		stats.Incr("bricksllm.admin.get_get_keys_handler.success", nil, 1)
 		c.JSON(http.StatusOK, keys)
 	}
 }
@@ -192,12 +196,12 @@ type validationError interface {
 
 func getGetProviderSettingsHandler(m ProviderSettingsManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		stats.Incr("bricksllm.web.get_get_provider_settings.requests", nil, 1)
+		stats.Incr("bricksllm.admin.get_get_provider_settings.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Now().Sub(start)
-			stats.Timing("bricksllm.web.get_get_provider_settings.latency", dur, nil, 1)
+			stats.Timing("bricksllm.admin.get_get_provider_settings.latency", dur, nil, 1)
 		}()
 
 		path := "/api/provider-settings"
@@ -218,7 +222,7 @@ func getGetProviderSettingsHandler(m ProviderSettingsManager, log *zap.Logger, p
 			errType := "internal"
 
 			defer func() {
-				stats.Incr("bricksllm.web.get_get_provider_settings.get_settings_error", []string{
+				stats.Incr("bricksllm.admin.get_get_provider_settings.get_settings_error", []string{
 					"error_type:" + errType,
 				}, 1)
 			}()
@@ -234,7 +238,7 @@ func getGetProviderSettingsHandler(m ProviderSettingsManager, log *zap.Logger, p
 			return
 		}
 
-		stats.Incr("bricksllm.web.get_get_provider_settings.success", nil, 1)
+		stats.Incr("bricksllm.admin.get_get_provider_settings.success", nil, 1)
 
 		c.JSON(http.StatusOK, created)
 	}
@@ -242,12 +246,12 @@ func getGetProviderSettingsHandler(m ProviderSettingsManager, log *zap.Logger, p
 
 func getCreateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		stats.Incr("bricksllm.web.get_create_provider_setting_handler.requests", nil, 1)
+		stats.Incr("bricksllm.admin.get_create_provider_setting_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Now().Sub(start)
-			stats.Timing("bricksllm.web.get_create_provider_setting_handler.latency", dur, nil, 1)
+			stats.Timing("bricksllm.admin.get_create_provider_setting_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/provider-settings"
@@ -295,7 +299,7 @@ func getCreateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 			errType := "internal"
 
 			defer func() {
-				stats.Incr("bricksllm.web.get_create_provider_setting_handler.create_setting_error", []string{
+				stats.Incr("bricksllm.admin.get_create_provider_setting_handler.create_setting_error", []string{
 					"error_type:" + errType,
 				}, 1)
 			}()
@@ -324,7 +328,7 @@ func getCreateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 			return
 		}
 
-		stats.Incr("bricksllm.web.get_create_provider_setting_handler.success", nil, 1)
+		stats.Incr("bricksllm.admin.get_create_provider_setting_handler.success", nil, 1)
 
 		c.JSON(http.StatusOK, created)
 	}
@@ -332,12 +336,12 @@ func getCreateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 
 func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		stats.Incr("bricksllm.web.get_create_key_handler.requests", nil, 1)
+		stats.Incr("bricksllm.admin.get_create_key_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Now().Sub(start)
-			stats.Timing("bricksllm.web.get_create_key_handler.latency", dur, nil, 1)
+			stats.Timing("bricksllm.admin.get_create_key_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/key-management/keys"
@@ -385,7 +389,7 @@ func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 			errType := "internal"
 
 			defer func() {
-				stats.Incr("bricksllm.web.get_create_key_handler.create_key_error", []string{
+				stats.Incr("bricksllm.admin.get_create_key_handler.create_key_error", []string{
 					"error_type:" + errType,
 				}, 1)
 			}()
@@ -414,7 +418,7 @@ func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 			return
 		}
 
-		stats.Incr("bricksllm.web.get_create_key_handler.success", nil, 1)
+		stats.Incr("bricksllm.admin.get_create_key_handler.success", nil, 1)
 
 		c.JSON(http.StatusOK, resk)
 	}
@@ -422,12 +426,12 @@ func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 
 func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		stats.Incr("bricksllm.web.get_update_provider_setting_handler.requests", nil, 1)
+		stats.Incr("bricksllm.admin.get_update_provider_setting_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Now().Sub(start)
-			stats.Timing("bricksllm.web.get_update_provider_setting_handler.latency", dur, nil, 1)
+			stats.Timing("bricksllm.admin.get_update_provider_setting_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/provider-settings/:id"
@@ -476,7 +480,7 @@ func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 			errType := "internal"
 
 			defer func() {
-				stats.Incr("bricksllm.web.get_update_provider_setting_handler.update_setting_error", []string{
+				stats.Incr("bricksllm.admin.get_update_provider_setting_handler.update_setting_error", []string{
 					"error_type:" + errType,
 				}, 1)
 			}()
@@ -516,7 +520,7 @@ func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 			return
 		}
 
-		stats.Incr("bricksllm.web.get_update_provider_setting_handler.success", nil, 1)
+		stats.Incr("bricksllm.admin.get_update_provider_setting_handler.success", nil, 1)
 
 		c.JSON(http.StatusOK, updated)
 	}
@@ -524,12 +528,12 @@ func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 
 func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		stats.Incr("bricksllm.web.get_update_key_handler.requests", nil, 1)
+		stats.Incr("bricksllm.admin.get_update_key_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Now().Sub(start)
-			stats.Timing("bricksllm.web.get_update_key_handler.latency", dur, nil, 1)
+			stats.Timing("bricksllm.admin.get_update_key_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/key-management/keys/:id"
@@ -589,7 +593,7 @@ func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 		if err != nil {
 			errType := "internal"
 			defer func() {
-				stats.Incr("bricksllm.web.get_update_key_handler.update_key_error", []string{
+				stats.Incr("bricksllm.admin.get_update_key_handler.update_key_error", []string{
 					"error_type:" + errType,
 				}, 1)
 			}()
@@ -629,7 +633,7 @@ func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 			return
 		}
 
-		stats.Incr("bricksllm.web.get_update_key_handler.success", nil, 1)
+		stats.Incr("bricksllm.admin.get_update_key_handler.success", nil, 1)
 
 		c.JSON(http.StatusOK, resk)
 	}
@@ -699,12 +703,12 @@ func validateEventReportingRequest(r *event.ReportingRequest) bool {
 
 func getGetEventMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		stats.Incr("bricksllm.web.get_get_event_metrics.requests", nil, 1)
+		stats.Incr("bricksllm.admin.get_get_event_metrics.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Now().Sub(start)
-			stats.Timing("bricksllm.web.get_get_event_metrics.latency", dur, nil, 1)
+			stats.Timing("bricksllm.admin.get_get_event_metrics.latency", dur, nil, 1)
 		}()
 
 		path := "/api/reporting/events"
@@ -749,7 +753,7 @@ func getGetEventMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bool
 		}
 
 		if !validateEventReportingRequest(request) {
-			stats.Incr("bricksllm.web.get_get_event_metrics.request_not_valid", nil, 1)
+			stats.Incr("bricksllm.admin.get_get_event_metrics.request_not_valid", nil, 1)
 
 			err = fmt.Errorf("event reporting request %+v is not valid", request)
 			logError(log, "invalid reporting request", prod, cid, err)
@@ -765,7 +769,7 @@ func getGetEventMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bool
 
 		reportingResponse, err := m.GetEventReporting(request)
 		if err != nil {
-			stats.Incr("bricksllm.web.get_get_event_metrics.get_event_reporting_error", nil, 1)
+			stats.Incr("bricksllm.admin.get_get_event_metrics.get_event_reporting_error", nil, 1)
 
 			logError(log, "error when getting event reporting", prod, cid, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -778,7 +782,7 @@ func getGetEventMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bool
 			return
 		}
 
-		stats.Incr("bricksllm.web.get_get_event_metrics.success", nil, 1)
+		stats.Incr("bricksllm.admin.get_get_event_metrics.success", nil, 1)
 
 		c.JSON(http.StatusOK, reportingResponse)
 	}
@@ -786,12 +790,12 @@ func getGetEventMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bool
 
 func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		stats.Incr("bricksllm.web.get_get_events_handler.requests", nil, 1)
+		stats.Incr("bricksllm.admin.get_get_events_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Now().Sub(start)
-			stats.Timing("bricksllm.web.get_get_events_handler.latency", dur, nil, 1)
+			stats.Timing("bricksllm.admin.get_get_events_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/reporting/events"
@@ -823,7 +827,7 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 
 		ev, err := m.GetEvent(customId)
 		if err != nil {
-			stats.Incr("bricksllm.web.get_get_events_handler.get_event_error", nil, 1)
+			stats.Incr("bricksllm.admin.get_get_events_handler.get_event_error", nil, 1)
 
 			logError(log, "error when getting an event", prod, cid, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -836,7 +840,7 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 			return
 		}
 
-		stats.Incr("bricksllm.web.get_get_events_handler.success", nil, 1)
+		stats.Incr("bricksllm.admin.get_get_events_handler.success", nil, 1)
 
 		c.JSON(http.StatusOK, []*event.Event{ev})
 	}
@@ -844,12 +848,12 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 
 func getGetKeyReportingHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		stats.Incr("bricksllm.web.get_get_key_reporting_hanlder.requests", nil, 1)
+		stats.Incr("bricksllm.admin.get_get_key_reporting_hanlder.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Now().Sub(start)
-			stats.Timing("bricksllm.web.get_get_key_reporting_hanlder.latency", dur, nil, 1)
+			stats.Timing("bricksllm.admin.get_get_key_reporting_hanlder.latency", dur, nil, 1)
 		}()
 
 		path := "/api/reporting/keys/:id"
@@ -883,7 +887,7 @@ func getGetKeyReportingHandler(m KeyReportingManager, log *zap.Logger, prod bool
 			errType := "internal"
 
 			defer func() {
-				stats.Incr("bricksllm.web.get_get_key_reporting_hanlder.get_key_reporting_error", []string{
+				stats.Incr("bricksllm.admin.get_get_key_reporting_hanlder.get_key_reporting_error", []string{
 					"error_type:" + errType,
 				}, 1)
 			}()
@@ -913,7 +917,7 @@ func getGetKeyReportingHandler(m KeyReportingManager, log *zap.Logger, prod bool
 			return
 		}
 
-		stats.Incr("bricksllm.web.get_get_key_reporting_hanlder.success", nil, 1)
+		stats.Incr("bricksllm.admin.get_get_key_reporting_hanlder.success", nil, 1)
 
 		c.JSON(http.StatusOK, kr)
 	}
@@ -929,12 +933,12 @@ type CustomProvidersManager interface {
 
 func getCreateCustomProviderHandler(m CustomProvidersManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		stats.Incr("bricksllm.web.get_create_custom_provider_handler.requests", nil, 1)
+		stats.Incr("bricksllm.admin.get_create_custom_provider_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Now().Sub(start)
-			stats.Timing("bricksllm.web.get_create_custom_provider_handler.latency", dur, nil, 1)
+			stats.Timing("bricksllm.admin.get_create_custom_provider_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/providers"
@@ -982,7 +986,7 @@ func getCreateCustomProviderHandler(m CustomProvidersManager, log *zap.Logger, p
 			errType := "internal"
 
 			defer func() {
-				stats.Incr("bricksllm.web.get_create_custom_provider_handler.create_custom_provider_err", []string{
+				stats.Incr("bricksllm.admin.get_create_custom_provider_handler.create_custom_provider_err", []string{
 					"error_type:" + errType,
 				}, 1)
 			}()
@@ -1010,19 +1014,19 @@ func getCreateCustomProviderHandler(m CustomProvidersManager, log *zap.Logger, p
 			return
 		}
 
-		stats.Incr("bricksllm.web.get_create_custom_provider_handler.success", nil, 1)
+		stats.Incr("bricksllm.admin.get_create_custom_provider_handler.success", nil, 1)
 		c.JSON(http.StatusOK, cp)
 	}
 }
 
 func getGetCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		stats.Incr("bricksllm.web.get_get_custom_providers_handler.requests", nil, 1)
+		stats.Incr("bricksllm.admin.get_get_custom_providers_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Now().Sub(start)
-			stats.Timing("bricksllm.web.get_get_custom_providers_handler.latency", dur, nil, 1)
+			stats.Timing("bricksllm.admin.get_get_custom_providers_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/providers"
@@ -1042,7 +1046,7 @@ func getGetCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, pro
 		if err != nil {
 			errType := "internal"
 			defer func() {
-				stats.Incr("bricksllm.web.get_get_custom_providers_handler.get_custom_providers_err", []string{
+				stats.Incr("bricksllm.admin.get_get_custom_providers_handler.get_custom_providers_err", []string{
 					"error_type:" + errType,
 				}, 1)
 			}()
@@ -1058,19 +1062,19 @@ func getGetCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, pro
 			return
 		}
 
-		stats.Incr("bricksllm.web.get_get_custom_providers_handler.success", nil, 1)
+		stats.Incr("bricksllm.admin.get_get_custom_providers_handler.success", nil, 1)
 		c.JSON(http.StatusOK, cps)
 	}
 }
 
 func getUpdateCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		stats.Incr("bricksllm.web.get_update_custom_providers_handler.requests", nil, 1)
+		stats.Incr("bricksllm.admin.get_update_custom_providers_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Now().Sub(start)
-			stats.Timing("bricksllm.web.get_update_custom_providers_handler.latency", dur, nil, 1)
+			stats.Timing("bricksllm.admin.get_update_custom_providers_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/providers/:id"
@@ -1118,7 +1122,7 @@ func getUpdateCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, 
 		if err != nil {
 			errType := "internal"
 			defer func() {
-				stats.Incr("bricksllm.web.get_update_custom_provider_handler.update_custom_provider_error", []string{
+				stats.Incr("bricksllm.admin.get_update_custom_provider_handler.update_custom_provider_error", []string{
 					"error_type:" + errType,
 				}, 1)
 			}()
@@ -1158,7 +1162,16 @@ func getUpdateCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, 
 			return
 		}
 
-		stats.Incr("bricksllm.web.get_update_custom_provider_handler.success", nil, 1)
+		stats.Incr("bricksllm.admin.get_update_custom_provider_handler.success", nil, 1)
 		c.JSON(http.StatusOK, cps)
 	}
+}
+
+func logError(log *zap.Logger, msg string, prod bool, id string, err error) {
+	if prod {
+		log.Debug(msg, zap.String(correlationId, id), zap.Error(err))
+		return
+	}
+
+	log.Sugar().Debugf("correlationId:%s | %s | %v", id, msg, err)
 }

@@ -38,7 +38,7 @@ func NewRecorder(s Store, c Cache, ce CostEstimator, es EventsStore) *Recorder {
 	}
 }
 
-func (r *Recorder) RecordKeySpend(keyId string, model string, micros int64, costLimitUnit key.TimeUnit) error {
+func (r *Recorder) RecordKeySpend(keyId string, micros int64, costLimitUnit key.TimeUnit) error {
 	err := r.s.IncrementCounter(keyId, micros)
 	if err != nil {
 		return err

@@ -35,7 +35,7 @@ func NewProviderSettingsManager(s ProviderSettingsStorage, memdb ProviderSetting
 }
 
 func (m *ProviderSettingsManager) validateSettings(name string, setting *provider.Setting) error {
-	if setting.Provider != "openai" {
+	if setting.Provider != "openai" && setting.Provider != "anthropic" {
 		provider, err := m.Storage.GetCustomProviderByName(name)
 		_, ok := err.(notFoundError)
 		if ok {
@@ -50,10 +50,10 @@ func (m *ProviderSettingsManager) validateSettings(name string, setting *provide
 		}
 	}
 
-	if setting.Provider == "openai" {
+	if setting.Provider == "openai" || setting.Provider == "anthropic" {
 		val, _ := setting.Setting["apikey"]
 		if len(val) == 0 {
-			return internal_errors.NewValidationError("api key is required for openai")
+			return internal_errors.NewValidationError("api key is required")
 		}
 	}
 
@@ -72,13 +72,6 @@ func (m *ProviderSettingsManager) CreateSetting(setting *provider.Setting) (*pro
 	setting.Id = util.NewUuid()
 	setting.CreatedAt = time.Now().Unix()
 	setting.UpdatedAt = time.Now().Unix()
-
-	if setting.Provider == "openai" {
-		v, ok := setting.Setting["apikey"]
-		if !ok || len(v) == 0 {
-			return nil, internal_errors.NewValidationError("setting for openai is not valid")
-		}
-	}
 
 	return m.Storage.CreateProviderSetting(setting)
 }
