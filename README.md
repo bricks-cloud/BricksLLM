@@ -512,7 +512,7 @@ This endpoint is creating custom providers.
 > | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | path | required | `string` | `/chat/completion` | Path associated with the custom provider route. It must be unique within the custom provider. |
-> | target_url | required | `https://api.openai.com/v1/chat/completions` | `string` | Proxy destination URL for the custom provider route. |
+> | target_url | required | `string` | `https://api.openai.com/v1/chat/completions` | Proxy destination URL for the custom provider route. |
 > | model_location | required | `string` | `model` | JSON field for the model in the HTTP request. |
 > | request_prompt_location | required | `string` | `messages.#.content` | JSON field for the prompt request in the HTTP request. |
 > | response_completion_location | required | `string` | `choices.#.message.content` | JSON field for the completion content in the HTTP response. |
@@ -563,7 +563,7 @@ This endpoint is updating a custom provider.
 > | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | path | required | `string` | `/chat/completion` | Path associated with the custom provider route. It must be unique within the custom provider. |
-> | target_url | required | `https://api.openai.com/v1/chat/completions` | `string` | Proxy destination URL for the custom provider route. |
+> | target_url | required | `string` | `https://api.openai.com/v1/chat/completions` | Proxy destination URL for the custom provider route. |
 > | model_location | required | `string` | `model` | JSON field for the model in the HTTP request. |
 > | request_prompt_location | required | `string` | `messages.#.content` | JSON field for the prompt request in the HTTP request. |
 > | response_completion_location | required | `string` | `choices.#.message.content` | JSON field for the completion content in the HTTP response. |
@@ -613,7 +613,7 @@ This endpoint is for getting custom providers.
 > | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | path | required | `string` | `/chat/completion` | Path associated with the custom provider route. It must be unique within the custom provider. |
-> | target_url | required | `https://api.openai.com/v1/chat/completions` | `string` | Proxy destination URL for the custom provider route. |
+> | target_url | required | `string` | `https://api.openai.com/v1/chat/completions` | Proxy destination URL for the custom provider route. |
 > | model_location | required | `string` | `model` | JSON field for the model in the HTTP request. |
 > | request_prompt_location | required | `string` | `messages.#.content` | JSON field for the prompt request in the HTTP request. |
 > | response_completion_location | required | `string` | `choices.#.message.content` | JSON field for the completion content in the HTTP response. |
@@ -751,6 +751,17 @@ This endpoint is set up for retrieving an OpenAI file. Documentation for this en
 
 ##### Description
 This endpoint is set up for retrieving an OpenAI file content. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/files/retrieve-contents).
+
+</details>
+
+## Anthropic Proxy
+The custom provider proxy runs on Port `8002`.
+
+<details>
+  <summary>Create Anthropic completion: <code>POST</code> <code><b>/api/providers/anthropic/v1/complete</b></code></summary>
+
+##### Description
+This endpoint is set up for proxying Anthropic completion requests. Documentation for this endpoint can be found [here](https://docs.anthropic.com/claude/reference/complete_post).
 
 </details>
 
