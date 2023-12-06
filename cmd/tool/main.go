@@ -13,6 +13,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/encrypter"
 	logger "github.com/bricks-cloud/bricksllm/internal/logger/zap"
 	"github.com/bricks-cloud/bricksllm/internal/manager"
+	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
 	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	"github.com/bricks-cloud/bricksllm/internal/recorder"
@@ -161,15 +162,20 @@ func main() {
 
 	tc := openai.NewTokenCounter()
 	custom.NewTokenCounter()
+	atc, err := anthropic.NewTokenCounter()
+	if err != nil {
+		log.Sugar().Fatalf("error creating anthropic token counter: %v", err)
+	}
 
 	as.Run()
 
 	ce := openai.NewCostEstimator(openai.OpenAiPerThousandTokenCost, tc)
+	ae := anthropic.NewCostEstimator(atc)
 	v := validator.NewValidator(costLimitCache, rateLimitCache, costStorage)
 	rec := recorder.NewRecorder(costStorage, costLimitCache, ce, store)
 	rlm := manager.NewRateLimitManager(rateLimitCache)
 
-	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, m, psm, cpm, store, memStore, ce, v, rec, cfg.OpenAiKey, e, rlm, cfg.ProxyTimeout)
+	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, m, psm, cpm, store, memStore, ce, ae, v, rec, cfg.OpenAiKey, e, rlm, cfg.ProxyTimeout)
 	if err != nil {
 		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}
