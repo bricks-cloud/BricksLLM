@@ -99,7 +99,7 @@ const openai = new OpenAI({
 });
 ```
 
-## How to update?
+## How to Update?
 For updating to the latest version
 ```bash
 docker pull luyuanxin1995/bricksllm:latest
