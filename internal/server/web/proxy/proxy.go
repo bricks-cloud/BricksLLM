@@ -26,7 +26,7 @@ import (
 
 type ProviderSettingsManager interface {
 	CreateSetting(setting *provider.Setting) (*provider.Setting, error)
-	UpdateSetting(id string, setting *provider.Setting) (*provider.Setting, error)
+	UpdateSetting(id string, setting *provider.UpdateSetting) (*provider.Setting, error)
 	GetSetting(id string) (*provider.Setting, error)
 	GetSettings() ([]*provider.Setting, error)
 }
@@ -62,7 +62,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, psm
 	prod := mode == "production"
 	private := privacyMode == "strict"
 
-	router.Use(getMiddleware(kms, cpm, prod, private, e, ae, v, ks, log, enc, rlm, r, "proxy"))
+	router.Use(getMiddleware(kms, cpm, psm, prod, private, e, ae, v, ks, log, enc, rlm, r, "proxy"))
 
 	client := http.Client{}
 

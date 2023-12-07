@@ -108,6 +108,44 @@ func createApiKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 	return &respk, nil
 }
 
+func updateApiKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error) {
+	jsonData, err := json.Marshal(uk)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := http.DefaultClient.Do(&http.Request{
+		Method: http.MethodPatch,
+		URL:    &url.URL{Scheme: "http", Host: "localhost:8001", Path: "/api/key-management/keys/" + id},
+		Header: map[string][]string{
+			"Content-Type": {"application/json"},
+		},
+		Body: io.NopCloser(bytes.NewBuffer(jsonData)),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var respk key.ResponseKey
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New(string(data))
+	}
+
+	if err := json.Unmarshal(data, &respk); err != nil {
+		return nil, err
+	}
+
+	return &respk, nil
+}
+
 func TestApiKey_Creation(t *testing.T) {
 	db := connectToPostgreSqlDb()
 	t.Run("when an api key gets created", func(t *testing.T) {
@@ -120,6 +158,8 @@ func TestApiKey_Creation(t *testing.T) {
 		}
 
 		created, err := createProviderSetting(setting)
+		defer deleteProviderSetting(db, created.Id)
+
 		require.Nil(t, err)
 
 		key := &key.RequestKey{
@@ -127,6 +167,12 @@ func TestApiKey_Creation(t *testing.T) {
 			Tags:      []string{"spike"},
 			Key:       "actualKey",
 			SettingId: created.Id,
+			AllowedPaths: []key.PathConfig{
+				{
+					Path:   "/api/chat/completion",
+					Method: "POST",
+				},
+			},
 		}
 
 		createdKey, err := createApiKey(key)
@@ -138,7 +184,213 @@ func TestApiKey_Creation(t *testing.T) {
 		assert.NotEmpty(t, createdKey.CreatedAt)
 		assert.NotEmpty(t, createdKey.UpdatedAt)
 		assert.NotEmpty(t, createdKey.KeyId)
+		assert.NotEmpty(t, createdKey.AllowedPaths)
 		assert.False(t, createdKey.Revoked)
+	})
+}
+
+func TestApiKey_AllowedPaths(t *testing.T) {
+	db := connectToPostgreSqlDb()
+	c, _ := parseEnvVariables()
+
+	t.Run("when path is not allowed", func(t *testing.T) {
+		setting := &provider.Setting{
+			Provider: "openai",
+			Setting: map[string]string{
+				"apikey": c.OpenAiKey,
+			},
+			Name: "test",
+		}
+
+		created, err := createProviderSetting(setting)
+		require.Nil(t, err)
+		defer deleteProviderSetting(db, created.Id)
+
+		requestKey := &key.RequestKey{
+			Name:      "Spike's Testing Key",
+			Tags:      []string{"spike"},
+			Key:       "actualKey",
+			SettingId: created.Id,
+			AllowedPaths: []key.PathConfig{
+				{
+					Path:   "/api/providers/openai/v1/embeddings",
+					Method: "POST",
+				},
+			},
+		}
+
+		createdKey, err := createApiKey(requestKey)
+		require.Nil(t, err)
+		defer deleteApiKey(db, createdKey.KeyId)
+
+		time.Sleep(6 * time.Second)
+
+		request := &goopenai.ChatCompletionRequest{
+			Model: "gpt-3.5-turbo",
+			Messages: []goopenai.ChatCompletionMessage{
+				{
+					Role:    "system",
+					Content: "hi",
+				},
+			},
+		}
+
+		code, bs, err := chatCompletionRequest(request, requestKey.Key, "")
+		require.Nil(t, err)
+		assert.Equal(t, http.StatusForbidden, code, string(bs))
+	})
+
+	t.Run("when path is allowed", func(t *testing.T) {
+		setting := &provider.Setting{
+			Provider: "openai",
+			Setting: map[string]string{
+				"apikey": c.OpenAiKey,
+			},
+			Name: "test",
+		}
+
+		created, err := createProviderSetting(setting)
+		require.Nil(t, err)
+		defer deleteProviderSetting(db, created.Id)
+
+		requestKey := &key.RequestKey{
+			Name:      "Spike's Testing Key",
+			Tags:      []string{"spike"},
+			Key:       "actualKey",
+			SettingId: created.Id,
+			AllowedPaths: []key.PathConfig{
+				{
+					Path:   "/api/providers/openai/v1/embeddings",
+					Method: "POST",
+				},
+			},
+		}
+
+		createdKey, err := createApiKey(requestKey)
+		require.Nil(t, err)
+		defer deleteApiKey(db, createdKey.KeyId)
+
+		time.Sleep(6 * time.Second)
+
+		request := &goopenai.EmbeddingRequest{
+			Model: goopenai.AdaEmbeddingV2,
+			Input: "hello",
+		}
+
+		code, bs, err := embeddingsRequest(request, requestKey.Key)
+		require.Nil(t, err)
+		assert.Equal(t, http.StatusOK, code, string(bs))
+	})
+
+	t.Run("when no allowed paths are set", func(t *testing.T) {
+		setting := &provider.Setting{
+			Provider: "openai",
+			Setting: map[string]string{
+				"apikey": c.OpenAiKey,
+			},
+			Name: "test",
+		}
+
+		created, err := createProviderSetting(setting)
+		require.Nil(t, err)
+		defer deleteProviderSetting(db, created.Id)
+
+		requestKey := &key.RequestKey{
+			Name:      "Spike's Testing Key",
+			Tags:      []string{"spike"},
+			Key:       "actualKey",
+			SettingId: created.Id,
+		}
+
+		createdKey, err := createApiKey(requestKey)
+		require.Nil(t, err)
+		defer deleteApiKey(db, createdKey.KeyId)
+
+		time.Sleep(6 * time.Second)
+
+		request := &goopenai.EmbeddingRequest{
+			Model: goopenai.AdaEmbeddingV2,
+			Input: "hello",
+		}
+
+		code, bs, err := embeddingsRequest(request, requestKey.Key)
+		require.Nil(t, err)
+		assert.Equal(t, http.StatusOK, code, string(bs))
+
+		ccr := &goopenai.ChatCompletionRequest{
+			Model: "gpt-4",
+			Messages: []goopenai.ChatCompletionMessage{
+				{
+					Role:    "system",
+					Content: "hi",
+				},
+			},
+		}
+
+		code, bs, err = chatCompletionRequest(ccr, requestKey.Key, "")
+		require.Nil(t, err)
+		assert.Equal(t, http.StatusOK, code, string(bs))
+	})
+}
+
+func TestApiKey_Update(t *testing.T) {
+	db := connectToPostgreSqlDb()
+	t.Run("when an api key gets updated", func(t *testing.T) {
+		setting := &provider.Setting{
+			Provider: "openai",
+			Setting: map[string]string{
+				"apikey": "secret-key",
+			},
+			Name: "test",
+		}
+
+		created, err := createProviderSetting(setting)
+		require.Nil(t, err)
+		defer deleteProviderSetting(db, created.Id)
+
+		k := &key.RequestKey{
+			Name:      "Spike's Testing Key",
+			Tags:      []string{"spike"},
+			Key:       "actualKey",
+			SettingId: created.Id,
+			AllowedPaths: []key.PathConfig{
+				{
+					Path:   "/api/chat/completion",
+					Method: "POST",
+				},
+			},
+		}
+
+		createdKey, err := createApiKey(k)
+		require.Nil(t, err)
+		defer deleteApiKey(db, createdKey.KeyId)
+
+		uk := &key.UpdateKey{
+			Name: "Rena's Testing Key",
+			Tags: []string{"rena"},
+			AllowedPaths: &[]key.PathConfig{
+				{
+					Path:   "/api/chat/completion",
+					Method: "POST",
+				},
+			},
+		}
+
+		updated, err := updateApiKey(createdKey.KeyId, uk)
+		require.Nil(t, err)
+
+		assert.Equal(t, uk.Name, updated.Name)
+		assert.ElementsMatch(t, uk.Tags, updated.Tags)
+		assert.ElementsMatch(t, *uk.AllowedPaths, updated.AllowedPaths)
+
+		uk = &key.UpdateKey{
+			AllowedPaths: &[]key.PathConfig{},
+		}
+
+		updated, err = updateApiKey(createdKey.KeyId, uk)
+		require.Nil(t, err)
+
+		assert.Empty(t, updated.AllowedPaths)
 	})
 }
 
@@ -312,6 +564,47 @@ func TestKey_AccessControl(t *testing.T) {
 		assert.Equal(t, http.StatusOK, code, string(bs))
 	})
 
+	t.Run("when request route does not match api key provider settings", func(t *testing.T) {
+		setting := &provider.Setting{
+			Provider: "anthropic",
+			Setting: map[string]string{
+				"apikey": c.AnthropicKey,
+			},
+			Name: "test",
+		}
+
+		created, err := createProviderSetting(setting)
+		require.Nil(t, err)
+		defer deleteProviderSetting(db, created.Id)
+
+		requestKey := &key.RequestKey{
+			Name:      "Spike's Testing Key",
+			Tags:      []string{"spike"},
+			Key:       "actualKey",
+			SettingId: created.Id,
+		}
+
+		createdKey, err := createApiKey(requestKey)
+		require.Nil(t, err)
+		defer deleteApiKey(db, createdKey.KeyId)
+
+		time.Sleep(6 * time.Second)
+
+		request := &goopenai.ChatCompletionRequest{
+			Model: "gpt-4",
+			Messages: []goopenai.ChatCompletionMessage{
+				{
+					Role:    "system",
+					Content: "hi",
+				},
+			},
+		}
+
+		code, bs, err := chatCompletionRequest(request, requestKey.Key, "")
+		require.Nil(t, err)
+		assert.Equal(t, http.StatusForbidden, code, string(bs))
+	})
+
 	t.Run("when api key has a ttl", func(t *testing.T) {
 		setting := &provider.Setting{
 			Provider: "openai",
@@ -394,6 +687,10 @@ func TestKey_AccessControl(t *testing.T) {
 			},
 		}
 		code, bs, err := chatCompletionRequest(request, requestKey.Key, "")
+		require.Nil(t, err)
+		assert.Equal(t, http.StatusOK, code, string(bs))
+
+		code, bs, err = chatCompletionRequest(request, requestKey.Key, "")
 		require.Nil(t, err)
 		assert.Equal(t, http.StatusOK, code, string(bs))
 

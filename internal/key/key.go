@@ -9,18 +9,19 @@ import (
 )
 
 type UpdateKey struct {
-	Name                   string   `json:"name"`
-	UpdatedAt              int64    `json:"updatedAt"`
-	Tags                   []string `json:"tags"`
-	Revoked                *bool    `json:"revoked"`
-	RevokedReason          string   `json:"revokedReason"`
-	CostLimitInUsd         float64  `json:"costLimitInUsd"`
-	CostLimitInUsdOverTime float64  `json:"costLimitInUsdOverTime"`
-	CostLimitInUsdUnit     TimeUnit `json:"costLimitInUsdUnit"`
-	RateLimitOverTime      int      `json:"rateLimitOverTime"`
-	RateLimitUnit          TimeUnit `json:"rateLimitUnit"`
-	Ttl                    string   `json:"ttl"`
-	SettingId              string   `json:"settingId"`
+	Name                   string        `json:"name"`
+	UpdatedAt              int64         `json:"updatedAt"`
+	Tags                   []string      `json:"tags"`
+	Revoked                *bool         `json:"revoked"`
+	RevokedReason          string        `json:"revokedReason"`
+	CostLimitInUsd         float64       `json:"costLimitInUsd"`
+	CostLimitInUsdOverTime float64       `json:"costLimitInUsdOverTime"`
+	CostLimitInUsdUnit     TimeUnit      `json:"costLimitInUsdUnit"`
+	RateLimitOverTime      int           `json:"rateLimitOverTime"`
+	RateLimitUnit          TimeUnit      `json:"rateLimitUnit"`
+	Ttl                    string        `json:"ttl"`
+	SettingId              string        `json:"settingId"`
+	AllowedPaths           *[]PathConfig `json:"allowedPaths,omitempty"`
 }
 
 func (uk *UpdateKey) Validate() error {
@@ -53,6 +54,20 @@ func (uk *UpdateKey) Validate() error {
 		_, err := time.ParseDuration(uk.Ttl)
 		if err != nil {
 			invalid = append(invalid, "ttl")
+		}
+	}
+
+	if uk.AllowedPaths != nil {
+		for index, p := range *uk.AllowedPaths {
+			if len(p.Path) == 0 {
+				invalid = append(invalid, fmt.Sprintf("allowedPaths.%d.path", index))
+				break
+			}
+
+			if len(p.Method) == 0 {
+				invalid = append(invalid, fmt.Sprintf("allowedPaths.%d.method", index))
+				break
+			}
 		}
 	}
 
@@ -91,20 +106,26 @@ func (uk *UpdateKey) Validate() error {
 	return nil
 }
 
+type PathConfig struct {
+	Method string `json:"method"`
+	Path   string `json:"path"`
+}
+
 type RequestKey struct {
-	Name                   string   `json:"name"`
-	CreatedAt              int64    `json:"createdAt"`
-	UpdatedAt              int64    `json:"updatedAt"`
-	Tags                   []string `json:"tags"`
-	KeyId                  string   `json:"keyId"`
-	Key                    string   `json:"key"`
-	CostLimitInUsd         float64  `json:"costLimitInUsd"`
-	CostLimitInUsdOverTime float64  `json:"costLimitInUsdOverTime"`
-	CostLimitInUsdUnit     TimeUnit `json:"costLimitInUsdUnit"`
-	RateLimitOverTime      int      `json:"rateLimitOverTime"`
-	RateLimitUnit          TimeUnit `json:"rateLimitUnit"`
-	Ttl                    string   `json:"ttl"`
-	SettingId              string   `json:"settingId"`
+	Name                   string       `json:"name"`
+	CreatedAt              int64        `json:"createdAt"`
+	UpdatedAt              int64        `json:"updatedAt"`
+	Tags                   []string     `json:"tags"`
+	KeyId                  string       `json:"keyId"`
+	Key                    string       `json:"key"`
+	CostLimitInUsd         float64      `json:"costLimitInUsd"`
+	CostLimitInUsdOverTime float64      `json:"costLimitInUsdOverTime"`
+	CostLimitInUsdUnit     TimeUnit     `json:"costLimitInUsdUnit"`
+	RateLimitOverTime      int          `json:"rateLimitOverTime"`
+	RateLimitUnit          TimeUnit     `json:"rateLimitUnit"`
+	Ttl                    string       `json:"ttl"`
+	SettingId              string       `json:"settingId"`
+	AllowedPaths           []PathConfig `json:"allowedPaths"`
 }
 
 func (rk *RequestKey) Validate() error {
@@ -160,6 +181,20 @@ func (rk *RequestKey) Validate() error {
 		}
 	}
 
+	if len(rk.AllowedPaths) != 0 {
+		for index, p := range rk.AllowedPaths {
+			if len(p.Path) == 0 {
+				invalid = append(invalid, fmt.Sprintf("allowedPaths.%d.path", index))
+				break
+			}
+
+			if len(p.Method) == 0 {
+				invalid = append(invalid, fmt.Sprintf("allowedPaths.%d.method", index))
+				break
+			}
+		}
+	}
+
 	if len(invalid) > 0 {
 		return internal_errors.NewValidationError(fmt.Sprintf("fields [%s] are invalid", strings.Join(invalid, ", ")))
 	}
@@ -205,19 +240,20 @@ const (
 )
 
 type ResponseKey struct {
-	Name                   string   `json:"name"`
-	CreatedAt              int64    `json:"createdAt"`
-	UpdatedAt              int64    `json:"updatedAt"`
-	Tags                   []string `json:"tags"`
-	KeyId                  string   `json:"keyId"`
-	Revoked                bool     `json:"revoked"`
-	Key                    string   `json:"key"`
-	RevokedReason          string   `json:"revokedReason"`
-	CostLimitInUsd         float64  `json:"costLimitInUsd"`
-	CostLimitInUsdOverTime float64  `json:"costLimitInUsdOverTime"`
-	CostLimitInUsdUnit     TimeUnit `json:"costLimitInUsdUnit"`
-	RateLimitOverTime      int      `json:"rateLimitOverTime"`
-	RateLimitUnit          TimeUnit `json:"rateLimitUnit"`
-	Ttl                    string   `json:"ttl"`
-	SettingId              string   `json:"settingId"`
+	Name                   string       `json:"name"`
+	CreatedAt              int64        `json:"createdAt"`
+	UpdatedAt              int64        `json:"updatedAt"`
+	Tags                   []string     `json:"tags"`
+	KeyId                  string       `json:"keyId"`
+	Revoked                bool         `json:"revoked"`
+	Key                    string       `json:"key"`
+	RevokedReason          string       `json:"revokedReason"`
+	CostLimitInUsd         float64      `json:"costLimitInUsd"`
+	CostLimitInUsdOverTime float64      `json:"costLimitInUsdOverTime"`
+	CostLimitInUsdUnit     TimeUnit     `json:"costLimitInUsdUnit"`
+	RateLimitOverTime      int          `json:"rateLimitOverTime"`
+	RateLimitUnit          TimeUnit     `json:"rateLimitUnit"`
+	Ttl                    string       `json:"ttl"`
+	SettingId              string       `json:"settingId"`
+	AllowedPaths           []PathConfig `json:"allowedPaths"`
 }

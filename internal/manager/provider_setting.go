@@ -11,7 +11,7 @@ import (
 )
 
 type ProviderSettingsStorage interface {
-	UpdateProviderSetting(id string, setting *provider.Setting) (*provider.Setting, error)
+	UpdateProviderSetting(id string, setting *provider.UpdateSetting) (*provider.Setting, error)
 	CreateProviderSetting(setting *provider.Setting) (*provider.Setting, error)
 	GetProviderSetting(id string) (*provider.Setting, error)
 	GetCustomProviderByName(name string) (*custom.Provider, error)
@@ -60,6 +60,32 @@ func (m *ProviderSettingsManager) validateSettings(name string, setting *provide
 	return nil
 }
 
+func (m *ProviderSettingsManager) validateUpdateSettings(providerName string, setting *provider.UpdateSetting) error {
+	if providerName != "openai" && providerName != "anthropic" {
+		provider, err := m.Storage.GetCustomProviderByName(providerName)
+		_, ok := err.(notFoundError)
+		if ok {
+			return internal_errors.NewValidationError(fmt.Sprintf("provider %s is not supported", providerName))
+		}
+
+		if len(provider.AuthenticationParam) != 0 {
+			val, _ := setting.Setting[provider.AuthenticationParam]
+			if len(val) == 0 {
+				return internal_errors.NewValidationError(fmt.Sprintf("provider %s is missing value for field %s", providerName, provider.AuthenticationParam))
+			}
+		}
+	}
+
+	if providerName == "openai" || providerName == "anthropic" {
+		val, _ := setting.Setting["apikey"]
+		if len(val) == 0 {
+			return internal_errors.NewValidationError("api key is required")
+		}
+	}
+
+	return nil
+}
+
 func (m *ProviderSettingsManager) CreateSetting(setting *provider.Setting) (*provider.Setting, error) {
 	if len(setting.Provider) == 0 {
 		return nil, internal_errors.NewValidationError("provider field cannot be empty")
@@ -76,7 +102,7 @@ func (m *ProviderSettingsManager) CreateSetting(setting *provider.Setting) (*pro
 	return m.Storage.CreateProviderSetting(setting)
 }
 
-func (m *ProviderSettingsManager) UpdateSetting(id string, setting *provider.Setting) (*provider.Setting, error) {
+func (m *ProviderSettingsManager) UpdateSetting(id string, setting *provider.UpdateSetting) (*provider.Setting, error) {
 	if len(id) == 0 {
 		return nil, internal_errors.NewValidationError("id cannot be empty")
 	}
@@ -87,7 +113,7 @@ func (m *ProviderSettingsManager) UpdateSetting(id string, setting *provider.Set
 	}
 
 	if len(setting.Setting) != 0 {
-		if err := m.validateSettings(existing.Provider, setting); err != nil {
+		if err := m.validateUpdateSettings(existing.Provider, setting); err != nil {
 			return nil, err
 		}
 	}
