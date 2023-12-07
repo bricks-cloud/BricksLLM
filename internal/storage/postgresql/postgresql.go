@@ -88,7 +88,7 @@ func (s *Store) CreateKeysTable() error {
 
 func (s *Store) AlterKeysTable() error {
 	alterTableQuery := `
-		ALTER TABLE keys ADD COLUMN IF NOT EXISTS setting_id VARCHAR(255);
+		ALTER TABLE keys ADD COLUMN IF NOT EXISTS setting_id VARCHAR(255), ADD COLUMN IF NOT EXISTS allowed_paths JSONB
 	`
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -144,7 +144,7 @@ func (s *Store) AlterEventsTable() error {
 
 func (s *Store) AlterProviderSettingsTable() error {
 	alterTableQuery := `
-		ALTER TABLE provider_settings ADD COLUMN IF NOT EXISTS name VARCHAR(255)
+		ALTER TABLE provider_settings ADD COLUMN IF NOT EXISTS name VARCHAR(255), ADD COLUMN IF NOT EXISTS allowed_models VARCHAR(255)[]
 	`
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -497,6 +497,7 @@ func (s *Store) GetKeys(tags []string, provider string) ([]*key.ResponseKey, err
 	for rows.Next() {
 		var k key.ResponseKey
 		var settingId sql.NullString
+		var data []byte
 		if err := rows.Scan(
 			&k.Name,
 			&k.CreatedAt,
@@ -513,12 +514,22 @@ func (s *Store) GetKeys(tags []string, provider string) ([]*key.ResponseKey, err
 			&k.RateLimitUnit,
 			&k.Ttl,
 			&settingId,
+			&data,
 		); err != nil {
 			return nil, err
 		}
 
 		pk := &k
 		pk.SettingId = settingId.String
+
+		if len(data) != 0 {
+			pathConfigs := []key.PathConfig{}
+			if err := json.Unmarshal(data, &pathConfigs); err != nil {
+				return nil, err
+			}
+
+			pk.AllowedPaths = pathConfigs
+		}
 
 		keys = append(keys, pk)
 	}
@@ -540,6 +551,7 @@ func (s *Store) GetKey(keyId string) (*key.ResponseKey, error) {
 	for rows.Next() {
 		var k key.ResponseKey
 		var settingId sql.NullString
+		var data []byte
 
 		if err := rows.Scan(
 			&k.Name,
@@ -557,12 +569,22 @@ func (s *Store) GetKey(keyId string) (*key.ResponseKey, error) {
 			&k.RateLimitUnit,
 			&k.Ttl,
 			&settingId,
+			&data,
 		); err != nil {
 			return nil, err
 		}
 
 		pk := &k
 		pk.SettingId = settingId.String
+
+		if len(data) != 0 {
+			pathConfigs := []key.PathConfig{}
+			if err := json.Unmarshal(data, &pathConfigs); err != nil {
+				return nil, err
+			}
+
+			pk.AllowedPaths = pathConfigs
+		}
 
 		keys = append(keys, pk)
 	}
@@ -578,7 +600,18 @@ func (s *Store) GetProviderSetting(id string) (*provider.Setting, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
-	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM provider_settings WHERE $1 = id", id)
+	setting := &provider.Setting{}
+	var data []byte
+	var name sql.NullString
+	err := s.db.QueryRowContext(ctxTimeout, "SELECT * FROM provider_settings WHERE $1 = id", id).Scan(
+		&setting.Id,
+		&setting.CreatedAt,
+		&setting.UpdatedAt,
+		&setting.Provider,
+		&data,
+		&name,
+		pq.Array(&setting.AllowedModels),
+	)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, internal_errors.NewNotFoundError("provider setting is not found")
@@ -586,39 +619,8 @@ func (s *Store) GetProviderSetting(id string) (*provider.Setting, error) {
 
 		return nil, err
 	}
-	defer rows.Close()
 
-	settings := []*provider.Setting{}
-	for rows.Next() {
-		setting := &provider.Setting{}
-		var data []byte
-		var name sql.NullString
-		if err := rows.Scan(
-			&setting.Id,
-			&setting.CreatedAt,
-			&setting.UpdatedAt,
-			&setting.Provider,
-			&data,
-			&name,
-		); err != nil {
-			return nil, err
-		}
-
-		m := map[string]string{}
-		if err := json.Unmarshal(data, &m); err != nil {
-			return nil, err
-		}
-
-		setting.Name = name.String
-		setting.Setting = m
-		settings = append(settings, setting)
-	}
-
-	if len(settings) >= 1 {
-		return settings[0], nil
-	}
-
-	return nil, internal_errors.NewNotFoundError("provider setting is not found")
+	return setting, nil
 }
 
 func (s *Store) GetProviderSettings(withSecret bool) ([]*provider.Setting, error) {
@@ -643,6 +645,7 @@ func (s *Store) GetProviderSettings(withSecret bool) ([]*provider.Setting, error
 			&setting.Provider,
 			&data,
 			&name,
+			pq.Array(&setting.AllowedModels),
 		); err != nil {
 			return nil, err
 		}
@@ -676,6 +679,7 @@ func (s *Store) GetAllKeys() ([]*key.ResponseKey, error) {
 	for rows.Next() {
 		var k key.ResponseKey
 		var settingId sql.NullString
+		var data []byte
 		if err := rows.Scan(
 			&k.Name,
 			&k.CreatedAt,
@@ -692,12 +696,21 @@ func (s *Store) GetAllKeys() ([]*key.ResponseKey, error) {
 			&k.RateLimitUnit,
 			&k.Ttl,
 			&settingId,
+			&data,
 		); err != nil {
 			return nil, err
 		}
-
 		pk := &k
 		pk.SettingId = settingId.String
+
+		if len(data) != 0 {
+			pathConfigs := []key.PathConfig{}
+			if err := json.Unmarshal(data, &pathConfigs); err != nil {
+				return nil, err
+			}
+
+			pk.AllowedPaths = pathConfigs
+		}
 
 		keys = append(keys, pk)
 	}
@@ -727,6 +740,7 @@ func (s *Store) GetUpdatedProviderSettings(updatedAt int64) ([]*provider.Setting
 			&setting.Provider,
 			&data,
 			&name,
+			pq.Array(&setting.AllowedModels),
 		); err != nil {
 			return nil, err
 		}
@@ -758,7 +772,7 @@ func (s *Store) GetUpdatedKeys(updatedAt int64) ([]*key.ResponseKey, error) {
 	for rows.Next() {
 		var k key.ResponseKey
 		var settingId sql.NullString
-
+		var data []byte
 		if err := rows.Scan(
 			&k.Name,
 			&k.CreatedAt,
@@ -775,12 +789,21 @@ func (s *Store) GetUpdatedKeys(updatedAt int64) ([]*key.ResponseKey, error) {
 			&k.RateLimitUnit,
 			&k.Ttl,
 			&settingId,
+			&data,
 		); err != nil {
 			return nil, err
 		}
 
 		pk := &k
 		pk.SettingId = settingId.String
+		if len(data) != 0 {
+			pathConfigs := []key.PathConfig{}
+			if err := json.Unmarshal(data, &pathConfigs); err != nil {
+				return nil, err
+			}
+
+			pk.AllowedPaths = pathConfigs
+		}
 
 		keys = append(keys, pk)
 	}
@@ -867,6 +890,16 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 		counter++
 	}
 
+	if uk.AllowedPaths != nil {
+		data, err := json.Marshal(uk.AllowedPaths)
+		if err != nil {
+			return nil, err
+		}
+
+		values = append(values, data)
+		fields = append(fields, fmt.Sprintf("allowed_paths = $%d", counter))
+	}
+
 	query := fmt.Sprintf("UPDATE keys SET %s WHERE key_id = $1 RETURNING *;", strings.Join(fields, ","))
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -874,6 +907,7 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 
 	var k key.ResponseKey
 	var settingId sql.NullString
+	var data []byte
 	if err := s.db.QueryRowContext(ctxTimeout, query, values...).Scan(
 		&k.Name,
 		&k.CreatedAt,
@@ -890,22 +924,30 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 		&k.RateLimitUnit,
 		&k.Ttl,
 		&k.SettingId,
+		&data,
 	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, internal_errors.NewNotFoundError(fmt.Sprintf("key not found for id: %s", id))
+		}
 		return nil, err
 	}
 
 	pk := &k
 	pk.SettingId = settingId.String
 
+	if len(data) != 0 {
+		pathConfigs := []key.PathConfig{}
+		if err := json.Unmarshal(data, &pathConfigs); err != nil {
+			return nil, err
+		}
+
+		pk.AllowedPaths = pathConfigs
+	}
+
 	return pk, nil
 }
 
-func (s *Store) UpdateProviderSetting(id string, setting *provider.Setting) (*provider.Setting, error) {
-	data, err := json.Marshal(setting.Setting)
-	if err != nil {
-		return nil, err
-	}
-
+func (s *Store) UpdateProviderSetting(id string, setting *provider.UpdateSetting) (*provider.Setting, error) {
 	values := []any{
 		id,
 		setting.UpdatedAt,
@@ -915,17 +957,28 @@ func (s *Store) UpdateProviderSetting(id string, setting *provider.Setting) (*pr
 	d := 3
 
 	if len(setting.Setting) != 0 {
+		data, err := json.Marshal(setting.Setting)
+		if err != nil {
+			return nil, err
+		}
+
 		values = append(values, data)
 		fields = append(fields, fmt.Sprintf("setting = $%d", d))
 		d++
 	}
 
-	if len(setting.Name) != 0 {
-		values = append(values, setting.Name)
+	if setting.Name != nil {
+		values = append(values, *setting.Name)
 		fields = append(fields, fmt.Sprintf("name = $%d", d))
+		d++
 	}
 
-	query := fmt.Sprintf("UPDATE provider_settings SET %s WHERE id = $1 RETURNING id, created_at, updated_at, provider, name;", strings.Join(fields, ","))
+	if setting.AllowedModels != nil {
+		values = append(values, sliceToSqlStringArray(*setting.AllowedModels))
+		fields = append(fields, fmt.Sprintf("allowed_models = $%d", d))
+	}
+
+	query := fmt.Sprintf("UPDATE provider_settings SET %s WHERE id = $1 RETURNING id, created_at, updated_at, provider, name, allowed_models;", strings.Join(fields, ","))
 	updated := &provider.Setting{}
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()
@@ -937,6 +990,7 @@ func (s *Store) UpdateProviderSetting(id string, setting *provider.Setting) (*pr
 		&updated.UpdatedAt,
 		&updated.Provider,
 		&updated.Name,
+		pq.Array(&updated.AllowedModels),
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, internal_errors.NewNotFoundError("provider setting is not found for: " + id)
@@ -971,9 +1025,9 @@ func (s *Store) CreateProviderSetting(setting *provider.Setting) (*provider.Sett
 	}
 
 	query := `
-		INSERT INTO provider_settings (id, created_at, updated_at, provider, setting, name)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, created_at, updated_at, provider, name
+		INSERT INTO provider_settings (id, created_at, updated_at, provider, setting, name, allowed_models)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, created_at, updated_at, provider, name, allowed_models
 	`
 
 	data, err := json.Marshal(setting.Setting)
@@ -988,6 +1042,7 @@ func (s *Store) CreateProviderSetting(setting *provider.Setting) (*provider.Sett
 		setting.Provider,
 		data,
 		setting.Name,
+		sliceToSqlStringArray(setting.AllowedModels),
 	}
 
 	created := &provider.Setting{}
@@ -998,6 +1053,7 @@ func (s *Store) CreateProviderSetting(setting *provider.Setting) (*provider.Sett
 		&created.UpdatedAt,
 		&created.Provider,
 		&name,
+		pq.Array(&created.AllowedModels),
 	); err != nil {
 		return nil, err
 	}
@@ -1025,10 +1081,15 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 	}
 
 	query := `
-		INSERT INTO keys (name, created_at, updated_at, tags, revoked, key_id, key, revoked_reason, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl, setting_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+		INSERT INTO keys (name, created_at, updated_at, tags, revoked, key_id, key, revoked_reason, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl, setting_id, allowed_paths)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 		RETURNING *;
 	`
+
+	rdata, err := json.Marshal(rk.AllowedPaths)
+	if err != nil {
+		return nil, err
+	}
 
 	values := []any{
 		rk.Name,
@@ -1046,6 +1107,7 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		rk.RateLimitUnit,
 		rk.Ttl,
 		rk.SettingId,
+		rdata,
 	}
 
 	ctxTimeout, cancel = context.WithTimeout(context.Background(), s.wt)
@@ -1054,6 +1116,7 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 	var k key.ResponseKey
 
 	var settingId sql.NullString
+	var data []byte
 	if err := s.db.QueryRowContext(ctxTimeout, query, values...).Scan(
 		&k.Name,
 		&k.CreatedAt,
@@ -1070,12 +1133,22 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		&k.RateLimitUnit,
 		&k.Ttl,
 		&settingId,
+		&data,
 	); err != nil {
 		return nil, err
 	}
 
 	pk := &k
 	pk.SettingId = settingId.String
+
+	if len(data) != 0 {
+		pathConfigs := []key.PathConfig{}
+		if err := json.Unmarshal(data, &pathConfigs); err != nil {
+			return nil, err
+		}
+
+		pk.AllowedPaths = pathConfigs
+	}
 
 	return pk, nil
 }
