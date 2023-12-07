@@ -69,7 +69,23 @@ func JSON(c *gin.Context, code int, message string) {
 	})
 }
 
-func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private bool, e estimator, ae anthropicEstimator, v validator, ks keyStorage, log *zap.Logger, enc encrypter, rlm rateLimitManager, r recorder, prefix string) gin.HandlerFunc {
+func validateProviderPath(providerName string, path string) bool {
+	if providerName == "openai" && !strings.HasPrefix(path, "/api/providers/openai") {
+		return false
+	}
+
+	if providerName == "anthropic" && !strings.HasPrefix(path, "/api/providers/anthropic") {
+		return false
+	}
+
+	if providerName != "openai" && providerName != "anthropic" && !strings.HasPrefix(path, "/api/custom/providers/") {
+		return false
+	}
+
+	return true
+}
+
+func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, psm ProviderSettingsManager, prod, private bool, e estimator, ae anthropicEstimator, v validator, ks keyStorage, log *zap.Logger, enc encrypter, rlm rateLimitManager, r recorder, prefix string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] request is empty")
@@ -181,6 +197,21 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private 
 		}
 
 		c.Set("key", kc)
+
+		setting, err := psm.GetSetting(kc.SettingId)
+		if err != nil {
+			stats.Incr("bricksllm.proxy.get_middleware.setting_not_found_error", nil, 1)
+			JSON(c, http.StatusUnauthorized, "[BricksLLM] provider setting is not found")
+			c.Abort()
+			return
+		}
+
+		if !validateProviderPath(setting.Provider, c.FullPath()) {
+			stats.Incr("bricksllm.proxy.get_middleware.provider_path_do_not_match", nil, 1)
+			JSON(c, http.StatusForbidden, "[BricksLLM] path is not allowed for this key")
+			c.Abort()
+			return
+		}
 
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
@@ -312,6 +343,21 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private 
 				stats.Incr("bricksllm.proxy.get_middleware.estimate_embeddings_cost_error", nil, 1)
 				logError(log, "error when estimating embeddings cost", prod, cid, err)
 			}
+		}
+
+		if len(kc.AllowedPaths) != 0 && !containsPath(kc.AllowedPaths, c.FullPath(), c.Request.Method) {
+			stats.Incr("bricksllm.proxy.get_middleware.path_not_allowed", nil, 1)
+			JSON(c, http.StatusForbidden, "[BricksLLM] path is not allowed")
+			c.Abort()
+			return
+		}
+
+		model := c.GetString("model")
+		if len(setting.AllowedModels) != 0 && len(model) != 0 && !contains(setting.AllowedModels, model) {
+			stats.Incr("bricksllm.proxy.get_middleware.model_not_allowed", nil, 1)
+			JSON(c, http.StatusForbidden, "[BricksLLM] model is not allowed")
+			c.Abort()
+			return
 		}
 
 		aid := c.Param("assistant_id")
@@ -531,6 +577,26 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, prod, private 
 
 		c.Next()
 	}
+}
+
+func contains(arr []string, target string) bool {
+	for _, str := range arr {
+		if str == target {
+			return true
+		}
+	}
+
+	return false
+}
+
+func containsPath(arr []key.PathConfig, path, method string) bool {
+	for _, pc := range arr {
+		if pc.Path == path && pc.Method == method {
+			return true
+		}
+	}
+
+	return false
 }
 
 func getAuthTokenFromHeader(c *gin.Context) string {

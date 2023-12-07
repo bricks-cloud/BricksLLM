@@ -23,7 +23,7 @@ const (
 
 type ProviderSettingsManager interface {
 	CreateSetting(setting *provider.Setting) (*provider.Setting, error)
-	UpdateSetting(id string, setting *provider.Setting) (*provider.Setting, error)
+	UpdateSetting(id string, setting *provider.UpdateSetting) (*provider.Setting, error)
 	GetSetting(id string) (*provider.Setting, error)
 	GetSettings() ([]*provider.Setting, error)
 }
@@ -461,7 +461,7 @@ func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 			return
 		}
 
-		setting := &provider.Setting{}
+		setting := &provider.UpdateSetting{}
 		err = json.Unmarshal(data, setting)
 		if err != nil {
 			logError(log, "error when unmarshalling provider setting update request body", prod, cid, err)
