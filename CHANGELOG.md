@@ -1,4 +1,12 @@
-## 1.4.1 - 2023-11-29
+## 1.4.1 - 2023-12-07
+### Added
+- Added path access control at the API key level
+- Added model access control at the provider level
+  
+### Fixed
+- Inability to update provider settings with only ```setting``` field
+
+## 1.4.0 - 2023-12-05
 ### Added
 - Added support for Anthropic completion endpoint
   
