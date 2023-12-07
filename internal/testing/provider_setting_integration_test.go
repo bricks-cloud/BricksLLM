@@ -10,8 +10,11 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+	"time"
 
+	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
+	goopenai "github.com/sashabaranov/go-openai"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -89,7 +92,7 @@ func getProviderSettings() ([]*provider.Setting, error) {
 	return settings, nil
 }
 
-func updateProviderSetting(id string, setting *provider.Setting) (*provider.Setting, error) {
+func updateProviderSetting(id string, setting *provider.UpdateSetting) (*provider.Setting, error) {
 	jsonData, err := json.Marshal(setting)
 	if err != nil {
 		return nil, err
@@ -133,6 +136,9 @@ func TestProviderSetting_Creation(t *testing.T) {
 				"apikey": "secret-key",
 			},
 			Name: "test",
+			AllowedModels: []string{
+				"gpt-3.5-turbo",
+			},
 		}
 
 		created, err := createProviderSetting(setting)
@@ -146,6 +152,72 @@ func TestProviderSetting_Creation(t *testing.T) {
 		assert.NotEmpty(t, created.CreatedAt)
 		assert.NotEmpty(t, created.UpdatedAt)
 		assert.NotEmpty(t, created.Id)
+		assert.NotEmpty(t, created.AllowedModels)
+	})
+}
+
+func TestProviderSetting_AllowedModels(t *testing.T) {
+	c, _ := parseEnvVariables()
+	db := connectToPostgreSqlDb()
+
+	t.Run("when allowed models are set", func(t *testing.T) {
+		defer deleteEventsTable(db)
+
+		setting := &provider.Setting{
+			Provider: "openai",
+			Setting: map[string]string{
+				"apikey": c.OpenAiKey,
+			},
+			Name: "test",
+			AllowedModels: []string{
+				"gpt-3.5-turbo",
+			},
+		}
+
+		created, err := createProviderSetting(setting)
+		require.Nil(t, err)
+		defer deleteProviderSetting(db, created.Id)
+
+		requestKey := &key.RequestKey{
+			Name:      "Spike's Testing Key",
+			Tags:      []string{"spike"},
+			Key:       "actualKey",
+			SettingId: created.Id,
+		}
+
+		createdKey, err := createApiKey(requestKey)
+		require.Nil(t, err)
+		defer deleteApiKey(db, createdKey.KeyId)
+
+		time.Sleep(6 * time.Second)
+
+		request := &goopenai.ChatCompletionRequest{
+			Model: "gpt-4",
+			Messages: []goopenai.ChatCompletionMessage{
+				{
+					Role:    "system",
+					Content: "hi",
+				},
+			},
+		}
+
+		code, bs, err := chatCompletionRequest(request, requestKey.Key, "")
+		require.Nil(t, err)
+		assert.Equal(t, http.StatusForbidden, code, string(bs))
+
+		request = &goopenai.ChatCompletionRequest{
+			Model: "gpt-3.5-turbo",
+			Messages: []goopenai.ChatCompletionMessage{
+				{
+					Role:    "system",
+					Content: "hi",
+				},
+			},
+		}
+
+		code, bs, err = chatCompletionRequest(request, requestKey.Key, "")
+		require.Nil(t, err)
+		assert.Equal(t, http.StatusOK, code, string(bs))
 	})
 }
 
@@ -158,6 +230,9 @@ func TestProviderSetting_Retrieval(t *testing.T) {
 				"apikey": "secret-key",
 			},
 			Name: "test",
+			AllowedModels: []string{
+				"gpt-3.5-turbo",
+			},
 		}
 
 		settingOne := &provider.Setting{
@@ -166,6 +241,9 @@ func TestProviderSetting_Retrieval(t *testing.T) {
 				"apikey": "secret-key",
 			},
 			Name: "test-1",
+			AllowedModels: []string{
+				"gpt-3.5-turbo",
+			},
 		}
 
 		settingMap := map[string]*provider.Setting{}
@@ -206,8 +284,9 @@ func TestProviderSetting_Update(t *testing.T) {
 			Name: "test",
 		}
 
-		updates := &provider.Setting{
-			Name: "test-1",
+		name := ""
+		updates := &provider.UpdateSetting{
+			Name: &name,
 		}
 
 		created, err := createProviderSetting(setting)
@@ -218,11 +297,11 @@ func TestProviderSetting_Update(t *testing.T) {
 		updated, err := updateProviderSetting(created.Id, updates)
 		require.Nil(t, err)
 
-		assert.Equal(t, updates.Name, updated.Name)
+		assert.Equal(t, *updates.Name, updated.Name)
 		assert.NotEqual(t, created.UpdatedAt, updates.UpdatedAt)
 	})
 
-	t.Run("when updating provider settings with incorret settings", func(t *testing.T) {
+	t.Run("when updating provider settings with incorrect settings", func(t *testing.T) {
 		setting := &provider.Setting{
 			Provider: "openai",
 			Setting: map[string]string{
@@ -231,11 +310,12 @@ func TestProviderSetting_Update(t *testing.T) {
 			Name: "test",
 		}
 
-		updates := &provider.Setting{
+		name := "test-1"
+		updates := &provider.UpdateSetting{
 			Setting: map[string]string{
 				"api": "secret-key",
 			},
-			Name: "test-1",
+			Name: &name,
 		}
 
 		created, err := createProviderSetting(setting)
@@ -256,11 +336,12 @@ func TestProviderSetting_Update(t *testing.T) {
 			Name: "test",
 		}
 
-		updates := &provider.Setting{
+		name := "test-1"
+		updates := &provider.UpdateSetting{
 			Setting: map[string]string{
 				"apikey": "secret-key-1",
 			},
-			Name: "test-1",
+			Name: &name,
 		}
 
 		created, err := createProviderSetting(setting)
@@ -271,7 +352,59 @@ func TestProviderSetting_Update(t *testing.T) {
 		updated, err := updateProviderSetting(created.Id, updates)
 		require.NoError(t, err)
 
-		assert.Equal(t, updates.Name, updated.Name)
+		assert.Equal(t, *updates.Name, updated.Name)
+		assert.NotEqual(t, created.UpdatedAt, updates.UpdatedAt)
+	})
+
+	t.Run("when updating provider settings allowed models", func(t *testing.T) {
+		setting := &provider.Setting{
+			Provider: "openai",
+			Setting: map[string]string{
+				"apikey": "secret-key",
+			},
+			Name: "test",
+		}
+
+		updates := &provider.UpdateSetting{
+			AllowedModels: &[]string{
+				"/api/providers/openai/",
+			},
+		}
+
+		created, err := createProviderSetting(setting)
+		require.Nil(t, err)
+
+		defer deleteProviderSetting(db, created.Id)
+
+		updated, err := updateProviderSetting(created.Id, updates)
+		require.Nil(t, err)
+
+		assert.ElementsMatch(t, *updates.AllowedModels, updated.AllowedModels)
+		assert.NotEqual(t, created.UpdatedAt, updates.UpdatedAt)
+	})
+
+	t.Run("when updating provider settings allowed models to empty", func(t *testing.T) {
+		setting := &provider.Setting{
+			Provider: "openai",
+			Setting: map[string]string{
+				"apikey": "secret-key",
+			},
+			Name: "test",
+		}
+
+		updates := &provider.UpdateSetting{
+			AllowedModels: &[]string{},
+		}
+
+		created, err := createProviderSetting(setting)
+		require.Nil(t, err)
+
+		defer deleteProviderSetting(db, created.Id)
+
+		updated, err := updateProviderSetting(created.Id, updates)
+		require.Nil(t, err)
+
+		assert.Empty(t, updated.AllowedModels)
 		assert.NotEqual(t, created.UpdatedAt, updates.UpdatedAt)
 	})
 }

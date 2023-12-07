@@ -54,9 +54,8 @@ func TestOpenAi_Embeddings(t *testing.T) {
 	c, _ := parseEnvVariables()
 	db := connectToPostgreSqlDb()
 
-	defer deleteEventsTable(db)
-
 	t.Run("when api key is valid", func(t *testing.T) {
+		defer deleteEventsTable(db)
 		setting := &provider.Setting{
 			Provider: "openai",
 			Setting: map[string]string{
