@@ -19,7 +19,7 @@ The vision of BricksLLM is to support many more large language models such as LL
 - [x] Access control via API key with rate limit, cost limit and ttl
 - [x] Logging integration
 - [x] Statsd integration
-- [ ] Routes configuration :construction:
+- [x] Custom Provider Integration
 - [ ] PII detection and masking :construction:
 
 ## Getting Started
@@ -99,6 +99,17 @@ const openai = new OpenAI({
 });
 ```
 
+## How to update?
+For updating to the latest version
+```bash
+docker pull luyuanxin1995/bricksllm:latest
+```
+
+For updating to a particular version
+```bash
+docker pull luyuanxin1995/bricksllm:1.4.0
+```
+
 # Documentation
 ## Environment variables
 > | Name | type | description | default |
@@ -112,7 +123,7 @@ const openai = new OpenAI({
 > | `POSTGRESQL_READ_TIME_OUT`         | optional | Timeout for Postgresql read operations | `2s`
 > | `POSTGRESQL_WRITE_TIME_OUT`         | optional | Timeout for Postgresql write operations | `1s`
 > | `REDIS_HOSTS`         | required | Host for Redis. Seperated by , | `localhost`
-> | `REDIS_PASSWORD`         | required | Redis Password |
+> | `REDIS_PASSWORD`         | optional | Redis Password |
 > | `REDIS_PORT`         | optional | The port that Redis DB runs on | `6379`
 > | `REDIS_READ_TIME_OUT`         | optional | Timeout for Redis read operations | `1s`
 > | `REDIS_WRITE_TIME_OUT`         | optional | Timeout for Redis write operations | `500ms`
@@ -123,7 +134,7 @@ const openai = new OpenAI({
 ## Configuration Endpoints
 The configuration server runs on Port `8001`.
 <details>
-  <summary>Get keys: <code>GET</code> <code><b>/api/key-management/keys?tag={tag}</b></code></summary>
+  <summary>Get keys: <code>GET</code> <code><b>/api/key-management/keys</b></code></summary>
 
 ##### Description
 This endpoint is set up for retrieving key configurations using a query param called tag.
@@ -183,7 +194,16 @@ Fields of KeyConfiguration
 This endpoint is set up for retrieving key configurations using a query param called tag.
 
 ##### Request
-> | Field | type | type | example                      | description |
+```
+PathConfig
+```
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | path | required | `string` | /api/providers/openai/v1/chat/completion | Allowed path |
+> | method | required | `string` | POST | HTTP Method
+
+
+> | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | name | required | `string` | spike's developer key | Name of the API key. |
 > | tags | optional | `[]string` | `["org-tag-12345"] `            | Identifiers associated with the key. |
@@ -195,6 +215,7 @@ This endpoint is set up for retrieving key configurations using a query param ca
 > | rateLimitOverTime | optional | `int` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | optional | `enum` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
 > | ttl | optional | `string` | 2d | time to live. Available units are [`s`, `m`, `h`] |
+> | allowedPaths | optional | `[]PathConfig` | 2d | Pathes allowed for access |
 
 
 ##### Error Response
@@ -226,8 +247,9 @@ This endpoint is set up for retrieving key configurations using a query param ca
 > | costLimitInUsdUnit | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `d`].      |
 > | rateLimitOverTime | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitOverTime | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
-> | rateLimitUnit | `string` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+> | rateLimitUnit | `string` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`].       |
 > | ttl | `string` | 2d | time to live. Available units are [`s`, `m`, `h`] |
+> | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", method: "POST"}]` | Allowed paths that can be accessed using the key. |
 
 </details>
 
@@ -243,7 +265,15 @@ This endpoint is set up for updating key configurations using key id.
 > | `keyId` |  required  | string         | Unique key configuration identifier.                  |
 
 ##### Request
-> | Field | type | type | example                      | description |
+```
+PathConfig
+```
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | path | required | `string` | /api/providers/openai/v1/chat/completion | Allowed path |
+> | method | required | `string` | POST | HTTP Method
+
+> | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | name | optional | `string` | spike's developer key | Name of the API key. |
 > | tags | optional | `[]string` | `["org-tag-12345"]`             | Identifiers associated with the key. |
@@ -253,6 +283,7 @@ This endpoint is set up for updating key configurations using key id.
 > | costLimitInUsdUnit | optional | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `d`].      |
 > | rateLimitOverTime | optional | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | optional | `enum` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+> | allowedPaths | optional | `[]PathConfig` | 2d | Pathes allowed for access. |
 
 ##### Error Response
 
@@ -284,6 +315,7 @@ This endpoint is set up for updating key configurations using key id.
 > | rateLimitOverTime | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | `string` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
 > | ttl | `string` | 2d | time to live. Available units are [`s`, `m`, `h`] |
+> | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", method: "POST"}]` | Allowed paths that can be accessed using the key. |
 
 </details>
 
@@ -294,12 +326,13 @@ This endpoint is set up for updating key configurations using key id.
 This endpoint is creating a provider setting.
 
 ##### Request
-> | Field | type | type | example                      | description |
+> | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | provider | required | `enum` | openai | This value can only be `openai` as for now. |
 > | setting | required | `object` | `{ "apikey": "YOUR_OPENAI_KEY" }`            | A map of values used for authenticating with the selected provider. |
 > | setting.apikey | required | `string` | xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx | This field is required if `provider` is `openai`. |
 > | name | optional | `string` | YOUR_PROVIDER_SETTING_NAME | This field is used for giving a name to provider setting |
+> | allowedModels | `[]string` | `["text-embedding-ada-002"]` | Allowed models for this provider setting. |
 
 
 ##### Error Response
@@ -323,6 +356,7 @@ This endpoint is creating a provider setting.
 > | provider | `enum` | `openai` | This value can only be `openai` as for now. |
 > | id | `string` | 98daa3ae-961d-4253-bf6a-322a32fdca3d | This value is a unique identifier. |
 > | name | `string` | YOUR_PROVIDER_SETTING_NAME | Provider setting name. |
+> | allowedModels | `[]string` | `["text-embedding-ada-002"]` | Allowed models for this provider setting. |
 
 </details>
 
@@ -364,6 +398,7 @@ ProviderSetting
 > | provider | `enum` | `openai` | This value can only be `openai` as for now. |
 > | id | `string` | 98daa3ae-961d-4253-bf6a-322a32fdca3d | This value is a unique identifier. |
 > | name | `string` | YOUR_PROVIDER_SETTING_NAME | Provider setting name. |
+> | allowedModels | `[]string` | `["text-embedding-ada-002"]` | Allowed models for this provider setting. |
 
 </details>
 
@@ -379,11 +414,12 @@ This endpoint is updating a provider setting .
 > | `id` |  required  | `string`         | Unique identifier for the provider setting that you want to update.                  |
 
 ##### Request
-> | Field | type | type | example                      | description |
+> | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | setting | required | `object` | `{ "apikey": "YOUR_OPENAI_KEY" }`            | A map of values used for authenticating with the selected provider. |
 > | setting.apikey | required | `string` | xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx | This field is required if `provider` is `openai`. |
 > | name | optional | `string` | YOUR_PROVIDER_SETTING_NAME | This field is used for giving a name to provider setting |
+> | allowedModels | `[]string` | `["text-embedding-ada-002"]` | Allowed models for this provider setting. |
 
 ##### Error Response
 
@@ -407,6 +443,7 @@ This endpoint is updating a provider setting .
 > | provider | `enum` | `openai` | This value can only be `openai` as for now. |
 > | id | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This value is a unique identifier |
 > | name | `string` | YOUR_PROVIDER_SETTING_NAME | Provider setting name. |
+> | allowedModels | `[]string` | `["text-embedding-ada-002"]` | Allowed models for this provider setting. |
 
 </details>
 
@@ -417,7 +454,7 @@ This endpoint is updating a provider setting .
 This endpoint is retrieving aggregated metrics given an array of key ids and tags.
 
 ##### Request
-> | Field | type | type | example                      | description |
+> | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | keyIds | required | `[]string` | `["key-1", "key-2", "key-3" ]` | Array of ids that specicify the keys that you want to aggregate stats from. |
 > | tags | required | `[]string` | `["tag-1", "tag-2"]`           | Array of tags that specicify the keys that you want to aggregate stats from. |
@@ -523,7 +560,7 @@ This endpoint is creating custom providers.
 
 
 ##### Request
-> | Field | type | type | example                      | description |
+> | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | provider | required | `string` | `bricks`  | Unique identifier associated with the route config. |
 > | route_configs | required | `[]RouteConfig` | `{{ "path": "/chat/completions", "target_url": "https://api.openai.com/v1/chat/completions" }}` | Route configurations for the custom provider. |
@@ -574,7 +611,7 @@ This endpoint is updating a custom provider.
 
 
 ##### Request
-> | Field | type | type | example                      | description |
+> | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | route_configs | optional | `[]RouteConfig` | `{{ "path": "/chat/completions", "target_url": "https://api.openai.com/v1/chat/completions" }}` | Route configurations for the custom provider. |
 > | authentication_param | optional | `string` | `apikey` | The authentication parameter required for. |
@@ -624,7 +661,7 @@ This endpoint is for getting custom providers.
 
 
 ##### Request
-> | Field | type | type | example                      | description |
+> | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | route_configs | optional | `[]RouteConfig` | `{{ "path": "/chat/completions", "target_url": "https://api.openai.com/v1/chat/completions" }}` | Route configurations for the custom provider. |
 > | authentication_param | optional | `string` | `apikey` | The authentication parameter required for. |
