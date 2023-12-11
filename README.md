@@ -71,7 +71,7 @@ curl -X PUT http://localhost:8001/api/key-management/keys \
       }'   
 ```
 
-### Congradulations you are done!!!
+### Congratulations you are done!!!
 Then, just redirect your requests to us and use OpenAI as you would normally. For example:
 ```bash
 curl -X POST http://localhost:8002/api/providers/openai/v1/chat/completions \
@@ -788,6 +788,233 @@ This endpoint is set up for retrieving an OpenAI file. Documentation for this en
 
 ##### Description
 This endpoint is set up for retrieving an OpenAI file content. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/files/retrieve-contents).
+
+</details>
+
+### Assistants
+<details>
+  <summary>Create assistant: <code>POST</code> <code><b>/api/providers/openai/v1/assistants</b></code></summary>
+
+##### Description
+This endpoint is set up for creating an OpenAI assistant. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/createAssistant).
+
+</details>
+
+<details>
+  <summary>Retrieve assistant: <code>GET</code> <code><b>/api/providers/openai/v1/assistants/:assistant_id</b></code></summary>
+
+##### Description
+This endpoint is set up for retrieving an OpenAI assistant. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/getAssistant).
+
+</details>
+
+<details>
+  <summary>Modify assistant: <code>POST</code> <code><b>/api/providers/openai/v1/assistants/:assistant_id</b></code></summary>
+
+##### Description
+This endpoint is set up for modifying an OpenAI assistant. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/modifyAssistant).
+
+</details>
+
+<details>
+  <summary>Delete assistant: <code>DELETE</code> <code><b>/api/providers/openai/v1/assistants/:assistant_id</b></code></summary>
+
+##### Description
+This endpoint is set up for deleting an OpenAI assistant. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/deleteAssistant).
+
+</details>
+
+<details>
+  <summary>List assistants: <code>GET</code> <code><b>/api/providers/openai/v1/assistants</b></code></summary>
+
+##### Description
+This endpoint is set up for listing OpenAI assistants. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/listAssistants).
+
+</details>
+
+<details>
+  <summary>Create assistant file: <code>POST</code> <code><b>/api/providers/openai/v1/assistants/:assistant_id/files</b></code></summary>
+
+##### Description
+This endpoint is set up for creating an OpenAI assistant file. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/createAssistantFile).
+
+</details>
+
+<details>
+  <summary>Retrieve assistant file: <code>GET</code> <code><b>/api/providers/openai/v1/assistants/:assistant_id/files/:file_id</b></code></summary>
+
+##### Description
+This endpoint is set up for retrieving an OpenAI assistant file. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/getAssistantFile).
+
+</details>
+
+<details>
+  <summary>Delete assistant file: <code>DELETE</code> <code><b>/api/providers/openai/v1/assistants/:assistant_id/files/:file_id</b></code></summary>
+
+##### Description
+This endpoint is set up for deleting an OpenAI assistant file. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/deleteAssistantFile).
+
+</details>
+
+<details>
+  <summary>List assistant files: <code>GET</code> <code><b>/api/providers/openai/v1/assistants/:assistant_id/files</b></code></summary>
+
+##### Description
+This endpoint is set up for retrieving OpenAI assistant files. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/listAssistantFiles).
+
+</details>
+
+<details>
+  <summary>Create thread: <code>POST</code> <code><b>/api/providers/openai/v1/threads</b></code></summary>
+
+##### Description
+This endpoint is set up for creating an OpenAI thread. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/threads/createThread).
+
+</details>
+
+<details>
+  <summary>Retrieve thread: <code>GET</code> <code><b>/api/providers/openai/v1/threads/:thread_id</b></code></summary>
+
+##### Description
+This endpoint is set up for retrieving an OpenAI thread. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/threads/getThread).
+
+</details>
+
+<details>
+  <summary>Modify thread: <code>POST</code> <code><b>/api/providers/openai/v1/threads/:thread_id</b></code></summary>
+
+##### Description
+This endpoint is set up for modifying an OpenAI thread. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/threads/modifyThread).
+
+</details>
+
+<details>
+  <summary>Delete thread: <code>DELETE</code> <code><b>/api/providers/openai/v1/threads/:thread_id</b></code></summary>
+
+##### Description
+This endpoint is set up for deleting an OpenAI thread. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/threads/deleteThread).
+
+</details>
+
+<details>
+  <summary>Create message: <code>POST</code> <code><b>/api/providers/openai/v1/threads/:thread_id/messages</b></code></summary>
+
+##### Description
+This endpoint is set up for creating an OpenAI message. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/messages/createMessage).
+
+</details>
+
+<details>
+  <summary>Retrieve message: <code>GET</code> <code><b>/api/providers/openai/v1/threads/:thread_id/messages/:message_id</b></code></summary>
+
+##### Description
+This endpoint is set up for retrieving an OpenAI message. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/messages/getMessage).
+
+</details>
+
+<details>
+  <summary>Modify message: <code>POST</code> <code><b>/api/providers/openai/v1/files/:file_id/content</b></code></summary>
+
+##### Description
+This endpoint is set up for modifying an OpenAI message. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/messages/modifyMessage).
+
+</details>
+
+<details>
+  <summary>List messages: <code>GET</code> <code><b>/api/providers/openai/v1/threads/:thread_id/messages</b></code></summary>
+
+##### Description
+This endpoint is set up for listing OpenAI messages. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/messages/listMessages).
+
+</details>
+
+<details>
+  <summary>Retrieve message file: <code>GET</code> <code><b>/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files/:file_id</b></code></summary>
+
+##### Description
+This endpoint is set up for retrieving an OpenAI message file. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/messages/getMessageFile).
+
+</details>
+
+
+<details>
+  <summary>List message files: <code>GET</code> <code><b>/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files</b></code></summary>
+
+##### Description
+This endpoint is set up for retrieving OpenAI message files. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/messages/listMessageFiles).
+
+</details>
+
+
+<details>
+  <summary>Create run: <code>POST</code> <code><b>/api/providers/openai/v1/threads/:thread_id/runs</b></code></summary>
+
+##### Description
+This endpoint is set up for creating an OpenAI run. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/createRun).
+
+</details>
+
+<details>
+  <summary>Retrieve run: <code>GET</code> <code><b>/api/providers/openai/v1/threads/:thread_id/runs/:run_id</b></code></summary>
+
+##### Description
+This endpoint is set up for retrieving an OpenAI run. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/getRun).
+
+</details>
+
+<details>
+  <summary>Modify run: <code>POST</code> <code><b>/api/providers/openai/v1/threads/:thread_id/runs/:run_id</b></code></summary>
+
+##### Description
+This endpoint is set up for modifying an OpenAI run. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/modifyRun).
+
+</details>
+
+<details>
+  <summary>List runs: <code>GET</code> <code><b>/api/providers/openai/v1/threads/runs</b></code></summary>
+
+##### Description
+This endpoint is set up for retrieving OpenAI runs. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/listRuns).
+
+</details>
+
+<details>
+  <summary>Submit tool outputs to run: <code>POST</code> <code><b>/api/providers/openai/v1/threads/runs</b></code></summary>
+
+##### Description
+This endpoint is set up for submitting tool outputs to an OpenAI run. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/submitToolOutputs).
+
+</details>
+
+<details>
+  <summary>Cancel a run: <code>POST</code> <code><b>/api/providers/openai/v1/threads/:thread_id/runs/:run_id/cancel</b></code></summary>
+
+##### Description
+This endpoint is set up for cancellling an OpenAI run. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/cancelRun).
+
+</details>
+
+<details>
+  <summary>Create thread and run: <code>POST</code> <code><b>/api/providers/openai/v1/threads/runs</b></code></summary>
+
+##### Description
+This endpoint is set up for creating an OpenAI thread and run. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/createThreadAndRun).
+
+</details>
+
+<details>
+  <summary>Retrieve run step: <code>GET</code> <code><b>/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps/:step_id</b></code></summary>
+
+##### Description
+This endpoint is set up for retrieving an OpenAI run step. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/getRunStep).
+
+</details>
+
+<details>
+  <summary>List run steps: <code>GET</code> <code><b>/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps</b></code></summary>
+
+##### Description
+This endpoint is set up for listing OpenAI run steps. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/listRunSteps).
 
 </details>
 
