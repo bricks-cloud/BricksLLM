@@ -129,7 +129,7 @@ func logRetrieveFileContentResponse(log *zap.Logger, data []byte, prod bool, cid
 	}
 }
 
-func logUploadFileRequest(log *zap.Logger, data []byte, prod bool, cid, purpose string) {
+func logUploadFileRequest(log *zap.Logger, prod bool, cid, purpose string) {
 	if prod {
 		fields := []zapcore.Field{
 			zap.String(correlationId, cid),
