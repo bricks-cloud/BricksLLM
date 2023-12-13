@@ -1,7 +1,7 @@
 # Granular Access Control Guide
 
 ## Getting Started
-This guide shows you how to create API keys with more granular access control. Let's say you want to create API keys that limits the user to only OpenAI chat completion endpoint with the model ```gpt-3.5-turbo```.
+This guide shows you how to create API keys with more granular access control. Let's say you want to create API keys that limit the user to only OpenAI chat completion endpoint with the model ```gpt-3.5-turbo```.
 
 ### Step 1 - Create a provider
 ```bash
@@ -37,7 +37,7 @@ curl -X PUT http://localhost:8001/api/key-management/keys \
       }'   
 ```
 
-### Congradulations you are done!!!
+### Congratulations you are done!!!
 Then, just redirect your requests to us and use OpenAI as you would normally. For example:
 ```bash
 curl -X POST http://localhost:8002/api/providers/openai/v1/chat/completions \
