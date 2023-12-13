@@ -114,7 +114,7 @@ docker pull luyuanxin1995/bricksllm:1.4.0
 ## Environment variables
 > | Name | type | description | default |
 > |---------------|-----------------------------------|----------|-|
-> | `POSTGRESQL_HOSTS`       | required | Hosts for Postgresql DB. Seperated by , | `localhost` |
+> | `POSTGRESQL_HOSTS`       | required | Hosts for Postgresql DB. Separated by , | `localhost` |
 > | `POSTGRESQL_DB_NAME`       | optional | Name for Postgresql DB. |
 > | `POSTGRESQL_USERNAME`         | required | Postgresql DB username |
 > | `POSTGRESQL_PASSWORD`         | required | Postgresql DB password |
@@ -122,7 +122,7 @@ docker pull luyuanxin1995/bricksllm:1.4.0
 > | `POSTGRESQL_PORT`         | optional | The port that Postgresql DB runs on| `5432`
 > | `POSTGRESQL_READ_TIME_OUT`         | optional | Timeout for Postgresql read operations | `2s`
 > | `POSTGRESQL_WRITE_TIME_OUT`         | optional | Timeout for Postgresql write operations | `1s`
-> | `REDIS_HOSTS`         | required | Host for Redis. Seperated by , | `localhost`
+> | `REDIS_HOSTS`         | required | Host for Redis. Separated by , | `localhost`
 > | `REDIS_PASSWORD`         | optional | Redis Password |
 > | `REDIS_PORT`         | optional | The port that Redis DB runs on | `6379`
 > | `REDIS_READ_TIME_OUT`         | optional | Timeout for Redis read operations | `1s`
