@@ -69,6 +69,11 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, psm
 	// health check
 	router.POST("/api/health", getGetHealthCheckHandler())
 
+	// audios
+	router.POST("/api/providers/openai/v1/audio/speech", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/audio/transcriptions", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/audio/translations", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+
 	// completions
 	router.POST("/api/providers/openai/v1/chat/completions", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
 
@@ -187,6 +192,14 @@ type ImageEditForm struct {
 
 type ImageVariationForm struct {
 	Image *multipart.FileHeader `form:"image" binding:"required"`
+}
+
+type TransriptionForm struct {
+	File *multipart.FileHeader `form:"file" binding:"required"`
+}
+
+type TranslationForm struct {
+	File *multipart.FileHeader `form:"file" binding:"required"`
 }
 
 func writeFieldToBuffer(fields []string, c *gin.Context, writer *multipart.Writer) error {
@@ -426,9 +439,116 @@ func getPassThroughHandler(r recorder, prod, private bool, psm ProviderSettingsM
 
 				_, err = io.Copy(fieldWriter, opened)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_pass_through_handler.open_image_file_error", tags, 1)
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_image_file_error", tags, 1)
 					logError(log, "error when copying file", prod, cid, err)
 					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy image file")
+					return
+				}
+			}
+
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+
+			writer.Close()
+
+			req.Body = io.NopCloser(&b)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/audio/transcriptions" && c.Request.Method == http.MethodPost {
+			var b bytes.Buffer
+			writer := multipart.NewWriter(&b)
+
+			err := writeFieldToBuffer([]string{
+				"model",
+				"language",
+				"prompt",
+				"response_format",
+				"temperature",
+			}, c, writer)
+			if err != nil {
+				stats.Incr("bricksllm.proxy.get_pass_through_handler.write_field_to_buffer_error", tags, 1)
+				logError(log, "error when writing field to buffer", prod, cid, err)
+				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot write field to buffer")
+				return
+			}
+
+			var form TransriptionForm
+			c.ShouldBind(&form)
+
+			if form.File != nil {
+				fieldWriter, err := writer.CreateFormFile("file", form.File.Filename)
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.create_transcription_file_error", tags, 1)
+					logError(log, "error when creating transcription file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create transcription file")
+					return
+				}
+
+				opened, err := form.File.Open()
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.open_transcription_file_error", tags, 1)
+					logError(log, "error when openning transcription file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open transcription file")
+					return
+				}
+
+				_, err = io.Copy(fieldWriter, opened)
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_transcription_file_error", tags, 1)
+					logError(log, "error when copying transcription file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy transcription file")
+					return
+				}
+			}
+
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+
+			writer.Close()
+
+			req.Body = io.NopCloser(&b)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/audio/translations" && c.Request.Method == http.MethodPost {
+			var b bytes.Buffer
+			writer := multipart.NewWriter(&b)
+
+			err := writeFieldToBuffer([]string{
+				"model",
+				"prompt",
+				"response_format",
+				"temperature",
+			}, c, writer)
+			if err != nil {
+				stats.Incr("bricksllm.proxy.get_pass_through_handler.write_field_to_buffer_error", tags, 1)
+				logError(log, "error when writing field to buffer", prod, cid, err)
+				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot write field to buffer")
+				return
+			}
+
+			var form TranslationForm
+			c.ShouldBind(&form)
+
+			if form.File != nil {
+				fieldWriter, err := writer.CreateFormFile("image", form.File.Filename)
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.create_translation_file_error", tags, 1)
+					logError(log, "error when creating translation file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create translation file")
+					return
+				}
+
+				opened, err := form.File.Open()
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.open_translation_file_error", tags, 1)
+					logError(log, "error when openning translation file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open translation file")
+					return
+				}
+
+				_, err = io.Copy(fieldWriter, opened)
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_translation_file_error", tags, 1)
+					logError(log, "error when copying translation file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy translation file")
 					return
 				}
 			}
@@ -809,6 +929,18 @@ func buildProxyUrl(c *gin.Context) (string, error) {
 
 	if c.FullPath() == "/api/providers/openai/v1/images/variations" && c.Request.Method == http.MethodPost {
 		return "https://api.openai.com/v1/images/variations", nil
+	}
+
+	if c.FullPath() == "/api/providers/openai/v1/audio/speech" && c.Request.Method == http.MethodPost {
+		return "https://api.openai.com/v1/audio/speech", nil
+	}
+
+	if c.FullPath() == "/api/providers/openai/v1/audio/transcriptions" && c.Request.Method == http.MethodPost {
+		return "https://api.openai.com/v1/audio/transcriptions", nil
+	}
+
+	if c.FullPath() == "/api/providers/openai/v1/audio/translations" && c.Request.Method == http.MethodPost {
+		return "https://api.openai.com/v1/audio/translations", nil
 	}
 
 	return "", errors.New("cannot find corresponding OpenAI target proxy")
@@ -1208,6 +1340,11 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 func (ps *ProxyServer) Run() {
 	go func() {
 		ps.log.Info("proxy server listening at 8002")
+
+		// audio
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/audio/speech is ready for creating openai speeches")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/audio/transcriptions is ready for creating openai transcriptions")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/audio/translations is ready for creating openai translations")
 
 		// chat completions
 		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/chat/completions is ready for forwarding chat completion requests to openai")

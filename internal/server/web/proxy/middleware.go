@@ -403,6 +403,44 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, psm ProviderSe
 			logImageVariationsRequest(log, model, n, size, responseFormat, user, prod, private, cid)
 		}
 
+		if c.FullPath() == "/api/providers/openai/v1/audio/speech" && c.Request.Method == http.MethodPost {
+			sr := &SpeechRequest{}
+			err := json.Unmarshal(body, sr)
+			if err != nil {
+				logError(log, "error when unmarshalling create speech request", prod, cid, err)
+				return
+			}
+
+			c.Set("model", sr.Model)
+
+			logCreateSpeechRequest(log, sr, prod, private, cid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/audio/transcriptions" && c.Request.Method == http.MethodPost {
+			model := c.PostForm("model")
+			language := c.PostForm("language")
+			prompt := c.PostForm("prompt")
+			responseFormat := c.PostForm("response_format")
+			temperature := c.PostForm("temperature")
+
+			c.Set("model", model)
+
+			converted, _ := strconv.ParseFloat(temperature, 64)
+			logCreateTranscriptionRequest(log, model, language, prompt, responseFormat, converted, prod, private, cid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/audio/translations" && c.Request.Method == http.MethodPost {
+			model := c.PostForm("model")
+			prompt := c.PostForm("prompt")
+			responseFormat := c.PostForm("response_format")
+			temperature := c.PostForm("temperature")
+
+			c.Set("model", model)
+
+			converted, _ := strconv.ParseFloat(temperature, 64)
+			logCreateTranslationRequest(log, model, prompt, responseFormat, converted, prod, private, cid)
+		}
+
 		if len(kc.AllowedPaths) != 0 && !containsPath(kc.AllowedPaths, c.FullPath(), c.Request.Method) {
 			stats.Incr("bricksllm.proxy.get_middleware.path_not_allowed", nil, 1)
 			JSON(c, http.StatusForbidden, "[BricksLLM] path is not allowed")
