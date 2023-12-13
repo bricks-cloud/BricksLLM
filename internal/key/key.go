@@ -14,12 +14,6 @@ type UpdateKey struct {
 	Tags                   []string      `json:"tags"`
 	Revoked                *bool         `json:"revoked"`
 	RevokedReason          string        `json:"revokedReason"`
-	CostLimitInUsd         float64       `json:"costLimitInUsd"`
-	CostLimitInUsdOverTime float64       `json:"costLimitInUsdOverTime"`
-	CostLimitInUsdUnit     TimeUnit      `json:"costLimitInUsdUnit"`
-	RateLimitOverTime      int           `json:"rateLimitOverTime"`
-	RateLimitUnit          TimeUnit      `json:"rateLimitUnit"`
-	Ttl                    string        `json:"ttl"`
 	SettingId              string        `json:"settingId"`
 	AllowedPaths           *[]PathConfig `json:"allowedPaths,omitempty"`
 }
