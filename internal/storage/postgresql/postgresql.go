@@ -848,42 +848,6 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 		counter++
 	}
 
-	if uk.CostLimitInUsd != 0 {
-		values = append(values, uk.CostLimitInUsd)
-		fields = append(fields, fmt.Sprintf("cost_limit_in_usd = $%d", counter))
-		counter++
-	}
-
-	if uk.CostLimitInUsdOverTime != 0 {
-		values = append(values, uk.CostLimitInUsdOverTime)
-		fields = append(fields, fmt.Sprintf("cost_limit_in_usd_over_time = $%d", counter))
-		counter++
-	}
-
-	if len(uk.CostLimitInUsdUnit) != 0 {
-		values = append(values, uk.CostLimitInUsdUnit)
-		fields = append(fields, fmt.Sprintf("cost_limit_in_usd_unit = $%d", counter))
-		counter++
-	}
-
-	if uk.RateLimitOverTime != 0 {
-		values = append(values, uk.RateLimitOverTime)
-		fields = append(fields, fmt.Sprintf("rate_limit_over_time = $%d", counter))
-		counter++
-	}
-
-	if len(uk.RateLimitUnit) != 0 {
-		values = append(values, uk.RateLimitUnit)
-		fields = append(fields, fmt.Sprintf("rate_limit_unit = $%d", counter))
-		counter++
-	}
-
-	if len(uk.Ttl) != 0 {
-		values = append(values, uk.Ttl)
-		fields = append(fields, fmt.Sprintf("ttl = $%d", counter))
-		counter++
-	}
-
 	if len(uk.SettingId) != 0 {
 		values = append(values, uk.SettingId)
 		fields = append(fields, fmt.Sprintf("setting_id = $%d", counter))
