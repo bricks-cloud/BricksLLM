@@ -169,7 +169,7 @@ func (rk *RequestKey) Validate() error {
 			return internal_errors.NewValidationError("cost limit unit can not be empty if cost limit over time is specified")
 		}
 
-		if rk.CostLimitInUsdUnit != DayTimeUnit && rk.CostLimitInUsdUnit != HourTimeUnit {
+		if rk.CostLimitInUsdUnit != DayTimeUnit && rk.CostLimitInUsdUnit != HourTimeUnit && rk.CostLimitInUsdUnit != MonthTimeUnit {
 			return internal_errors.NewValidationError("cost limit unit can not be identified")
 		}
 	}
@@ -184,6 +184,7 @@ const (
 	MinuteTimeUnit TimeUnit = "m"
 	SecondTimeUnit TimeUnit = "s"
 	DayTimeUnit    TimeUnit = "d"
+	MonthTimeUnit  TimeUnit = "mo"
 )
 
 type ResponseKey struct {

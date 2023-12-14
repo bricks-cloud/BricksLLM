@@ -169,6 +169,13 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, psm ProviderSe
 			}
 		}()
 
+		if len(c.FullPath()) == 0 {
+			stats.Incr("bricksllm.proxy.get_middleware.route_does_not_exist", nil, 1)
+			JSON(c, http.StatusNotFound, "[BricksLLM] route not supported")
+			c.Abort()
+			return
+		}
+
 		apiKey := getAuthTokenFromHeader(c)
 		if len(apiKey) == 0 {
 			stats.Incr("bricksllm.proxy.get_middleware.missing_authorization_token", nil, 1)
@@ -345,6 +352,95 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, psm ProviderSe
 			}
 		}
 
+		if c.FullPath() == "/api/providers/openai/v1/images/generations" && c.Request.Method == http.MethodPost {
+			ir := &goopenai.ImageRequest{}
+			err := json.Unmarshal(body, ir)
+			if err != nil {
+				logError(log, "error when unmarshalling create image request", prod, cid, err)
+				return
+			}
+
+			c.Set("model", ir.Model)
+
+			if len(ir.Model) == 0 {
+				c.Set("model", "dall-e-2")
+			}
+
+			c.Set("model", ir.Model)
+			logCreateImageRequest(log, ir, prod, private, cid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/images/edits" && c.Request.Method == http.MethodPost {
+			prompt := c.PostForm("model")
+			model := c.PostForm("model")
+			size := c.PostForm("size")
+			user := c.PostForm("user")
+			responseFormat := c.PostForm("response_format")
+			n, _ := strconv.Atoi(c.PostForm("n"))
+
+			c.Set("model", model)
+
+			if len(model) == 0 {
+				c.Set("model", "dall-e-2")
+			}
+
+			logEditImageRequest(log, prompt, model, n, size, responseFormat, user, prod, private, cid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/images/variations" && c.Request.Method == http.MethodPost {
+			model := c.PostForm("model")
+			size := c.PostForm("size")
+			user := c.PostForm("user")
+			responseFormat := c.PostForm("response_format")
+			n, _ := strconv.Atoi(c.PostForm("n"))
+
+			c.Set("model", model)
+
+			if len(model) == 0 {
+				c.Set("model", "dall-e-2")
+			}
+
+			logImageVariationsRequest(log, model, n, size, responseFormat, user, prod, private, cid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/audio/speech" && c.Request.Method == http.MethodPost {
+			sr := &SpeechRequest{}
+			err := json.Unmarshal(body, sr)
+			if err != nil {
+				logError(log, "error when unmarshalling create speech request", prod, cid, err)
+				return
+			}
+
+			c.Set("model", sr.Model)
+
+			logCreateSpeechRequest(log, sr, prod, private, cid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/audio/transcriptions" && c.Request.Method == http.MethodPost {
+			model := c.PostForm("model")
+			language := c.PostForm("language")
+			prompt := c.PostForm("prompt")
+			responseFormat := c.PostForm("response_format")
+			temperature := c.PostForm("temperature")
+
+			c.Set("model", model)
+
+			converted, _ := strconv.ParseFloat(temperature, 64)
+			logCreateTranscriptionRequest(log, model, language, prompt, responseFormat, converted, prod, private, cid)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/audio/translations" && c.Request.Method == http.MethodPost {
+			model := c.PostForm("model")
+			prompt := c.PostForm("prompt")
+			responseFormat := c.PostForm("response_format")
+			temperature := c.PostForm("temperature")
+
+			c.Set("model", model)
+
+			converted, _ := strconv.ParseFloat(temperature, 64)
+			logCreateTranslationRequest(log, model, prompt, responseFormat, converted, prod, private, cid)
+		}
+
 		if len(kc.AllowedPaths) != 0 && !containsPath(kc.AllowedPaths, c.FullPath(), c.Request.Method) {
 			stats.Incr("bricksllm.proxy.get_middleware.path_not_allowed", nil, 1)
 			JSON(c, http.StatusForbidden, "[BricksLLM] path is not allowed")
@@ -519,7 +615,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, psm ProviderSe
 
 		if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodPost {
 			purpose := c.PostForm("purpose")
-			logUploadFileRequest(log, body, prod, cid, purpose)
+			logUploadFileRequest(log, prod, cid, purpose)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/files/:file_id" && c.Request.Method == http.MethodDelete {
@@ -529,6 +625,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, psm ProviderSe
 		if c.FullPath() == "/api/providers/openai/v1/files/:file_id" && c.Request.Method == http.MethodGet {
 			logRetrieveFileRequest(log, prod, cid, fid)
 		}
+
 		if c.FullPath() == "/api/providers/openai/v1/files/:file_id/content" && c.Request.Method == http.MethodGet {
 			logRetrieveFileContentRequest(log, body, prod, cid, fid)
 		}

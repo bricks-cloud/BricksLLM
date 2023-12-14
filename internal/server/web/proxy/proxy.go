@@ -66,57 +66,84 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, psm
 
 	client := http.Client{}
 
+	// health check
 	router.POST("/api/health", getGetHealthCheckHandler())
+
+	// audios
+	router.POST("/api/providers/openai/v1/audio/speech", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/audio/transcriptions", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/audio/translations", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+
+	// completions
 	router.POST("/api/providers/openai/v1/chat/completions", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+
+	// embeddings
 	router.POST("/api/providers/openai/v1/embeddings", getEmbeddingHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
 
+	// moderations
 	router.POST("/api/providers/openai/v1/moderations", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 
+	// models
 	router.GET("/api/providers/openai/v1/models", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.GET("/api/providers/openai/v1/models/:model", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.DELETE("/api/providers/openai/v1/models/:model", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 
+	// assistants
 	router.POST("/api/providers/openai/v1/assistants", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.GET("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.POST("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.DELETE("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.GET("/api/providers/openai/v1/assistants", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 
+	// assistant files
 	router.POST("/api/providers/openai/v1/assistants/:assistant_id/files", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.GET("/api/providers/openai/v1/assistants/:assistant_id/files/:file_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.DELETE("/api/providers/openai/v1/assistants/:assistant_id/files/:file_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.GET("/api/providers/openai/v1/assistants/:assistant_id/files", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 
+	// threads
 	router.POST("/api/providers/openai/v1/threads", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.GET("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.POST("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.DELETE("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 
+	// messages
 	router.POST("/api/providers/openai/v1/threads/:thread_id/messages", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.POST("/api/providers/openai/v1/threads/:thread_id/messages/:message_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.GET("/api/providers/openai/v1/threads/:thread_id/messages", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+
+	// message files
 	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files/:file_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 
+	// runs
 	router.POST("/api/providers/openai/v1/threads/:thread_id/runs", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.GET("/api/providers/openai/v1/threads/:thread_id/runs", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/cancel", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/threads/runs", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/cancel", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/threads/runs", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps/:step_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 
+	// files
 	router.GET("/api/providers/openai/v1/files", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.POST("/api/providers/openai/v1/files", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.DELETE("/api/providers/openai/v1/files/:file_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.GET("/api/providers/openai/v1/files/:file_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.GET("/api/providers/openai/v1/files/:file_id/content", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 
+	// images
+	router.POST("/api/providers/openai/v1/images/generations", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/images/edits", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/images/variations", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+
+	// anthropic
 	router.POST("/api/providers/anthropic/v1/complete", getCompletionHandler(r, prod, private, psm, client, kms, log, enc, ae, timeOut))
 
+	// custom provider
 	router.POST("/api/custom/providers/:provider/*wildcard", getCustomProviderHandler(prod, private, psm, cpm, client, log, timeOut))
 
 	srv := &http.Server{
@@ -156,6 +183,37 @@ func setAuthenticationHeader(psm ProviderSettingsManager, req *http.Request, set
 
 type Form struct {
 	File *multipart.FileHeader `form:"file" binding:"required"`
+}
+
+type ImageEditForm struct {
+	Image *multipart.FileHeader `form:"image" binding:"required"`
+	Mask  *multipart.FileHeader `form:"mask" binding:"required"`
+}
+
+type ImageVariationForm struct {
+	Image *multipart.FileHeader `form:"image" binding:"required"`
+}
+
+type TransriptionForm struct {
+	File *multipart.FileHeader `form:"file" binding:"required"`
+}
+
+type TranslationForm struct {
+	File *multipart.FileHeader `form:"file" binding:"required"`
+}
+
+func writeFieldToBuffer(fields []string, c *gin.Context, writer *multipart.Writer) error {
+	for _, field := range fields {
+		val := c.PostForm(field)
+		if len(val) != 0 {
+			err := writer.WriteField(field, val)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func getPassThroughHandler(r recorder, prod, private bool, psm ProviderSettingsManager, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
@@ -247,10 +305,252 @@ func getPassThroughHandler(r recorder, prod, private bool, psm ProviderSettingsM
 
 			_, err = io.Copy(fieldWriter, opened)
 			if err != nil {
-				stats.Incr("bricksllm.proxy.get_pass_through_handler.open_file_error", tags, 1)
-				logError(log, "error when openning file", prod, cid, err)
-				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open file")
+				stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_file_error", tags, 1)
+				logError(log, "error when copying file", prod, cid, err)
+				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy file")
 				return
+			}
+
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+
+			writer.Close()
+
+			req.Body = io.NopCloser(&b)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/images/edits" && c.Request.Method == http.MethodPost {
+			var b bytes.Buffer
+			writer := multipart.NewWriter(&b)
+
+			err := writeFieldToBuffer([]string{
+				"prompt",
+				"model",
+				"n",
+				"size",
+				"response_format",
+				"user",
+			}, c, writer)
+			if err != nil {
+				stats.Incr("bricksllm.proxy.get_pass_through_handler.write_field_to_buffer_error", tags, 1)
+				logError(log, "error when writing field to buffer", prod, cid, err)
+				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot write field to buffer")
+				return
+			}
+
+			var form ImageEditForm
+			c.ShouldBind(&form)
+
+			if form.Image != nil {
+				fieldWriter, err := writer.CreateFormFile("image", form.Image.Filename)
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.create_image_file_error", tags, 1)
+					logError(log, "error when creating form file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create image file")
+					return
+				}
+
+				opened, err := form.Image.Open()
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.open_image_file_error", tags, 1)
+					logError(log, "error when openning file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open image file")
+					return
+				}
+
+				_, err = io.Copy(fieldWriter, opened)
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_image_file_error", tags, 1)
+					logError(log, "error when copying image file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy image file")
+					return
+				}
+			}
+
+			if form.Mask != nil {
+				fieldWriter, err := writer.CreateFormFile("mask", form.Mask.Filename)
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.create_mask_file_error", tags, 1)
+					logError(log, "error when creating form file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create mask file")
+					return
+				}
+
+				opened, err := form.Image.Open()
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.open_mask_file_error", tags, 1)
+					logError(log, "error when openning file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open mask file")
+					return
+				}
+
+				_, err = io.Copy(fieldWriter, opened)
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_mask_file_error", tags, 1)
+					logError(log, "error when copying mask file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy mask file")
+					return
+				}
+			}
+
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+
+			writer.Close()
+
+			req.Body = io.NopCloser(&b)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/images/variations" && c.Request.Method == http.MethodPost {
+			var b bytes.Buffer
+			writer := multipart.NewWriter(&b)
+
+			err := writeFieldToBuffer([]string{
+				"model",
+				"n",
+				"size",
+				"response_format",
+				"user",
+			}, c, writer)
+			if err != nil {
+				stats.Incr("bricksllm.proxy.get_pass_through_handler.write_field_to_buffer_error", tags, 1)
+				logError(log, "error when writing field to buffer", prod, cid, err)
+				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot write field to buffer")
+				return
+			}
+
+			var form ImageVariationForm
+			c.ShouldBind(&form)
+
+			if form.Image != nil {
+				fieldWriter, err := writer.CreateFormFile("image", form.Image.Filename)
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.create_image_file_error", tags, 1)
+					logError(log, "error when creating form file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create image file")
+					return
+				}
+
+				opened, err := form.Image.Open()
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.open_image_file_error", tags, 1)
+					logError(log, "error when openning file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open image file")
+					return
+				}
+
+				_, err = io.Copy(fieldWriter, opened)
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_image_file_error", tags, 1)
+					logError(log, "error when copying file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy image file")
+					return
+				}
+			}
+
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+
+			writer.Close()
+
+			req.Body = io.NopCloser(&b)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/audio/transcriptions" && c.Request.Method == http.MethodPost {
+			var b bytes.Buffer
+			writer := multipart.NewWriter(&b)
+
+			err := writeFieldToBuffer([]string{
+				"model",
+				"language",
+				"prompt",
+				"response_format",
+				"temperature",
+			}, c, writer)
+			if err != nil {
+				stats.Incr("bricksllm.proxy.get_pass_through_handler.write_field_to_buffer_error", tags, 1)
+				logError(log, "error when writing field to buffer", prod, cid, err)
+				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot write field to buffer")
+				return
+			}
+
+			var form TransriptionForm
+			c.ShouldBind(&form)
+
+			if form.File != nil {
+				fieldWriter, err := writer.CreateFormFile("file", form.File.Filename)
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.create_transcription_file_error", tags, 1)
+					logError(log, "error when creating transcription file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create transcription file")
+					return
+				}
+
+				opened, err := form.File.Open()
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.open_transcription_file_error", tags, 1)
+					logError(log, "error when openning transcription file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open transcription file")
+					return
+				}
+
+				_, err = io.Copy(fieldWriter, opened)
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_transcription_file_error", tags, 1)
+					logError(log, "error when copying transcription file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy transcription file")
+					return
+				}
+			}
+
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+
+			writer.Close()
+
+			req.Body = io.NopCloser(&b)
+		}
+
+		if c.FullPath() == "/api/providers/openai/v1/audio/translations" && c.Request.Method == http.MethodPost {
+			var b bytes.Buffer
+			writer := multipart.NewWriter(&b)
+
+			err := writeFieldToBuffer([]string{
+				"model",
+				"prompt",
+				"response_format",
+				"temperature",
+			}, c, writer)
+			if err != nil {
+				stats.Incr("bricksllm.proxy.get_pass_through_handler.write_field_to_buffer_error", tags, 1)
+				logError(log, "error when writing field to buffer", prod, cid, err)
+				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot write field to buffer")
+				return
+			}
+
+			var form TranslationForm
+			c.ShouldBind(&form)
+
+			if form.File != nil {
+				fieldWriter, err := writer.CreateFormFile("file", form.File.Filename)
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.create_translation_file_error", tags, 1)
+					logError(log, "error when creating translation file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create translation file")
+					return
+				}
+
+				opened, err := form.File.Open()
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.open_translation_file_error", tags, 1)
+					logError(log, "error when openning translation file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open translation file")
+					return
+				}
+
+				_, err = io.Copy(fieldWriter, opened)
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_translation_file_error", tags, 1)
+					logError(log, "error when copying translation file", prod, cid, err)
+					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy translation file")
+					return
+				}
 			}
 
 			req.Header.Set("Content-Type", writer.FormDataContentType())
@@ -429,8 +729,21 @@ func getPassThroughHandler(r recorder, prod, private bool, psm ProviderSettingsM
 			if c.FullPath() == "/api/providers/openai/v1/files/:file_id" && c.Request.Method == http.MethodGet {
 				logRetrieveFileResponse(log, bytes, prod, cid)
 			}
+
 			if c.FullPath() == "/api/providers/openai/v1/files/:file_id/content" && c.Request.Method == http.MethodGet {
 				logRetrieveFileContentResponse(log, bytes, prod, cid)
+			}
+
+			if c.FullPath() == "/api/providers/openai/v1/images/generations" && c.Request.Method == http.MethodPost {
+				logImageResponse(log, bytes, prod, private, cid)
+			}
+
+			if c.FullPath() == "/api/providers/openai/v1/images/edits" && c.Request.Method == http.MethodPost {
+				logImageResponse(log, bytes, prod, private, cid)
+			}
+
+			if c.FullPath() == "/api/providers/openai/v1/images/variations" && c.Request.Method == http.MethodPost {
+				logImageResponse(log, bytes, prod, private, cid)
 			}
 		}
 
@@ -451,6 +764,11 @@ func getPassThroughHandler(r recorder, prod, private bool, psm ProviderSettingsM
 			for _, value := range values {
 				c.Header(name, value)
 			}
+		}
+
+		if len(res.Header.Get("content-type")) != 0 {
+			c.Data(res.StatusCode, res.Header.Get("content-type"), bytes)
+			return
 		}
 
 		c.Data(res.StatusCode, "application/json", bytes)
@@ -604,6 +922,30 @@ func buildProxyUrl(c *gin.Context) (string, error) {
 
 	if c.FullPath() == "/api/providers/openai/v1/files/:file_id/content" && c.Request.Method == http.MethodGet {
 		return "https://api.openai.com/v1/files/" + c.Param("file_id") + "/content", nil
+	}
+
+	if c.FullPath() == "/api/providers/openai/v1/images/generations" && c.Request.Method == http.MethodPost {
+		return "https://api.openai.com/v1/images/generations", nil
+	}
+
+	if c.FullPath() == "/api/providers/openai/v1/images/edits" && c.Request.Method == http.MethodPost {
+		return "https://api.openai.com/v1/images/edits", nil
+	}
+
+	if c.FullPath() == "/api/providers/openai/v1/images/variations" && c.Request.Method == http.MethodPost {
+		return "https://api.openai.com/v1/images/variations", nil
+	}
+
+	if c.FullPath() == "/api/providers/openai/v1/audio/speech" && c.Request.Method == http.MethodPost {
+		return "https://api.openai.com/v1/audio/speech", nil
+	}
+
+	if c.FullPath() == "/api/providers/openai/v1/audio/transcriptions" && c.Request.Method == http.MethodPost {
+		return "https://api.openai.com/v1/audio/transcriptions", nil
+	}
+
+	if c.FullPath() == "/api/providers/openai/v1/audio/translations" && c.Request.Method == http.MethodPost {
+		return "https://api.openai.com/v1/audio/translations", nil
 	}
 
 	return "", errors.New("cannot find corresponding OpenAI target proxy")
@@ -1003,19 +1345,81 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 func (ps *ProxyServer) Run() {
 	go func() {
 		ps.log.Info("proxy server listening at 8002")
-		ps.log.Info("PORT 8002 | POST  | /api/providers/openai/v1/chat/completions is ready for forwarding chat completion requests to openai")
-		ps.log.Info("PORT 8002 | POST  | /api/providers/openai/v1/embeddings is ready for forwarding embeddings requests to openai")
-		ps.log.Info("PORT 8002 | POST  | /api/providers/openai/v1/moderations is ready for forwarding moderation requests to openai")
 
-		ps.log.Info("PORT 8002 | GET   | /api/providers/openai/v1/models is ready for listing openai models")
-		ps.log.Info("PORT 8002 | GET   | /api/providers/openai/v1/models/:model is ready for retrieving an openai model")
+		// audio
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/audio/speech is ready for creating openai speeches")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/audio/transcriptions is ready for creating openai transcriptions")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/audio/translations is ready for creating openai translations")
 
-		ps.log.Info("PORT 8002 | GET   | /api/providers/openai/v1/files is ready for listing files from openai")
-		ps.log.Info("PORT 8002 | POST  | /api/providers/openai/v1/files is ready for uploading files to openai")
-		ps.log.Info("PORT 8002 | GET   | /api/providers/openai/v1/files/:file_id is ready for retrieving a file metadata from openai")
-		ps.log.Info("PORT 8002 | GET   | /api/providers/openai/v1/files/:file_id/content is ready for retrieving a file's content from openai")
+		// chat completions
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/chat/completions is ready for forwarding chat completion requests to openai")
 
-		ps.log.Info("PORT 8002 | POST  | /api/custom/providers/:provider/*wildcard is ready for forwarding requests to custom providers")
+		// embeddings
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/embeddings is ready for forwarding embeddings requests to openai")
+
+		// moderations
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/moderations is ready for forwarding moderation requests to openai")
+
+		// models
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/models is ready for listing openai models")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/models/:model is ready for retrieving an openai model")
+
+		// files
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/files is ready for listing files from openai")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/files is ready for uploading files to openai")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/files/:file_id is ready for retrieving a file metadata from openai")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/files/:file_id/content is ready for retrieving a file's content from openai")
+
+		// assistants
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/assistants is ready for creating openai assistants")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/assistants/:assistant_id is ready for retrieving an openai assistant")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/assistants/:assistant_id is ready for modifying an openai assistant")
+		ps.log.Info("PORT 8002 | DELETE | /api/providers/openai/v1/assistants/:assistant_id is ready for deleting an openai assistant")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/assistants is ready for retrieving openai assistants")
+
+		// assistant files
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/assistants/:assistant_id/files is ready for creating openai assistant file")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/assistants/:assistant_id/files/:file_id is ready for retrieving openai assistant file")
+		ps.log.Info("PORT 8002 | DELETE | /api/providers/openai/v1/assistants/:assistant_id/files/:file_id is ready for deleting openai assistant file")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/assistants/:assistant_id/files is ready for retireving openai assistant files")
+
+		// threads
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads is ready for creating an openai thread")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id is ready for retrieving an openai thread")
+		ps.log.Info("PORT 8002 | POSt   | /api/providers/openai/v1/threads/:thread_id is ready for modifying an openai thread")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id is ready for deleting an openai thread")
+
+		// messages
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads/:thread_id/messages is ready for creating an openai message")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id/messages/:message_id is ready for retrieving an openai message")
+		ps.log.Info("PORT 8002 | POSt   | /api/providers/openai/v1/threads/:thread_id/messages/:message_id is ready for modifying an openai message")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id/messages is ready for retrieving openai messages")
+
+		// message files
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id/messages/:message_id/files/:file_id is ready for retrieving an openai message file")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id/messages/:message_id/files is ready for retrieving openai message files")
+
+		// runs
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads/:thread_id/runs is ready for creating an openai run")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id/runs/:run_id is ready for retrieving an openai run")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads/:thread_id/runs/:run_id is ready for modifying an openai run")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id/runs is ready for retrieving openai runs")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs is ready for submitting tool outputs to an openai run")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads/:thread_id/runs/:run_id/cancel is ready for cancelling an openai run")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads/runs is ready for creating an openai thread and run")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps/:step_id is ready for retrieving an openai run step")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps is ready for retrieving openai run steps")
+
+		// images
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/images/generations is ready for generating openai images")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/images/edits is ready for editting openi images")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/images/variations is ready for generating openai image variations")
+
+		// anthropic
+		ps.log.Info("PORT 8002 | POST   | /api/providers/anthropic/v1/complete is ready for forwarding completion requests to anthropic")
+
+		// custom provider
+		ps.log.Info("PORT 8002 | POST   | /api/custom/providers/:provider/*wildcard is ready for forwarding requests to custom providers")
 
 		if err := ps.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			ps.log.Sugar().Fatalf("error proxy server listening: %v", err)

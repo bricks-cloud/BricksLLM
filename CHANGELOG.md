@@ -1,3 +1,12 @@
+## 1.5.0 - 2023-12-14
+### Added
+- Added support for OpenAI audio endpoints
+- Added support for OpenAI image endpoints
+
+### Fixed
+- Removed deperacated fields when updating keys
+- Fixed issues with inconsistent rate limit cache expiration date
+
 ## 1.4.1 - 2023-12-07
 ### Added
 - Added path access control at the API key level

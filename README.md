@@ -211,7 +211,7 @@ PathConfig
 > | settingId | required | `string` | 98daa3ae-961d-4253-bf6a-322a32fdca3d | API key |
 > | costLimitInUsd | optional | `float64` | `5.5` | Total spend limit of the API key.
 > | costLimitInUsdOverTime | optional | `float64` | `2` | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
-> | costLimitInUsdUnit | optional | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `d`].      |
+> | costLimitInUsdUnit | optional | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `d`, `mo`].      |
 > | rateLimitOverTime | optional | `int` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | optional | `enum` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
 > | ttl | optional | `string` | 2d | time to live. Available units are [`s`, `m`, `h`] |
@@ -279,10 +279,6 @@ PathConfig
 > | tags | optional | `[]string` | `["org-tag-12345"]`             | Identifiers associated with the key. |
 > | revoked | optional |  `boolean` | `true` | Indicator for whether the key is revoked.  |
 > | revokedReason| optional | `string` | The key has expired | Reason for why the key is revoked.  |
-> | costLimitInUsdOverTime | optional | `float64` | `2` | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
-> | costLimitInUsdUnit | optional | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`h`, `d`].      |
-> | rateLimitOverTime | optional | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
-> | rateLimitUnit | optional | `enum` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
 > | allowedPaths | optional | `[]PathConfig` | 2d | Pathes allowed for access. |
 
 ##### Error Response
@@ -789,6 +785,55 @@ This endpoint is set up for retrieving an OpenAI file. Documentation for this en
 ##### Description
 This endpoint is set up for retrieving an OpenAI file content. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/files/retrieve-contents).
 
+</details>
+
+### Images
+<details>
+  <summary>Generate images: <code>POST</code> <code><b>/api/providers/openai/v1/images/generations</b></code></summary>
+
+##### Description
+This endpoint is set up for generating OpenAI images. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/images/create).
+
+</details>
+
+<details>
+  <summary>Edit images: <code>POST</code> <code><b>/api/providers/openai/v1/images/edits</b></code></summary>
+
+##### Description
+This endpoint is set up for editting OpenAI generated images. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/images/createEdit).
+
+</details>
+
+<details>
+  <summary>Create image variations: <code>POST</code> <code><b>/api/providers/openai/v1/images/variations</b></code></summary>
+
+##### Description
+This endpoint is set up for creating OpenAI image variations. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/images/createVariation).
+
+</details>
+
+### Voices
+<details>
+  <summary>Create speech: <code>POST</code> <code><b>/api/providers/openai/v1/audio/speech</b></code></summary>
+
+##### Description
+This endpoint is set up for creating speeches. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/audio/createSpeech).
+
+</details>
+
+<details>
+  <summary>Create transcriptions: <code>POST</code> <code><b>/api/providers/openai/v1/audio/transcriptions</b></code></summary>
+
+##### Description
+This endpoint is set up for editting generated images. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/audio/createTranscription).
+
+</details>
+
+<details>
+  <summary>Create translations: <code>POST</code> <code><b>/api/providers/openai/v1/audios/translations</b></code></summary>
+
+##### Description
+This endpoint is set up for creating translations. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/audio/createTranslation).
 </details>
 
 ### Assistants
