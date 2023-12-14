@@ -9,13 +9,13 @@ import (
 )
 
 type UpdateKey struct {
-	Name                   string        `json:"name"`
-	UpdatedAt              int64         `json:"updatedAt"`
-	Tags                   []string      `json:"tags"`
-	Revoked                *bool         `json:"revoked"`
-	RevokedReason          string        `json:"revokedReason"`
-	SettingId              string        `json:"settingId"`
-	AllowedPaths           *[]PathConfig `json:"allowedPaths,omitempty"`
+	Name          string        `json:"name"`
+	UpdatedAt     int64         `json:"updatedAt"`
+	Tags          []string      `json:"tags"`
+	Revoked       *bool         `json:"revoked"`
+	RevokedReason string        `json:"revokedReason"`
+	SettingId     string        `json:"settingId"`
+	AllowedPaths  *[]PathConfig `json:"allowedPaths,omitempty"`
 }
 
 func (uk *UpdateKey) Validate() error {
@@ -169,7 +169,7 @@ func (rk *RequestKey) Validate() error {
 			return internal_errors.NewValidationError("cost limit unit can not be empty if cost limit over time is specified")
 		}
 
-		if rk.CostLimitInUsdUnit != DayTimeUnit && rk.CostLimitInUsdUnit != HourTimeUnit && rk.CostLimitInUsdUnit != MonthTimeUnit {
+		if rk.CostLimitInUsdUnit != DayTimeUnit && rk.CostLimitInUsdUnit != HourTimeUnit && rk.CostLimitInUsdUnit != MonthTimeUnit && rk.CostLimitInUsdUnit != MinuteTimeUnit {
 			return internal_errors.NewValidationError("cost limit unit can not be identified")
 		}
 	}

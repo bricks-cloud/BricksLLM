@@ -1,7 +1,12 @@
+## 1.5.1 - 2023-12-14
+### Added
+- Added support for minute spend limits
+
 ## 1.5.0 - 2023-12-14
 ### Added
 - Added support for OpenAI audio endpoints
 - Added support for OpenAI image endpoints
+- Added support for monthly spend limits
 
 ### Fixed
 - Removed deperacated fields when updating keys
