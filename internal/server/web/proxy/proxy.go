@@ -528,7 +528,7 @@ func getPassThroughHandler(r recorder, prod, private bool, psm ProviderSettingsM
 			c.ShouldBind(&form)
 
 			if form.File != nil {
-				fieldWriter, err := writer.CreateFormFile("image", form.File.Filename)
+				fieldWriter, err := writer.CreateFormFile("file", form.File.Filename)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_pass_through_handler.create_translation_file_error", tags, 1)
 					logError(log, "error when creating translation file", prod, cid, err)
@@ -764,6 +764,11 @@ func getPassThroughHandler(r recorder, prod, private bool, psm ProviderSettingsM
 			for _, value := range values {
 				c.Header(name, value)
 			}
+		}
+
+		if len(res.Header.Get("content-type")) != 0 {
+			c.Data(res.StatusCode, res.Header.Get("content-type"), bytes)
+			return
 		}
 
 		c.Data(res.StatusCode, "application/json", bytes)
