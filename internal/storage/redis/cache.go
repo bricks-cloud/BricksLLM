@@ -55,7 +55,7 @@ func (c *Cache) IncrementCounter(keyId string, timeUnit key.TimeUnit, incr int64
 
 		ctxTimeout, cancel = context.WithTimeout(context.Background(), c.wt)
 		defer cancel()
-		err = c.client.Expire(ctxTimeout, keyId, ttl).Err()
+		err = c.client.ExpireAt(ctxTimeout, keyId, ttl).Err()
 		if err != nil {
 			return err
 		}
@@ -65,19 +65,23 @@ func (c *Cache) IncrementCounter(keyId string, timeUnit key.TimeUnit, incr int64
 	return nil
 }
 
-func getCounterTtl(rateLimitUnit key.TimeUnit) (time.Duration, error) {
+func getCounterTtl(rateLimitUnit key.TimeUnit) (time.Time, error) {
+	now := time.Now().UTC()
 	switch rateLimitUnit {
 	case key.SecondTimeUnit:
-		return time.Second, nil
-	case key.HourTimeUnit:
-		return time.Hour, nil
-	case key.DayTimeUnit:
-		return time.Hour * 24, nil
+		return now.Truncate(time.Second).Add(time.Second).Add(-time.Millisecond), nil
 	case key.MinuteTimeUnit:
-		return time.Minute, nil
+		return now.Truncate(60 * time.Second).Add(time.Second * 60).Add(-time.Millisecond), nil
+	case key.HourTimeUnit:
+		return now.Truncate(60 * time.Minute).Add(time.Minute * 60).Add(-time.Millisecond), nil
+	case key.DayTimeUnit:
+		return now.Truncate(24 * time.Hour).Add(time.Hour * 24).Add(-time.Millisecond), nil
+	case key.MonthTimeUnit:
+		firstDayOfNextMonth := time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		return firstDayOfNextMonth.Add(-time.Millisecond), nil
 	}
 
-	return 0, fmt.Errorf("cannot recognize rate limit time unit %v", rateLimitUnit)
+	return time.Time{}, fmt.Errorf("cannot recognize rate limit time unit %v", rateLimitUnit)
 }
 
 func getCounterTimeStamp(rateLimitUnit key.TimeUnit) (int64, error) {
@@ -85,12 +89,14 @@ func getCounterTimeStamp(rateLimitUnit key.TimeUnit) (int64, error) {
 	switch rateLimitUnit {
 	case key.SecondTimeUnit:
 		return now.UnixMilli() * 10, nil
+	case key.MinuteTimeUnit:
+		return now.Unix(), nil
 	case key.HourTimeUnit:
 		return int64(now.Minute()), nil
 	case key.DayTimeUnit:
 		return int64(now.Hour()), nil
-	case key.MinuteTimeUnit:
-		return now.Unix(), nil
+	case key.MonthTimeUnit:
+		return int64(now.Day()), nil
 	}
 
 	return 0, fmt.Errorf("cannot recognize rate limit time unit %v", rateLimitUnit)
