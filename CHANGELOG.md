@@ -1,6 +1,6 @@
 ## 1.6.0 - 2023-12-17
 ### Added
-- Added support for Azure OpenAI embeddings and chat completion endpoints
+- Added support for Azure OpenAI embeddings and chat completions endpoints
 
 ## 1.5.1 - 2023-12-14
 ### Added
