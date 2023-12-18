@@ -164,12 +164,21 @@ func (ce *CostEstimator) EstimateCompletionCost(model string, tks int) (float64,
 	return tksInFloat / 1000 * cost, nil
 }
 
+func (ce *CostEstimator) EstimateChatCompletionPromptTokenCounts(model string, r *goopenai.ChatCompletionRequest) (int, error) {
+	tks, err := countTotalTokens(model, r, ce.tc)
+	if err != nil {
+		return 0, err
+	}
+
+	return tks, nil
+}
+
 func (ce *CostEstimator) EstimateChatCompletionPromptCostWithTokenCounts(r *goopenai.ChatCompletionRequest) (int, float64, error) {
 	if len(r.Model) == 0 {
 		return 0, 0, errors.New("model is not provided")
 	}
 
-	tks, err := countTotalTokens(r, ce.tc)
+	tks, err := countTotalTokens(r.Model, r, ce.tc)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -234,13 +243,13 @@ func (ce *CostEstimator) EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (f
 	return 0, errors.New("input format is not recognized")
 }
 
-func countFunctionTokens(r *goopenai.ChatCompletionRequest, tc tokenCounter) (int, error) {
+func countFunctionTokens(model string, r *goopenai.ChatCompletionRequest, tc tokenCounter) (int, error) {
 	if len(r.Functions) == 0 {
 		return 0, nil
 	}
 
 	defs := formatFunctionDefinitions(r)
-	tks, err := tc.Count(r.Model, defs)
+	tks, err := tc.Count(model, defs)
 	if err != nil {
 		return 0, err
 	}
@@ -285,7 +294,7 @@ func formatFunctionDefinitions(r *goopenai.ChatCompletionRequest) string {
 	return strings.Join(lines, "\n")
 }
 
-func countMessageTokens(r *goopenai.ChatCompletionRequest, tc tokenCounter) (int, error) {
+func countMessageTokens(model string, r *goopenai.ChatCompletionRequest, tc tokenCounter) (int, error) {
 	if len(r.Messages) == 0 {
 		return 0, nil
 	}
@@ -300,17 +309,17 @@ func countMessageTokens(r *goopenai.ChatCompletionRequest, tc tokenCounter) (int
 			padded = true
 		}
 
-		contentTks, err := tc.Count(r.Model, content)
+		contentTks, err := tc.Count(model, content)
 		if err != nil {
 			return 0, err
 		}
 
-		roleTks, err := tc.Count(r.Model, msg.Role)
+		roleTks, err := tc.Count(model, msg.Role)
 		if err != nil {
 			return 0, err
 		}
 
-		nameTks, err := tc.Count(r.Model, msg.Name)
+		nameTks, err := tc.Count(model, msg.Name)
 		if err != nil {
 			return 0, err
 		}
@@ -336,19 +345,19 @@ func countMessageTokens(r *goopenai.ChatCompletionRequest, tc tokenCounter) (int
 	return result, nil
 }
 
-func countTotalTokens(r *goopenai.ChatCompletionRequest, tc tokenCounter) (int, error) {
+func countTotalTokens(model string, r *goopenai.ChatCompletionRequest, tc tokenCounter) (int, error) {
 	if r == nil {
 		return 0, nil
 	}
 
 	tks := 3
 
-	ftks, err := countFunctionTokens(r, tc)
+	ftks, err := countFunctionTokens(model, r, tc)
 	if err != nil {
 		return 0, err
 	}
 
-	mtks, err := countMessageTokens(r, tc)
+	mtks, err := countMessageTokens(model, r, tc)
 	if err != nil {
 		return 0, err
 	}

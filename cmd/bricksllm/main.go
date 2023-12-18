@@ -14,6 +14,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/logger/zap"
 	"github.com/bricks-cloud/bricksllm/internal/manager"
 	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
+	"github.com/bricks-cloud/bricksllm/internal/provider/azure"
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
 	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	"github.com/bricks-cloud/bricksllm/internal/recorder"
@@ -177,12 +178,13 @@ func main() {
 	if err != nil {
 		log.Sugar().Fatalf("error creating anthropic token counter: %v", err)
 	}
+	aoe := azure.NewCostEstimator()
 
 	v := validator.NewValidator(costLimitCache, rateLimitCache, costStorage)
 	rec := recorder.NewRecorder(costStorage, costLimitCache, ce, store)
 	rlm := manager.NewRateLimitManager(rateLimitCache)
 
-	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, m, psm, cpm, store, memStore, ce, ace, v, rec, cfg.OpenAiKey, e, rlm, cfg.ProxyTimeout)
+	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, m, psm, cpm, store, memStore, ce, ace, aoe, v, rec, cfg.OpenAiKey, e, rlm, cfg.ProxyTimeout)
 	if err != nil {
 		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}

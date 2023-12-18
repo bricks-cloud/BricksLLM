@@ -324,11 +324,16 @@ This endpoint is creating a provider setting.
 ##### Request
 > | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
-> | provider | required | `enum` | openai | This value can only be `openai` as for now. |
-> | setting | required | `object` | `{ "apikey": "YOUR_OPENAI_KEY" }`            | A map of values used for authenticating with the selected provider. |
-> | setting.apikey | required | `string` | xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx | This field is required if `provider` is `openai`. |
+> | provider | required | `enum` | openai | This value can only be `openai`, `anthropic` and `azure` as for now. |
+> | setting | required | `Setting` | `{ "apikey": "YOUR_OPENAI_KEY" }`            | A map of values used for authenticating with the selected provider. |
 > | name | optional | `string` | YOUR_PROVIDER_SETTING_NAME | This field is used for giving a name to provider setting |
 > | allowedModels | `[]string` | `["text-embedding-ada-002"]` | Allowed models for this provider setting. |
+
+```Setting```
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | apiKey | required | `string` | `xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`  | This value is required. |
+> | resourceName | required | `string` | `YOUR_AZURE_RESOURCE_NAME`            | This value is required when the provider is `azure`. |
 
 
 ##### Error Response
@@ -412,13 +417,19 @@ This endpoint is updating a provider setting .
 ##### Request
 > | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
-> | setting | required | `object` | `{ "apikey": "YOUR_OPENAI_KEY" }`            | A map of values used for authenticating with the selected provider. |
-> | setting.apikey | required | `string` | xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx | This field is required if `provider` is `openai`. |
+> | setting | required | `Setting` | `{ "apikey": "YOUR_OPENAI_KEY" }`            | A map of values used for authenticating with the selected provider. |
 > | name | optional | `string` | YOUR_PROVIDER_SETTING_NAME | This field is used for giving a name to provider setting |
 > | allowedModels | `[]string` | `["text-embedding-ada-002"]` | Allowed models for this provider setting. |
 
-##### Error Response
+```Setting```
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | apiKey | required | `string` | `xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`  | This value is required. |
+> | resourceName | required | `string` | `YOUR_AZURE_RESOURCE_NAME`            | This value is required when the provider is `azure`. |
+> | deploymentId | required | `string` | `YOUR_DEPLOYMENT_ID`            | This value is required when the provider is `azure`. |
 
+
+##### Error Response
 > | http code     | content-type                      |
 > |---------------|-----------------------------------|
 > | `400`, `500`         | `application/json`                |
@@ -477,13 +488,19 @@ This endpoint is retrieving aggregated metrics given an array of key ids and tag
 > | dataPoints | `[]dataPoint` | `[{ "timeStamp": 1699933571, "numberOfRequests": 1, "costInUsd": 0.8, "latencyInMs": 600, "promptTokenCount": 0, "completionTokenCount": 0, "successCount": 1 }]` | Unix timestamp for creation time.  |
 > | latencyInMsMedian | `float64` | `656.7` | Median latency for the given time period. |
 > | latencyInMs99th | `float64` | `555.7` | 99th percentile latency for the given time period. |
-> | dataPoints.[].timeStamp | `int64` | `555.7` | Timestamp of the data point |
-> | dataPoints.[].numberOfRequests | `int64` | `555.7` | Aggregated number of http requests over the given time increment. |
-> | dataPoints.[].costInUsd | `int64` | `555.7` | Aggregated cost of http requests over the given time increment. |
-> | dataPoints.[].latencyInMs | `float64` | `555.7` | Aggregated latency of http requests over the given time increment. |
-> | dataPoints.[].promptTokenCount | `int` | `555.7` | Aggregated prompt token counts over the given time increment. |
-> | dataPoints.[].completionTokenCount | `int` | `555.7` | Aggregated completion token counts over the given time increment. |
-> | dataPoints.[].successCount | `int` | `555.7` | Aggregated number of successful http requests over the given time increment. |
+
+Datapoint
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | timeStamp | `int64` | `1702504746` | Unix timestamp for the data point |
+> | numberOfRequests | `int64` | `100` | Aggregated number of http requests over the given time increment. |
+> | costInUsd | `float64` | `1.7` | Aggregated cost of proxied requests in USD over the given time increment. |
+> | latencyInMs | `int` | `555` | Aggregated latency in milliseconds of http requests over the given time increment. |
+> | promptTokenCount | `int` | `25` | Aggregated prompt token counts over the given time increment. |
+> | completionTokenCount | `int` | `4000` | Aggregated completion token counts over the given time increment. |
+> | successCount | `int` | `555` | Aggregated number of successful http requests over the given time increment. |
+> | keyId | `int` | `555.7` | key Id associated with the event. |
+> | model | `string` | `gpt-3.5-turbo` | model associated with the event. |
 
 </details>
 
@@ -1062,6 +1079,26 @@ This endpoint is set up for retrieving an OpenAI run step. Documentation for thi
 This endpoint is set up for listing OpenAI run steps. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/listRunSteps).
 
 </details>
+
+## Azure OpenAI Proxy
+The custom provider proxy runs on Port `8002`.
+
+<details>
+  <summary>Create Azure OpenAI chat completion: <code>POST</code> <code><b>/api/providers/azure/openai/deployments/:deploymentId/chat/completions?api-version={API_VERSION}</b></code></summary>
+
+##### Description
+This endpoint is set up for proxying Anthropic completion requests. Documentation for this endpoint can be found [here](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference).
+
+</details>
+
+<details>
+  <summary>Create Azure OpenAI embeddings: <code>POST</code> <code><b>/api/providers/azure/openai/deployments/:deploymentId/embeddings?api-version={API_VERSION}</b></code></summary>
+
+##### Description
+This endpoint is set up for proxying Azure OpenAI completion requests. Documentation for this endpoint can be found [here](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference).
+
+</details>
+
 
 ## Anthropic Proxy
 The custom provider proxy runs on Port `8002`.
