@@ -57,12 +57,12 @@ type CustomProvidersManager interface {
 	GetCustomProviderFromMem(name string) *custom.Provider
 }
 
-func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, kms keyMemStorage, e estimator, ae anthropicEstimator, v validator, r recorder, credential string, enc encrypter, rlm rateLimitManager, timeOut time.Duration) (*ProxyServer, error) {
+func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, kms keyMemStorage, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, r recorder, credential string, enc encrypter, rlm rateLimitManager, timeOut time.Duration) (*ProxyServer, error) {
 	router := gin.New()
 	prod := mode == "production"
 	private := privacyMode == "strict"
 
-	router.Use(getMiddleware(kms, cpm, psm, prod, private, e, ae, v, ks, log, enc, rlm, r, "proxy"))
+	router.Use(getMiddleware(kms, cpm, psm, prod, private, e, ae, aoe, v, ks, log, enc, rlm, r, "proxy"))
 
 	client := http.Client{}
 
@@ -139,6 +139,10 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, psm
 	router.POST("/api/providers/openai/v1/images/generations", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.POST("/api/providers/openai/v1/images/edits", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 	router.POST("/api/providers/openai/v1/images/variations", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+
+	// azure
+	router.POST("/api/providers/azure/openai/deployments/:deploymentId/chat/completions", getAzureChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, aoe, timeOut))
+	router.POST("/api/providers/azure/openai/deployments/:deploymentId/embeddings", getAzureEmbeddingsHandler(r, prod, private, psm, client, kms, log, enc, aoe, timeOut))
 
 	// anthropic
 	router.POST("/api/providers/anthropic/v1/complete", getCompletionHandler(r, prod, private, psm, client, kms, log, enc, ae, timeOut))
@@ -1033,6 +1037,7 @@ func getEmbeddingHandler(r recorder, prod, private bool, psm ProviderSettingsMan
 
 		var cost float64 = 0
 		chatRes := &EmbeddingResponse{}
+		promptTokenCounts := 0
 		base64ChatRes := &EmbeddingResponseBase64{}
 		if res.StatusCode == http.StatusOK {
 			stats.Incr("bricksllm.proxy.get_embedding_handler.success", nil, 1)
@@ -1060,11 +1065,13 @@ func getEmbeddingHandler(r recorder, prod, private bool, psm ProviderSettingsMan
 			if err == nil {
 				if format == "base64" {
 					logBase64EmbeddingResponse(log, prod, private, id, base64ChatRes)
+					promptTokenCounts = base64ChatRes.Usage.PromptTokens
 					totalTokens = base64ChatRes.Usage.TotalTokens
 				}
 
 				if format != "base64" {
 					logEmbeddingResponse(log, prod, private, id, chatRes)
+					promptTokenCounts = chatRes.Usage.PromptTokens
 					totalTokens = chatRes.Usage.TotalTokens
 				}
 
@@ -1084,8 +1091,7 @@ func getEmbeddingHandler(r recorder, prod, private bool, psm ProviderSettingsMan
 		}
 
 		c.Set("costInUsd", cost)
-		c.Set("promptTokenCount", chatRes.Usage.PromptTokens)
-		c.Set("completionTokenCount", chatRes.Usage.CompletionTokens)
+		c.Set("promptTokenCount", promptTokenCounts)
 
 		if res.StatusCode != http.StatusOK {
 			stats.Timing("bricksllm.proxy.get_embedding_handler.error_latency", dur, nil, 1)
@@ -1127,17 +1133,7 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
-		defer cancel()
-
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/chat/completions", c.Request.Body)
 		cid := c.GetString(correlationId)
-		if err != nil {
-			logError(log, "error when creating openai http request", prod, cid, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai http request")
-			return
-		}
-
 		raw, exists := c.Get("key")
 		kc, ok := raw.(*key.ResponseKey)
 		if !exists || !ok {
@@ -1161,6 +1157,16 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 
 			logError(log, "openai api key is not found in setting", prod, cid, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] openai api key is not found in setting")
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		defer cancel()
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/chat/completions", c.Request.Body)
+		if err != nil {
+			logError(log, "error when creating openai http request", prod, cid, err)
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create azure openai http request")
 			return
 		}
 
@@ -1414,6 +1420,10 @@ func (ps *ProxyServer) Run() {
 		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/images/generations is ready for generating openai images")
 		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/images/edits is ready for editting openi images")
 		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/images/variations is ready for generating openai image variations")
+
+		// azure
+		ps.log.Info("PORT 8002 | POST   | /api/providers/azure/openai/deployments/:deploymentId/chat/completions is ready for forwarding completion requests to azure openai")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/azure/openai/deployments/:deploymentId/embeddings is ready for forwarding embeddings requests to azure openai")
 
 		// anthropic
 		ps.log.Info("PORT 8002 | POST   | /api/providers/anthropic/v1/complete is ready for forwarding completion requests to anthropic")

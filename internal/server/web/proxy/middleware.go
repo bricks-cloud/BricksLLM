@@ -46,6 +46,16 @@ type estimator interface {
 	EstimateCompletionCost(model string, tks int) (float64, error)
 	EstimateTotalCost(model string, promptTks, completionTks int) (float64, error)
 	EstimateEmbeddingsInputCost(model string, tks int) (float64, error)
+	EstimateChatCompletionPromptTokenCounts(model string, r *goopenai.ChatCompletionRequest) (int, error)
+}
+
+type azureEstimator interface {
+	EstimateChatCompletionStreamCostWithTokenCounts(model, content string) (int, float64, error)
+	EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (float64, error)
+	EstimateCompletionCost(model string, tks int) (float64, error)
+	EstimatePromptCost(model string, tks int) (float64, error)
+	EstimateTotalCost(model string, promptTks, completionTks int) (float64, error)
+	EstimateEmbeddingsInputCost(model string, tks int) (float64, error)
 }
 
 type validator interface {
@@ -70,6 +80,10 @@ func JSON(c *gin.Context, code int, message string) {
 }
 
 func validateProviderPath(providerName string, path string) bool {
+	if providerName == "azure" && !strings.HasPrefix(path, "/api/providers/azure/openai") {
+		return false
+	}
+
 	if providerName == "openai" && !strings.HasPrefix(path, "/api/providers/openai") {
 		return false
 	}
@@ -78,14 +92,14 @@ func validateProviderPath(providerName string, path string) bool {
 		return false
 	}
 
-	if providerName != "openai" && providerName != "anthropic" && !strings.HasPrefix(path, "/api/custom/providers/") {
+	if providerName != "openai" && providerName != "anthropic" && providerName != "azure" && !strings.HasPrefix(path, "/api/custom/providers/") {
 		return false
 	}
 
 	return true
 }
 
-func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, psm ProviderSettingsManager, prod, private bool, e estimator, ae anthropicEstimator, v validator, ks keyStorage, log *zap.Logger, enc encrypter, rlm rateLimitManager, r recorder, prefix string) gin.HandlerFunc {
+func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, psm ProviderSettingsManager, prod, private bool, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, ks keyStorage, log *zap.Logger, enc encrypter, rlm rateLimitManager, r recorder, prefix string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] request is empty")
@@ -303,6 +317,48 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, psm ProviderSe
 			result = gjson.Get(string(body), rc.ModelLocation)
 			if len(result.Str) != 0 {
 				c.Set("model", result.Str)
+			}
+		}
+
+		if c.FullPath() == "/api/providers/azure/openai/deployments/:deploymentId/chat/completions" {
+			ccr := &goopenai.ChatCompletionRequest{}
+			err = json.Unmarshal(body, ccr)
+			if err != nil {
+				logError(log, "error when unmarshalling azure openai chat completion request", prod, cid, err)
+				return
+			}
+
+			logRequest(log, prod, private, cid, ccr)
+
+			tks, err := e.EstimateChatCompletionPromptTokenCounts("gpt-3.5-turbo", ccr)
+			if err != nil {
+				stats.Incr("bricksllm.proxy.get_middleware.estimate_chat_completion_prompt_token_counts_error", nil, 1)
+				logError(log, "error when estimating prompt cost", prod, cid, err)
+			}
+
+			if ccr.Stream {
+				c.Set("stream", true)
+				c.Set("promptTokenCount", tks)
+			}
+		}
+
+		if c.FullPath() == "/api/providers/azure/openai/deployments/:deploymentId/embeddings" {
+			er := &goopenai.EmbeddingRequest{}
+			err = json.Unmarshal(body, er)
+			if err != nil {
+				logError(log, "error when unmarshalling azure openai embedding request", prod, cid, err)
+				return
+			}
+
+			c.Set("model", "ada")
+			c.Set("encoding_format", string(er.EncodingFormat))
+
+			logEmbeddingRequest(log, prod, private, cid, er)
+
+			cost, err = aoe.EstimateEmbeddingsCost(er)
+			if err != nil {
+				stats.Incr("bricksllm.proxy.get_middleware.estimate_azure_openai_embeddings_cost_error", nil, 1)
+				logError(log, "error when estimating azure openai embeddings cost", prod, cid, err)
 			}
 		}
 
@@ -699,6 +755,10 @@ func containsPath(arr []key.PathConfig, path, method string) bool {
 func getAuthTokenFromHeader(c *gin.Context) string {
 	if strings.HasPrefix(c.FullPath(), "/api/providers/anthropic") {
 		return c.GetHeader("x-api-key")
+	}
+
+	if strings.HasPrefix(c.FullPath(), "/api/providers/azure") {
+		return c.GetHeader("api-key")
 	}
 
 	split := strings.Split(c.Request.Header.Get("Authorization"), "Bearer ")

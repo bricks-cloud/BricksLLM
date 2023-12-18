@@ -2,6 +2,7 @@ package manager
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
@@ -34,34 +35,39 @@ func NewProviderSettingsManager(s ProviderSettingsStorage, memdb ProviderSetting
 	}
 }
 
-func (m *ProviderSettingsManager) validateSettings(name string, setting *provider.Setting) error {
-	if setting.Provider != "openai" && setting.Provider != "anthropic" {
-		provider, err := m.Storage.GetCustomProviderByName(name)
-		_, ok := err.(notFoundError)
-		if ok {
-			return internal_errors.NewValidationError(fmt.Sprintf("provider %s is not supported", name))
-		}
-
-		if len(provider.AuthenticationParam) != 0 {
-			val, _ := setting.Setting[provider.AuthenticationParam]
-			if len(val) == 0 {
-				return internal_errors.NewValidationError(fmt.Sprintf("provider %s is missing value for field %s", setting.Provider, provider.AuthenticationParam))
-			}
-		}
-	}
-
-	if setting.Provider == "openai" || setting.Provider == "anthropic" {
-		val, _ := setting.Setting["apikey"]
-		if len(val) == 0 {
-			return internal_errors.NewValidationError("api key is required")
-		}
-	}
-
-	return nil
+func isProviderNativelySupported(provider string) bool {
+	return provider == "openai" || provider == "anthropic" || provider == "azure"
 }
 
-func (m *ProviderSettingsManager) validateUpdateSettings(providerName string, setting *provider.UpdateSetting) error {
-	if providerName != "openai" && providerName != "anthropic" {
+func findMissingAuthParams(providerName string, params map[string]string) string {
+	missingFields := []string{}
+
+	if providerName == "openai" || providerName == "anthropic" {
+		val, _ := params["apikey"]
+		if len(val) == 0 {
+			missingFields = append(missingFields, "apikey")
+		}
+
+		return strings.Join(missingFields, " ,")
+	}
+
+	if providerName == "azure" {
+		val, _ := params["resourceName"]
+		if len(val) == 0 {
+			missingFields = append(missingFields, "resourceName")
+		}
+
+		val, _ = params["apikey"]
+		if len(val) == 0 {
+			missingFields = append(missingFields, "apikey")
+		}
+	}
+
+	return strings.Join(missingFields, ",")
+}
+
+func (m *ProviderSettingsManager) validateSettings(providerName string, setting map[string]string) error {
+	if !isProviderNativelySupported(providerName) {
 		provider, err := m.Storage.GetCustomProviderByName(providerName)
 		_, ok := err.(notFoundError)
 		if ok {
@@ -69,18 +75,16 @@ func (m *ProviderSettingsManager) validateUpdateSettings(providerName string, se
 		}
 
 		if len(provider.AuthenticationParam) != 0 {
-			val, _ := setting.Setting[provider.AuthenticationParam]
+			val, _ := setting[provider.AuthenticationParam]
 			if len(val) == 0 {
 				return internal_errors.NewValidationError(fmt.Sprintf("provider %s is missing value for field %s", providerName, provider.AuthenticationParam))
 			}
 		}
 	}
 
-	if providerName == "openai" || providerName == "anthropic" {
-		val, _ := setting.Setting["apikey"]
-		if len(val) == 0 {
-			return internal_errors.NewValidationError("api key is required")
-		}
+	missing := findMissingAuthParams(providerName, setting)
+	if len(missing) != 0 {
+		return internal_errors.NewValidationError(fmt.Sprintf("provider %s is missing fields %s", providerName, missing))
 	}
 
 	return nil
@@ -91,7 +95,7 @@ func (m *ProviderSettingsManager) CreateSetting(setting *provider.Setting) (*pro
 		return nil, internal_errors.NewValidationError("provider field cannot be empty")
 	}
 
-	if err := m.validateSettings(setting.Provider, setting); err != nil {
+	if err := m.validateSettings(setting.Provider, setting.Setting); err != nil {
 		return nil, err
 	}
 
@@ -113,7 +117,7 @@ func (m *ProviderSettingsManager) UpdateSetting(id string, setting *provider.Upd
 	}
 
 	if len(setting.Setting) != 0 {
-		if err := m.validateUpdateSettings(existing.Provider, setting); err != nil {
+		if err := m.validateSettings(existing.Provider, setting.Setting); err != nil {
 			return nil, err
 		}
 	}
