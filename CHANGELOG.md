@@ -1,3 +1,7 @@
+## 1.6.0 - 2023-12-17
+### Added
+- Added support for Azure OpenAI embeddings and chat completion endpoints
+
 ## 1.5.1 - 2023-12-14
 ### Added
 - Added support for minute spend limits
