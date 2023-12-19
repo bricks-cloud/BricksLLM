@@ -80,6 +80,10 @@ func JSON(c *gin.Context, code int, message string) {
 }
 
 func validateProviderPath(providerName string, path string) bool {
+	if strings.HasPrefix(path, "/api/custom/routes") {
+		return true
+	}
+
 	if providerName == "azure" && !strings.HasPrefix(path, "/api/providers/azure/openai") {
 		return false
 	}
@@ -320,7 +324,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, psm ProviderSe
 			}
 		}
 
-		if c.FullPath() == "/api/providers/azure/openai/deployments/:deploymentId/chat/completions" {
+		if c.FullPath() == "/api/providers/azure/openai/deployments/:deployment_id/chat/completions" {
 			ccr := &goopenai.ChatCompletionRequest{}
 			err = json.Unmarshal(body, ccr)
 			if err != nil {
@@ -342,7 +346,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, psm ProviderSe
 			}
 		}
 
-		if c.FullPath() == "/api/providers/azure/openai/deployments/:deploymentId/embeddings" {
+		if c.FullPath() == "/api/providers/azure/openai/deployments/:deployment_id/embeddings" {
 			er := &goopenai.EmbeddingRequest{}
 			err = json.Unmarshal(body, er)
 			if err != nil {

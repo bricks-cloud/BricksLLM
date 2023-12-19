@@ -21,7 +21,7 @@ import (
 
 func buildAzureUrl(path, deploymentId, apiVersion string, params map[string]string) string {
 	resourceName := params["resourceName"]
-	if path == "/api/providers/azure/openai/deployments/:deploymentId/chat/completions" {
+	if path == "/api/providers/azure/openai/deployments/:deployment_id/chat/completions" {
 		return fmt.Sprintf("https://%s.openai.azure.com/openai/deployments/%s/chat/completions?api-version=%s", resourceName, deploymentId, apiVersion)
 	}
 
@@ -66,7 +66,7 @@ func getAzureChatCompletionHandler(r recorder, prod, private bool, psm ProviderS
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, buildAzureUrl(c.FullPath(), c.Param("deploymentId"), c.Query("api-version"), setting.Setting), c.Request.Body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, buildAzureUrl(c.FullPath(), c.Param("deployment_id"), c.Query("api-version"), setting.Setting), c.Request.Body)
 		if err != nil {
 			logError(log, "error when creating azure openai http request", prod, cid, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create azure openai http request")

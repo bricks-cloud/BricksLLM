@@ -64,6 +64,11 @@ func main() {
 		log.Sugar().Fatalf("error creating custom providers table: %v", err)
 	}
 
+	err = store.CreateRoutesTable()
+	if err != nil {
+		log.Sugar().Fatalf("error creating routes table: %v", err)
+	}
+
 	err = store.CreateKeysTable()
 	if err != nil {
 		log.Sugar().Fatalf("error creating keys table: %v", err)
@@ -112,6 +117,12 @@ func main() {
 	}
 	cpMemStore.Listen()
 
+	rMemStore, err := memdb.NewRoutesMemDb(store, log, cfg.InMemoryDbUpdateInterval)
+	if err != nil {
+		log.Sugar().Fatalf("cannot initialize routes memdb: %v", err)
+	}
+	rMemStore.Listen()
+
 	rateLimitRedisCache := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
 		Password: cfg.RedisPassword,
@@ -156,8 +167,9 @@ func main() {
 	krm := manager.NewReportingManager(costStorage, store, store)
 	psm := manager.NewProviderSettingsManager(store, psMemStore)
 	cpm := manager.NewCustomProvidersManager(store, cpMemStore)
+	rm := manager.NewRouteManager(store, store, rMemStore)
 
-	as, err := admin.NewAdminServer(log, *modePtr, m, krm, psm, cpm)
+	as, err := admin.NewAdminServer(log, *modePtr, m, krm, psm, cpm, rm)
 	if err != nil {
 		log.Sugar().Fatalf("error creating admin http server: %v", err)
 	}
@@ -198,6 +210,7 @@ func main() {
 	memStore.Stop()
 	psMemStore.Stop()
 	cpMemStore.Stop()
+	rMemStore.Stop()
 
 	log.Sugar().Infof("shutting down server...")
 

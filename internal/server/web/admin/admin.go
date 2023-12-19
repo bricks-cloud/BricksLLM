@@ -25,11 +25,11 @@ type ProviderSettingsManager interface {
 	CreateSetting(setting *provider.Setting) (*provider.Setting, error)
 	UpdateSetting(id string, setting *provider.UpdateSetting) (*provider.Setting, error)
 	GetSetting(id string) (*provider.Setting, error)
-	GetSettings() ([]*provider.Setting, error)
+	GetSettings(ids []string) ([]*provider.Setting, error)
 }
 
 type KeyManager interface {
-	GetKeys(tag []string, provider string) ([]*key.ResponseKey, error)
+	GetKeys(tags, keyIds []string, provider string) ([]*key.ResponseKey, error)
 	UpdateKey(id string, key *key.UpdateKey) (*key.ResponseKey, error)
 	CreateKey(key *key.RequestKey) (*key.ResponseKey, error)
 	DeleteKey(id string) error
@@ -55,7 +55,7 @@ type AdminServer struct {
 	m      KeyManager
 }
 
-func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReportingManager, psm ProviderSettingsManager, cpm CustomProvidersManager) (*AdminServer, error) {
+func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReportingManager, psm ProviderSettingsManager, cpm CustomProvidersManager, rm RouteManager) (*AdminServer, error) {
 	router := gin.New()
 
 	prod := mode == "production"
@@ -79,6 +79,10 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 	router.POST("/api/custom/providers", getCreateCustomProviderHandler(cpm, log, prod))
 	router.GET("/api/custom/providers", getGetCustomProvidersHandler(cpm, log, prod))
 	router.PATCH("/api/custom/providers/:id", getUpdateCustomProvidersHandler(cpm, log, prod))
+
+	router.POST("/api/routes", getCreateRouteHandler(rm, log, prod))
+	router.GET("/api/routes/:id", getGetRouteHandler(rm, log, prod))
+	router.GET("/api/routes", getGetRoutesHandler(rm, log, prod))
 
 	srv := &http.Server{
 		Addr:    ":8001",
@@ -169,7 +173,7 @@ func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc
 		}
 
 		cid := c.GetString(correlationId)
-		keys, err := m.GetKeys(selected, provider)
+		keys, err := m.GetKeys(selected, nil, provider)
 		if err != nil {
 			stats.Incr("bricksllm.admin.get_get_keys_handler.get_keys_by_tag_err", nil, 1)
 
@@ -217,7 +221,7 @@ func getGetProviderSettingsHandler(m ProviderSettingsManager, log *zap.Logger, p
 		}
 
 		cid := c.GetString(correlationId)
-		created, err := m.GetSettings()
+		created, err := m.GetSettings(c.QueryArray("ids"))
 		if err != nil {
 			errType := "internal"
 

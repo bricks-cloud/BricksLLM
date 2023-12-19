@@ -41,21 +41,22 @@ func chatCompletionRequest(request *goopenai.ChatCompletionRequest, apiKey strin
 		return 0, nil, err
 	}
 
-	header := map[string][]string{
-		"Content-Type":  {"application/json"},
-		"Authorization": {fmt.Sprintf("Bearer %s", apiKey)},
+	req, err := http.NewRequest(http.MethodPost, "http://localhost:8002/api/providers/openai/v1/chat/completions", io.NopCloser(bytes.NewBuffer(jsonData)))
+	if err != nil {
+		return 0, nil, err
 	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+	req.Header.Set("Accept-Encoding", "*/*")
 
 	if len(customId) != 0 {
-		header["X-CUSTOM-EVENT-ID"] = []string{customId}
+		req.Header.Set("X-CUSTOM-EVENT-ID", customId)
 	}
 
-	resp, err := http.DefaultClient.Do(&http.Request{
-		Method: http.MethodPost,
-		URL:    &url.URL{Scheme: "http", Host: "localhost:8002", Path: "/api/providers/openai/v1/chat/completions"},
-		Header: header,
-		Body:   io.NopCloser(bytes.NewBuffer(jsonData)),
-	})
+	client := http.Client{}
+
+	resp, err := client.Do(req)
 
 	if err != nil {
 		return 0, nil, err
@@ -89,7 +90,9 @@ func completionRequest(request *anthropic.CompletionRequest, apiKey string, cust
 		header["X-CUSTOM-EVENT-ID"] = []string{customId}
 	}
 
-	resp, err := http.DefaultClient.Do(&http.Request{
+	client := http.Client{}
+
+	resp, err := client.Do(&http.Request{
 		Method: http.MethodPost,
 		URL:    &url.URL{Scheme: "http", Host: "localhost:8002", Path: "/api/providers/anthropic/v1/complete"},
 		Header: header,

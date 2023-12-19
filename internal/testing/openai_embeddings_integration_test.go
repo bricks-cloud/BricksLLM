@@ -29,7 +29,9 @@ func embeddingsRequest(request *goopenai.EmbeddingRequest, apiKey string) (int, 
 		"Authorization": {fmt.Sprintf("Bearer %s", apiKey)},
 	}
 
-	resp, err := http.DefaultClient.Do(&http.Request{
+	client := http.Client{}
+
+	resp, err := client.Do(&http.Request{
 		Method: http.MethodPost,
 		URL:    &url.URL{Scheme: "http", Host: "localhost:8002", Path: "/api/providers/openai/v1/embeddings"},
 		Header: header,

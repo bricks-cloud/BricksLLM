@@ -53,7 +53,7 @@ func getAzureEmbeddingsHandler(r recorder, prod, private bool, psm ProviderSetti
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
 
-		req, err := http.NewRequestWithContext(ctx, c.Request.Method, buildAzureUrl(c.FullPath(), c.Param("deploymentId"), c.Query("api-version"), setting.Setting), c.Request.Body)
+		req, err := http.NewRequestWithContext(ctx, c.Request.Method, buildAzureUrl(c.FullPath(), c.Param("deployment_id"), c.Query("api-version"), setting.Setting), c.Request.Body)
 		if err != nil {
 			logError(log, "error when creating openai http request", prod, cid, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai http request")

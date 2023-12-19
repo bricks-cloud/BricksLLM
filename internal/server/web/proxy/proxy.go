@@ -28,7 +28,6 @@ type ProviderSettingsManager interface {
 	CreateSetting(setting *provider.Setting) (*provider.Setting, error)
 	UpdateSetting(id string, setting *provider.UpdateSetting) (*provider.Setting, error)
 	GetSetting(id string) (*provider.Setting, error)
-	GetSettings() ([]*provider.Setting, error)
 }
 
 const (
@@ -46,7 +45,7 @@ type recorder interface {
 }
 
 type KeyManager interface {
-	GetKeys(tag []string, provider string) ([]*key.ResponseKey, error)
+	GetKeys(tags, keyIds []string, provider string) ([]*key.ResponseKey, error)
 	UpdateKey(id string, key *key.UpdateKey) (*key.ResponseKey, error)
 	CreateKey(key *key.RequestKey) (*key.ResponseKey, error)
 	DeleteKey(id string) error
@@ -141,14 +140,17 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, psm
 	router.POST("/api/providers/openai/v1/images/variations", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
 
 	// azure
-	router.POST("/api/providers/azure/openai/deployments/:deploymentId/chat/completions", getAzureChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, aoe, timeOut))
-	router.POST("/api/providers/azure/openai/deployments/:deploymentId/embeddings", getAzureEmbeddingsHandler(r, prod, private, psm, client, kms, log, enc, aoe, timeOut))
+	router.POST("/api/providers/azure/openai/deployments/:deployment_id/chat/completions", getAzureChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, aoe, timeOut))
+	router.POST("/api/providers/azure/openai/deployments/:deployment_id/embeddings", getAzureEmbeddingsHandler(r, prod, private, psm, client, kms, log, enc, aoe, timeOut))
 
 	// anthropic
 	router.POST("/api/providers/anthropic/v1/complete", getCompletionHandler(r, prod, private, psm, client, kms, log, enc, ae, timeOut))
 
 	// custom provider
 	router.POST("/api/custom/providers/:provider/*wildcard", getCustomProviderHandler(prod, private, psm, cpm, client, log, timeOut))
+
+	// custom route
+	router.POST("/api/routes/:route", getCustomProviderHandler(prod, private, psm, cpm, client, log, timeOut))
 
 	srv := &http.Server{
 		Addr:    ":8002",
@@ -1422,8 +1424,8 @@ func (ps *ProxyServer) Run() {
 		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/images/variations is ready for generating openai image variations")
 
 		// azure
-		ps.log.Info("PORT 8002 | POST   | /api/providers/azure/openai/deployments/:deploymentId/chat/completions is ready for forwarding completion requests to azure openai")
-		ps.log.Info("PORT 8002 | POST   | /api/providers/azure/openai/deployments/:deploymentId/embeddings is ready for forwarding embeddings requests to azure openai")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/azure/openai/deployments/:deployment_id/chat/completions is ready for forwarding completion requests to azure openai")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/azure/openai/deployments/:deployment_id/embeddings is ready for forwarding embeddings requests to azure openai")
 
 		// anthropic
 		ps.log.Info("PORT 8002 | POST   | /api/providers/anthropic/v1/complete is ready for forwarding completion requests to anthropic")

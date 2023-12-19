@@ -3,6 +3,7 @@ package postgresql
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -88,7 +89,7 @@ func (s *Store) CreateKeysTable() error {
 
 func (s *Store) AlterKeysTable() error {
 	alterTableQuery := `
-		ALTER TABLE keys ADD COLUMN IF NOT EXISTS setting_id VARCHAR(255), ADD COLUMN IF NOT EXISTS allowed_paths JSONB
+		ALTER TABLE keys ADD COLUMN IF NOT EXISTS setting_id VARCHAR(255), ADD COLUMN IF NOT EXISTS allowed_paths JSONB, ADD COLUMN IF NOT EXISTS setting_ids VARCHAR(255)[] NOT NULL DEFAULT ARRAY[]::VARCHAR(255)[]
 	`
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -451,7 +452,7 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 	return data, nil
 }
 
-func (s *Store) GetKeys(tags []string, provider string) ([]*key.ResponseKey, error) {
+func (s *Store) GetKeys(tags, keyIds []string, provider string) ([]*key.ResponseKey, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
@@ -468,6 +469,20 @@ func (s *Store) GetKeys(tags []string, provider string) ([]*key.ResponseKey, err
 		selectionQuery += "WHERE tags @> $1"
 	}
 
+	if len(keyIds) != 0 {
+		args = append(args, pq.Array(keyIds))
+
+		if index != 1 {
+			selectionQuery += fmt.Sprintf(" AND key_id = ANY($%d)", index)
+		}
+
+		if index == 1 {
+			selectionQuery += fmt.Sprintf("WHERE key_id = ANY($%d)", index)
+		}
+
+		index += 1
+	}
+
 	query = selectionQuery
 
 	if len(provider) != 0 {
@@ -480,15 +495,20 @@ func (s *Store) GetKeys(tags []string, provider string) ([]*key.ResponseKey, err
 			(
 				SELECT * FROM provider_settings WHERE $%d = provider
 			)
-			SELECT keys_table.*
+			SELECT DISTINCT keys_table.*
 			FROM keys_table
 			JOIN provider_settings_table
-			ON keys_table.setting_id = provider_settings_table.id;
+			ON keys_table.setting_id = provider_settings_table.id
+			OR provider_settings_table.id = ANY(keys_table.setting_ids);
 		`, selectionQuery, index)
 	}
 
 	rows, err := s.db.QueryContext(ctxTimeout, query, args...)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, internal_errors.NewNotFoundError("keys are not found")
+		}
+
 		return nil, err
 	}
 	defer rows.Close()
@@ -515,6 +535,7 @@ func (s *Store) GetKeys(tags []string, provider string) ([]*key.ResponseKey, err
 			&k.Ttl,
 			&settingId,
 			&data,
+			pq.Array(&k.SettingIds),
 		); err != nil {
 			return nil, err
 		}
@@ -570,6 +591,7 @@ func (s *Store) GetKey(keyId string) (*key.ResponseKey, error) {
 			&k.Ttl,
 			&settingId,
 			&data,
+			pq.Array(&k.SettingIds),
 		); err != nil {
 			return nil, err
 		}
@@ -623,11 +645,20 @@ func (s *Store) GetProviderSetting(id string) (*provider.Setting, error) {
 	return setting, nil
 }
 
-func (s *Store) GetProviderSettings(withSecret bool) ([]*provider.Setting, error) {
+func (s *Store) GetProviderSettings(withSecret bool, ids []string) ([]*provider.Setting, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
-	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM provider_settings")
+	values := []any{}
+
+	query := "SELECT * FROM provider_settings"
+
+	if len(ids) != 0 {
+		query += " WHERE id = ANY($1)"
+		values = append(values, pq.Array(ids))
+	}
+
+	rows, err := s.db.QueryContext(ctxTimeout, query, values...)
 	if err != nil {
 		return nil, err
 	}
@@ -697,6 +728,7 @@ func (s *Store) GetAllKeys() ([]*key.ResponseKey, error) {
 			&k.Ttl,
 			&settingId,
 			&data,
+			pq.Array(&k.SettingIds),
 		); err != nil {
 			return nil, err
 		}
@@ -790,6 +822,7 @@ func (s *Store) GetUpdatedKeys(updatedAt int64) ([]*key.ResponseKey, error) {
 			&k.Ttl,
 			&settingId,
 			&data,
+			pq.Array(&k.SettingIds),
 		); err != nil {
 			return nil, err
 		}
@@ -809,6 +842,47 @@ func (s *Store) GetUpdatedKeys(updatedAt int64) ([]*key.ResponseKey, error) {
 	}
 
 	return keys, nil
+}
+
+type NullArray struct {
+	Array []string
+	Valid bool
+}
+
+func (na *NullArray) Scan(value any) error {
+	if value == nil {
+		na.Array, na.Valid = []string{}, false
+		return nil
+	}
+
+	na.Valid = true
+	return convertAssign(&na.Array, value)
+}
+
+func convertAssign(dest, src any) error {
+	switch s := src.(type) {
+	case []string:
+		switch d := dest.(type) {
+		case *[]string:
+			if d == nil {
+				return errors.New("source is nil")
+			}
+
+			*d = s
+			return nil
+		}
+	}
+
+	return nil
+}
+
+// Value implements the driver Valuer interface.
+func (na NullArray) Value() (driver.Value, error) {
+	if !na.Valid {
+		return nil, nil
+	}
+
+	return na.Array, nil
 }
 
 func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error) {
@@ -854,6 +928,12 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 		counter++
 	}
 
+	if len(uk.SettingIds) != 0 {
+		values = append(values, sliceToSqlStringArray(uk.SettingIds))
+		fields = append(fields, fmt.Sprintf("setting_ids = $%d", counter))
+		counter++
+	}
+
 	if uk.AllowedPaths != nil {
 		data, err := json.Marshal(uk.AllowedPaths)
 		if err != nil {
@@ -887,8 +967,9 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 		&k.RateLimitOverTime,
 		&k.RateLimitUnit,
 		&k.Ttl,
-		&k.SettingId,
+		&settingId,
 		&data,
+		pq.Array(&k.SettingIds),
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, internal_errors.NewNotFoundError(fmt.Sprintf("key not found for id: %s", id))
@@ -1045,8 +1126,8 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 	}
 
 	query := `
-		INSERT INTO keys (name, created_at, updated_at, tags, revoked, key_id, key, revoked_reason, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl, setting_id, allowed_paths)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+		INSERT INTO keys (name, created_at, updated_at, tags, revoked, key_id, key, revoked_reason, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl, setting_id, allowed_paths, setting_ids)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 		RETURNING *;
 	`
 
@@ -1072,6 +1153,7 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		rk.Ttl,
 		rk.SettingId,
 		rdata,
+		sliceToSqlStringArray(rk.SettingIds),
 	}
 
 	ctxTimeout, cancel = context.WithTimeout(context.Background(), s.wt)
@@ -1098,6 +1180,7 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		&k.Ttl,
 		&settingId,
 		&data,
+		pq.Array(&k.SettingIds),
 	); err != nil {
 		return nil, err
 	}

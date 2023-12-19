@@ -506,7 +506,7 @@ func TestKey_AccessControl(t *testing.T) {
 	c, _ := parseEnvVariables()
 	db := connectToPostgreSqlDb()
 
-	defer deleteEventsTable(db)
+	// defer deleteEventsTable(db)
 
 	t.Run("when request to proxy does not have an api key", func(t *testing.T) {
 		request := &goopenai.ChatCompletionRequest{
