@@ -183,7 +183,7 @@ Fields of KeyConfiguration
 > | rateLimitOverTime | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | `string` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
 > | ttl | `string` | 2d | time to live. Available units are [`s`, `m`, `h`] |
-> | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", method: "POST"}]` | Allowed paths that can be accessed using the key. |
+> | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", "method": "POST"}]` | Allowed paths that can be accessed using the key. |
 > | settingId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This field is DEPERCATED. Use `settingIds` field instead.  |
 > | settingIds | `string` | `[98daa3ae-961d-4253-bf6a-322a32fdca3d]` | Setting ids associated with the key. |
 
@@ -709,12 +709,142 @@ This endpoint is for getting custom providers.
 Provider
 > | Field | type | example                      | description |
 > |---------------|-----------------------------------|-|-|
-> | id | `int64` | `1699933571` | Unique identifier associated with the event.  |
+> | id | `int64` | `9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb` | Unique identifier associated with the event.  |
 > | created_at | `int64` | `1699933571` | Unix timestamp for creation time.  |
 > | updated_at | `int64` | `1699933571` | Unix timestamp for update time.  |
 > | provider | `string` | `bricks`  | Unique identifier associated with the route config. |
 > | route_configs | `[]RouteConfig` | `{{ "path": "/chat/completions", "target_url": "https://api.openai.com/v1/chat/completions" }}` | Start timestamp for the requested timeseries data. |
 > | authentication_param | `string` | `apikey` | The authentication parameter required for. |
+</details>
+
+<details>
+  <summary>Create routes: <code>POST</code> <code><b>/api/routes</b></code></summary>
+
+##### Description
+This endpoint is for creating routes.
+
+##### Step Config
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | provider | required | `enum` | `azure` | Provider for the step. Can only be either `azure` or `openai`. |
+> | model | required | `string` | `gpt-3.5-turbo` | Model that the step should call. Can only be chat completion or embedding models from OpenAI or Azure OpenAI. |
+> | retries | optional | `int` | `2` | Number of retries. |
+> | params | optional | `object` | `{ deploymentId: "ada-test",apiVersion: "2022-12-01" }` | Params required for maing API requests to desired modela and provider combo. Required if the provider is `azure` |
+
+##### Cache Config
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | enabled | required | `bool` | `false` | Boolean flag indicating whether caching is enabled. |
+> | ttl | optional | `string` | `5s` | TTL for the cache. |
+
+##### Request
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | name | required | `string` | `staging-openai-azure-completion-route` | Name for the route. |
+> | path | required | `string` | `/` | Unique identifier for. |
+> | steps | required | `[]StepConfig` | `apikey` | The authentication parameter required for. |
+> | keyIds | required | `[]string` | `[]` | The authentication parameter required for. |
+> | cacheConfig | required | `CacheConfig` | `[]` | The authentication parameter required for. |
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `500, 400`        | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `400`            |
+> | title         | `string` | `request body reader error`             |
+> | type         | `string` | `/errors/request-body-read`             |
+> | detail         | `string` | `something is wrong`            |
+> | instance         | `string` | `/api/routes`           |
+
+##### Response
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | id | required | `string` | `9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb` | Unique identifier for route. |
+> | createdAt | required | `string` | `1699933571` | Creation time of the route. |
+> | updatedAt | required | `string` | `1699933571` | Update time of the route. |
+> | name | required | `string` | `staging-openai-azure-completion-route` | Name for the route. |
+> | path | required | `string` | `/production/chat/completion` | Unique path for the route. |
+> | steps | required | `[]StepConfig` | `[{"order": 0, "retries": 2, "provider": "openai", "params": {}, "model": "gpt-3.5-turbo", "timeout": "1s"}]` | List of steps configurations that details sequences of API calls. |
+> | keyIds | required | `[]string` | `["9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb"]` | List of key IDs that can be used to access the route. |
+> | cacheConfig | required | `CacheConfig` | `{ "enabled": false, "ttl": "5s" }` | The caching configurations parameter required for. |
+</details>
+
+<details>
+  <summary>Retrieve a route: <code>GET</code> <code><b>/api/routes/:id</b></code></summary>
+
+##### Description
+This endpoint is for retrieving a route.
+
+##### Parameters
+> | name   |  type      | data type      | description                                          |
+> |--------|------------|----------------|------------------------------------------------------|
+> | `id` |  required  | `string`         | Unique identifier for the route.     
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `500, 404`        | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `404`            |
+> | title         | `string` | `request body reader error`             |
+> | type         | `string` | `/errors/request-body-read`             |
+> | detail         | `string` | `something is wrong`            |
+> | instance         | `string` | `/api/routes/:id`           |
+
+##### Response
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | id | required | `string` | `9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb` | Unique identifier for route. |
+> | createdAt | required | `string` | `1699933571` | Creation time of the route. |
+> | updatedAt | required | `string` | `1699933571` | Update time of the route. |
+> | name | required | `string` | `staging-openai-azure-completion-route` | Name for the route. |
+> | path | required | `string` | `/production/chat/completion` | Unique path for the route. |
+> | steps | required | `[]StepConfig` | `[{"order": 0, "retries": 2, "provider": "openai", "params": {}, "model": "gpt-3.5-turbo", "timeout": "1s"}]` | List of steps configurations that details sequences of API calls. |
+> | keyIds | required | `[]string` | `["9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb"]` | List of key IDs that can be used to access the route. |
+> | cacheConfig | required | `CacheConfig` | `{ "enabled": false, "ttl": "5s" }` | The caching configurations parameter required for. |
+</details>
+
+<details>
+  <summary>Retrieve routes: <code>GET</code> <code><b>/api/routes</b></code></summary>
+
+##### Description
+This endpoint is for retrieving routes.
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `500`        | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `404`            |
+> | title         | `string` | `request body reader error`             |
+> | type         | `string` | `/errors/request-body-read`             |
+> | detail         | `string` | `something is wrong`            |
+> | instance         | `string` | `/api/routes/:id`           |
+
+##### RouteConfig
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | id | required | `string` | `9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb` | Unique identifier for route. |
+> | createdAt | required | `string` | `1699933571` | Creation time of the route. |
+> | updatedAt | required | `string` | `1699933571` | Update time of the route. |
+> | name | required | `string` | `staging-openai-azure-completion-route` | Name for the route. |
+> | path | required | `string` | `/production/chat/completion` | Unique path for the route. |
+> | steps | required | `[]StepConfig` | `[{"order": 0, "retries": 2, "provider": "openai", "params": {}, "model": "gpt-3.5-turbo", "timeout": "1s"}]` | List of steps configurations that details sequences of API calls. |
+> | keyIds | required | `[]string` | `["9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb"]` | List of key IDs that can be used to access the route. |
+> | cacheConfig | required | `CacheConfig` | `{ "enabled": false, "ttl": "5s" }` | The caching configurations parameter required for. |
+
+
+##### Response
+```
+[]RouteConfig
+```
 </details>
 
 ## OpenAI Proxy
@@ -1129,4 +1259,17 @@ The custom provider proxy runs on Port `8002`.
 ##### Description
 First you need to use create custom providers endpoint to create custom providers. Then create corresponding provider setting for the newly created custom provider. Afterward, you can start creating keys associated with the custom provider, and use the keys to access this endpoint by placing the created key in ```Authorization: Bearer YOUR_BRICKSLLM_KEY``` as part of your HTTP request headers.
 
+</details>
+
+## Route Proxy
+The custom provider proxy runs on Port `8002`.
+
+<details>
+  <summary>Call a route: <code>POST</code> <code><b>/api/route/*</b></code></summary>
+
+##### Description
+Route helps you interpolate different models (embeddings or chat completion models) and providers (OpenAI or Azure OpenAI) to gurantee API responses.
+
+First you need to use create route endpoint to create routes. If the route uses both Azure and OpenAI, you need to create API keys with corresponding provider settings as well. If the route is for chat completion, just call the route using the [OpenAI chat completion format](https://platform.openai.com/docs/api-reference/chat). On the other hand, if the route is for embeddings, just call the route using the [embeddings format](https://platform.openai.com/docs/api-reference/embeddings).
+ 
 </details>

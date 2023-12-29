@@ -111,6 +111,9 @@ func (as *AdminServer) Run() {
 		as.log.Info("PORT 8001 | POST  | /api/custom/providers is set up for creating a custom provider")
 		as.log.Info("PORT 8001 | GET   | /api/custom/providers is set up for retrieving all custom providers")
 		as.log.Info("PORT 8001 | PATCH | /api/custom/providers/:id is set up for updating a custom provider")
+		as.log.Info("PORT 8001 | POST  | /api/routes is set up for creating a custom route")
+		as.log.Info("PORT 8001 | GET   | /api/routes/:id is set up for retrieving a route")
+		as.log.Info("PORT 8001 | GET   | /api/routes is set up for retrieving routes")
 
 		if err := as.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			as.log.Sugar().Fatalf("error admin server listening: %v", err)
