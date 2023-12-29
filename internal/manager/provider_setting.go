@@ -21,6 +21,7 @@ type ProviderSettingsStorage interface {
 
 type ProviderSettingsMemStorage interface {
 	GetSetting(id string) *provider.Setting
+	GetSettings(ids []string) []*provider.Setting
 }
 
 type ProviderSettingsManager struct {
