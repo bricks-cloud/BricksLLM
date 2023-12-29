@@ -7,6 +7,8 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/util"
+
+	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
 )
 
 type Storage interface {
@@ -38,6 +40,20 @@ func (m *Manager) GetKeys(tags, keyIds []string, provider string) ([]*key.Respon
 	return m.s.GetKeys(tags, keyIds, provider)
 }
 
+func (m *Manager) areProviderSettingsUniqueness(settings []*provider.Setting) bool {
+	providerMap := map[string]bool{}
+
+	for _, setting := range settings {
+		if providerMap[setting.Provider] {
+			return false
+		}
+
+		providerMap[setting.Provider] = true
+	}
+
+	return true
+}
+
 func (m *Manager) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 	rk.CreatedAt = time.Now().Unix()
 	rk.UpdatedAt = time.Now().Unix()
@@ -62,6 +78,10 @@ func (m *Manager) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 
 		if len(existing) == 0 {
 			return nil, errors.New("provider settings not found")
+		}
+
+		if !m.areProviderSettingsUniqueness(existing) {
+			return nil, internal_errors.NewValidationError("key can only be assoicated with one setting per provider")
 		}
 
 	}
@@ -90,6 +110,10 @@ func (m *Manager) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, err
 
 		if len(existing) == 0 {
 			return nil, errors.New("provider settings not found")
+		}
+
+		if !m.areProviderSettingsUniqueness(existing) {
+			return nil, internal_errors.NewValidationError("key can only be assoicated with one setting per provider")
 		}
 	}
 
