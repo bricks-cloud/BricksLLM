@@ -142,7 +142,7 @@ func getGetRouteHandler(m RouteManager, log *zap.Logger, prod bool) gin.HandlerF
 				errType = "not_found"
 
 				logError(log, "route not found", prod, cid, err)
-				c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				c.JSON(http.StatusNotFound, &ErrorResponse{
 					Type:     "/errors/route-not-found",
 					Title:    "route not found error",
 					Status:   http.StatusNotFound,
