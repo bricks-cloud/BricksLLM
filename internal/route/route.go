@@ -1,12 +1,17 @@
 package route
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
+
+	goopenai "github.com/sashabaranov/go-openai"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
@@ -18,6 +23,7 @@ type CacheConfig struct {
 }
 
 type Step struct {
+	Order    int               `json:"order"`
 	Retries  int               `json:"retries"`
 	Provider string            `json:"provider"`
 	Params   map[string]string `json:"params"`
@@ -36,8 +42,32 @@ type Route struct {
 	CacheConfig *CacheConfig `json:"cacheConfig"`
 }
 
+func (r *Route) ValidateSettings(settings []*provider.Setting) bool {
+	target := map[string]bool{}
+	for _, s := range r.Steps {
+		target[s.Provider] = true
+	}
+
+	source := map[string]bool{}
+	for _, s := range settings {
+		source[s.Provider] = true
+	}
+
+	for p := range target {
+		if !source[p] {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (r *Route) ShouldRunEmbeddings() bool {
 	if len(r.Steps) == 0 {
+		return false
+	}
+
+	if r.Steps[0] == nil {
 		return false
 	}
 
@@ -54,15 +84,34 @@ func (r *Route) RunSteps(req *Request) (*Response, error) {
 	}
 
 	responses := []*http.Response{}
+	cancelFuncs := []context.CancelFunc{}
+
+	noResponses := false
 	defer func() {
 		for index, resp := range responses {
 			if index != len(responses)-1 {
-				resp.Body.Close()
+				if resp != nil {
+					resp.Body.Close()
+				}
+			}
+		}
+
+		for index, cancel := range cancelFuncs {
+			if index != len(cancelFuncs)-1 || noResponses {
+				cancel()
 			}
 		}
 	}()
 
-	for _, step := range r.Steps {
+	body, err := io.ReadAll(req.Forwarded.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var lastErr error
+	stopStep := 0
+
+	for idx, step := range r.Steps {
 		resourceName := ""
 
 		if step.Provider == "azure" {
@@ -89,56 +138,109 @@ func (r *Route) RunSteps(req *Request) (*Response, error) {
 			retries = 1
 		}
 
-		var final *http.Response
 		for retries > 0 {
 			url := buildRequestUrl(step.Provider, r.ShouldRunEmbeddings(), resourceName, step.Params)
 
+			if len(url) == 0 {
+				return nil, errors.New("only azure openai, openai chat completion and embeddings models are supported")
+			}
+
 			ctx, cancel := context.WithTimeout(context.Background(), parsed)
-			defer cancel()
-			hreq, err := http.NewRequestWithContext(ctx, req.Forwarded.Method, url, req.Forwarded.Body)
+			cancelFuncs = append(cancelFuncs, cancel)
+
+			selected := body
+
+			if step.Provider == "openai" {
+				if r.ShouldRunEmbeddings() {
+					embeddingsReq := &goopenai.EmbeddingRequest{}
+
+					err := json.Unmarshal(body, embeddingsReq)
+					if err != nil {
+						continue
+					}
+
+					embeddingsReq.Model = goopenai.AdaEmbeddingV2
+
+					selected, err = json.Marshal(embeddingsReq)
+					if err != nil {
+						continue
+					}
+				}
+
+				if !r.ShouldRunEmbeddings() {
+					completionReq := &goopenai.ChatCompletionRequest{}
+
+					err := json.Unmarshal(body, completionReq)
+					if err != nil {
+						continue
+					}
+
+					completionReq.Model = step.Model
+
+					selected, err = json.Marshal(completionReq)
+					if err != nil {
+						continue
+					}
+				}
+			}
+
+			hreq, err := http.NewRequestWithContext(ctx, req.Forwarded.Method, url, io.NopCloser(bytes.NewReader(selected)))
+			lastErr = err
+
 			if err != nil {
-				return nil, err
+				defer cancel()
+				retries -= 1
+				continue
 			}
 
 			setHttpRequestAuthHeader(step.Provider, hreq, key)
 
 			for k := range req.Forwarded.Header {
-				if !strings.HasPrefix(strings.ToLower(k), "x") {
-					hreq.Header.Set(k, req.Forwarded.Header.Get(k))
+				if strings.HasPrefix(strings.ToLower(k), "authorization") {
+					continue
 				}
+
+				if strings.HasPrefix(strings.ToLower(k), "api-key") {
+					continue
+				}
+
+				hreq.Header.Set(k, req.Forwarded.Header.Get(k))
 			}
 
 			res, err := req.Client.Do(hreq)
-			if err != nil {
-				return nil, err
-			}
+			lastErr = err
+			stopStep = idx
 
-			responses = append(responses, res)
-			final = res
+			if err != nil {
+				retries -= 1
+				continue
+			}
 
 			if res.StatusCode != http.StatusOK {
 				retries -= 1
 				continue
 			}
+
+			responses = append(responses, res)
+
 			break
 		}
+	}
 
-		if final.StatusCode == http.StatusOK {
-			return &Response{
-				Response: final,
-				Provider: step.Provider,
-				Model:    step.Model,
-			}, nil
-		}
+	if errors.Is(lastErr, context.DeadlineExceeded) {
+		return nil, lastErr
 	}
 
 	if len(responses) >= 1 {
 		return &Response{
 			Response: responses[len(responses)-1],
-			Provider: r.Steps[len(r.Steps)-1].Provider,
-			Model:    r.Steps[len(r.Steps)-1].Model,
+			Cancel:   cancelFuncs[len(cancelFuncs)-1],
+			Provider: r.Steps[stopStep].Provider,
+			Model:    r.Steps[stopStep].Model,
 		}, nil
 	}
+
+	noResponses = true
 
 	return nil, errors.New("no responses")
 }
@@ -168,6 +270,7 @@ func (r *Request) GetSettingValue(provider string, param string) (string, error)
 type Response struct {
 	Provider string
 	Model    string
+	Cancel   context.CancelFunc
 	Response *http.Response
 }
 
