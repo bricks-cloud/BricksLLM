@@ -233,3 +233,18 @@ type ResponseKey struct {
 	AllowedPaths           []PathConfig `json:"allowedPaths"`
 	SettingIds             []string     `json:"settingIds"`
 }
+
+func (rk *ResponseKey) GetSettingIds() []string {
+	settingIds := []string{}
+	if len(rk.SettingId) != 0 {
+		settingIds = append(settingIds, rk.SettingId)
+	}
+
+	for _, settingId := range rk.SettingIds {
+		if len(settingId) != 0 {
+			settingIds = append(settingIds, settingId)
+		}
+	}
+
+	return settingIds
+}
