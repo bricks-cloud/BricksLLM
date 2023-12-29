@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	auth "github.com/bricks-cloud/bricksllm/internal/authenticator"
 	"github.com/bricks-cloud/bricksllm/internal/config"
 	"github.com/bricks-cloud/bricksllm/internal/encrypter"
 	logger "github.com/bricks-cloud/bricksllm/internal/logger/zap"
@@ -63,6 +64,11 @@ func main() {
 		log.Sugar().Fatalf("error creating custom providers table: %v", err)
 	}
 
+	err = store.CreateRoutesTable()
+	if err != nil {
+		log.Sugar().Fatalf("error creating routes table: %v", err)
+	}
+
 	err = store.CreateKeysTable()
 	if err != nil {
 		log.Sugar().Fatalf("error creating keys table: %v", err)
@@ -111,6 +117,12 @@ func main() {
 	}
 	cpMemStore.Listen()
 
+	rMemStore, err := memdb.NewRoutesMemDb(store, log, cfg.InMemoryDbUpdateInterval)
+	if err != nil {
+		log.Sugar().Fatalf("cannot initialize routes memdb: %v", err)
+	}
+	rMemStore.Listen()
+
 	rateLimitRedisCache := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
 		Password: cfg.RedisPassword,
@@ -155,8 +167,9 @@ func main() {
 	krm := manager.NewReportingManager(costStorage, store, store)
 	psm := manager.NewProviderSettingsManager(store, psMemStore)
 	cpm := manager.NewCustomProvidersManager(store, cpMemStore)
+	rm := manager.NewRouteManager(store, store, rMemStore, psMemStore)
 
-	as, err := admin.NewAdminServer(log, *modePtr, m, krm, psm, cpm)
+	as, err := admin.NewAdminServer(log, *modePtr, m, krm, psm, cpm, rm)
 	if err != nil {
 		log.Sugar().Fatalf("error creating admin http server: %v", err)
 	}
@@ -175,10 +188,11 @@ func main() {
 	v := validator.NewValidator(costLimitCache, rateLimitCache, costStorage)
 	rec := recorder.NewRecorder(costStorage, costLimitCache, ce, store)
 	rlm := manager.NewRateLimitManager(rateLimitCache)
+	a := auth.NewAuthenticator(psm, memStore, rm, e)
 
 	aoe := azure.NewCostEstimator()
 
-	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, m, psm, cpm, store, memStore, ce, ae, aoe, v, rec, cfg.OpenAiKey, e, rlm, cfg.ProxyTimeout)
+	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, m, rm, a, psm, cpm, store, memStore, ce, ae, aoe, v, rec, rlm, cfg.ProxyTimeout)
 	if err != nil {
 		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}
@@ -230,6 +244,11 @@ func main() {
 	err = store.DropProviderSettingsTable()
 	if err != nil {
 		log.Sugar().Fatalf("error dropping provider settings table: %v", err)
+	}
+
+	err = store.DropRoutesTable()
+	if err != nil {
+		log.Sugar().Fatalf("error dropping routes table: %v", err)
 	}
 
 	log.Sugar().Infof("server exited")

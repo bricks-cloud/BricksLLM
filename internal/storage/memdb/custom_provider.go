@@ -101,7 +101,7 @@ func (mdb *CustomProvidersMemDb) Listen() {
 				if err != nil {
 					stats.Incr("bricksllm.memdb.custom_proivders_memdb.listen.get_updated_custom_providers_error", nil, 1)
 
-					mdb.log.Sugar().Debugf("memdb failed to update keys: %v", err)
+					mdb.log.Sugar().Debugf("memdb failed to update custom providers: %v", err)
 					continue
 				}
 

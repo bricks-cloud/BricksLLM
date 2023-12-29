@@ -26,7 +26,7 @@ curl -X PUT http://localhost:8001/api/key-management/keys \
 	      "name": "My Secret Key",
 	      "key": "my-secret-key",
 	      "tags": ["mykey"],
-        "settingId": "ID_FROM_STEP_FOUR",
+        "settingIds": ["ID_FROM_STEP_ONE"],
         "rateLimitOverTime": 2,
         "rateLimitUnit": "m",
         "costLimitInUsd": 0.25,

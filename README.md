@@ -64,7 +64,7 @@ curl -X PUT http://localhost:8001/api/key-management/keys \
 	      "name": "My Secret Key",
 	      "key": "my-secret-key",
 	      "tags": ["mykey"],
-        "settingId": "ID_FROM_STEP_FOUR",
+        "settingIds": ["ID_FROM_STEP_FOUR"],
         "rateLimitOverTime": 2,
         "rateLimitUnit": "m",
         "costLimitInUsd": 0.25
@@ -143,9 +143,9 @@ This endpoint is set up for retrieving key configurations using a query param ca
 
 > | name   |  type      | data type      | description                                          |
 > |--------|------------|----------------|------------------------------------------------------|
-> | `tag` |  optional   | string         | Identifier attached to a key configuration                  |
-> | `tags` |  optional  | array of string         | Identifiers attached to a key configuration                  |
-> | `provider` |  optional  | string         | Provider attached to a key provider configuration. Its value can only be `openai`.                 |
+> | `tag` |  optional   | `string`         | Identifier attached to a key configuration                  |
+> | `tags` |  optional  | `[]string`         | Identifiers attached to a key configuration                  |
+> | `provider` |  optional  | `string`         | Provider attached to a key provider configuration. Its value can only be `openai`.                 |
 
 ##### Error Response
 
@@ -183,6 +183,9 @@ Fields of KeyConfiguration
 > | rateLimitOverTime | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | `string` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
 > | ttl | `string` | 2d | time to live. Available units are [`s`, `m`, `h`] |
+> | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", "method": "POST"}]` | Allowed paths that can be accessed using the key. |
+> | settingId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This field is DEPERCATED. Use `settingIds` field instead.  |
+> | settingIds | `string` | `[98daa3ae-961d-4253-bf6a-322a32fdca3d]` | Setting ids associated with the key. |
 
 </details>
 
@@ -207,15 +210,16 @@ PathConfig
 > |---------------|-----------------------------------|-|-|-|
 > | name | required | `string` | spike's developer key | Name of the API key. |
 > | tags | optional | `[]string` | `["org-tag-12345"] `            | Identifiers associated with the key. |
-> | key | required | `string` | abcdef12345 | API key |
-> | settingId | required | `string` | 98daa3ae-961d-4253-bf6a-322a32fdca3d | API key |
+> | key | required | `string` | abcdef12345 | API key. |
+> | settingId | depercated | `string` | 98daa3ae-961d-4253-bf6a-322a32fdca3d | This field is DEPERCATED. Use `settingIds` field instead.  |
+> | settingIds | required | `string` | 98daa3ae-961d-4253-bf6a-322a32fdca3d | Setting ids associated with the key. |
 > | costLimitInUsd | optional | `float64` | `5.5` | Total spend limit of the API key.
-> | costLimitInUsdOverTime | optional | `float64` | `2` | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
+> | costLimitInUsdOverTime | optional | `float64` | `2` | Total spend within period of time. This field is required if `costLimitInUsdUnit` is specified.   |
 > | costLimitInUsdUnit | optional | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`m`, `h`, `d`, `mo`].      |
 > | rateLimitOverTime | optional | `int` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | optional | `enum` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
-> | ttl | optional | `string` | 2d | time to live. Available units are [`s`, `m`, `h`] |
-> | allowedPaths | optional | `[]PathConfig` | 2d | Pathes allowed for access |
+> | ttl | optional | `string` | 2d | time to live. Available units are [`s`, `m`, `h`]. |
+> | allowedPaths | optional | `[]PathConfig` | 2d | Pathes allowed for access. |
 
 
 ##### Error Response
@@ -250,6 +254,8 @@ PathConfig
 > | rateLimitUnit | `string` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`].       |
 > | ttl | `string` | 2d | time to live. Available units are [`s`, `m`, `h`] |
 > | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", method: "POST"}]` | Allowed paths that can be accessed using the key. |
+> | settingId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This field is DEPERCATED. Use `settingIds` field instead.  |
+> | settingIds | `string` | `[98daa3ae-961d-4253-bf6a-322a32fdca3d]` | Setting ids associated with the key. |
 
 </details>
 
@@ -275,6 +281,8 @@ PathConfig
 
 > | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
+> | settingId | optional | `string` | 98daa3ae-961d-4253-bf6a-322a32fdca3d | This field is DEPERCATED. Use `settingIds` field instead.  |
+> | settingIds | optional | `string` | 98daa3ae-961d-4253-bf6a-322a32fdca3d | Setting ids associated with the key. |
 > | name | optional | `string` | spike's developer key | Name of the API key. |
 > | tags | optional | `[]string` | `["org-tag-12345"]`             | Identifiers associated with the key. |
 > | revoked | optional |  `boolean` | `true` | Indicator for whether the key is revoked.  |
@@ -307,11 +315,13 @@ PathConfig
 > | keyId | `string` | 550e8400-e29b-41d4-a716-446655440000 | Unique identifier for the key.  |
 > | costLimitInUsd | `float64` | `5.5` | Total spend limit of the API key.
 > | costLimitInUsdOverTime | `float64` | `2` | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
-> | costLimitInUsdUnit | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`m`, `h`, `d`, `mo`].      |
+> | costLimitInUsdUnit | `enum` | `d`                       | Time unit for costLimitInUsdOverTime. Possible values are [`m`, `h`, `d`, `mo`].      |
 > | rateLimitOverTime | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
-> | rateLimitUnit | `string` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
-> | ttl | `string` | 2d | time to live. Available units are [`s`, `m`, `h`] |
+> | rateLimitUnit | `string` | `m`                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+> | ttl | `string` | `2d` | time to live. Available units are [`s`, `m`, `h`] |
 > | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", method: "POST"}]` | Allowed paths that can be accessed using the key. |
+> | settingId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This field is DEPERCATED. Use `settingIds` field instead.  |
+> | settingIds | `string` | `[98daa3ae-961d-4253-bf6a-322a32fdca3d]` | Setting ids associated with the key. |
 
 </details>
 
@@ -355,23 +365,23 @@ This endpoint is creating a provider setting.
 > | createdAt | `int64` | `1699933571` | Unix timestamp for creation time.  |
 > | updatedAt | `int64` | `1699933571` | Unix timestamp for update time. |
 > | provider | `enum` | `openai` | This value can only be `openai` as for now. |
-> | id | `string` | 98daa3ae-961d-4253-bf6a-322a32fdca3d | This value is a unique identifier. |
-> | name | `string` | YOUR_PROVIDER_SETTING_NAME | Provider setting name. |
+> | id | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This value is a unique identifier. |
+> | name | `string` | `YOUR_PROVIDER_SETTING_NAME` | Provider setting name. |
 > | allowedModels | `[]string` | `["text-embedding-ada-002"]` | Allowed models for this provider setting. |
 
 </details>
 
 
 <details>
-  <summary>Get all provider settings: <code>GET</code> <code><b>/api/provider-settings</b></code></summary>
+  <summary>Get provider settings: <code>GET</code> <code><b>/api/provider-settings</b></code></summary>
 
 ##### Description
-This endpoint is getting all provider settings.
+This endpoint is getting provider settings.
 
-##### Request
-> | Field | type | type | example                      | description |
-> |---------------|-----------------------------------|-|-|-|
-
+##### Query Parameters
+> | name   |  type      | data type      | description                                          |
+> |--------|------------|----------------|------------------------------------------------------|
+> | `ids` |  optional   | `[]string`         | Provider setting ids                 |
 
 ##### Error Response
 > | http code     | content-type                      |
@@ -397,8 +407,8 @@ ProviderSetting
 > | createdAt | `int64` | `1699933571` | Unix timestamp for creation time.  |
 > | updatedAt | `int64` | `1699933571` | Unix timestamp for update time. |
 > | provider | `enum` | `openai` | This value can only be `openai` as for now. |
-> | id | `string` | 98daa3ae-961d-4253-bf6a-322a32fdca3d | This value is a unique identifier. |
-> | name | `string` | YOUR_PROVIDER_SETTING_NAME | Provider setting name. |
+> | id | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This value is a unique identifier. |
+> | name | `string` | `YOUR_PROVIDER_SETTING_NAME` | Provider setting name. |
 > | allowedModels | `[]string` | `["text-embedding-ada-002"]` | Allowed models for this provider setting. |
 
 </details>
@@ -418,7 +428,7 @@ This endpoint is updating a provider setting .
 > | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | setting | required | `Setting` | `{ "apikey": "YOUR_OPENAI_KEY" }`            | A map of values used for authenticating with the selected provider. |
-> | name | optional | `string` | YOUR_PROVIDER_SETTING_NAME | This field is used for giving a name to provider setting |
+> | name | optional | `string` | `YOUR_PROVIDER_SETTING_NAME` | This field is used for giving a name to provider setting |
 > | allowedModels | `[]string` | `["text-embedding-ada-002"]` | Allowed models for this provider setting. |
 
 ```Setting```
@@ -426,7 +436,6 @@ This endpoint is updating a provider setting .
 > |---------------|-----------------------------------|-|-|-|
 > | apiKey | required | `string` | `xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`  | This value is required. |
 > | resourceName | required | `string` | `YOUR_AZURE_RESOURCE_NAME`            | This value is required when the provider is `azure`. |
-> | deploymentId | required | `string` | `YOUR_DEPLOYMENT_ID`            | This value is required when the provider is `azure`. |
 
 
 ##### Error Response
@@ -449,7 +458,7 @@ This endpoint is updating a provider setting .
 > | updatedAt | `int64` | `1699933571` | Unix timestamp for update time. |
 > | provider | `enum` | `openai` | This value can only be `openai` as for now. |
 > | id | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This value is a unique identifier |
-> | name | `string` | YOUR_PROVIDER_SETTING_NAME | Provider setting name. |
+> | name | `string` | `YOUR_PROVIDER_SETTING_NAME` | Provider setting name. |
 > | allowedModels | `[]string` | `["text-embedding-ada-002"]` | Allowed models for this provider setting. |
 
 </details>
@@ -539,17 +548,17 @@ Event
 > | id | `int64` | `1699933571` | Unique identifier associated with the event.  |
 > | created_at | `int64` | `1699933571` | Unix timestamp for creation time.  |
 > | tags | `int64` | `["YOUR_TAG"]` | Tags of the key. |
-> | key_id | `string` | YOUR_KEY_ID | Key Id associated with the proxy request. |
-> | cost_in_usd | `float64` | 0.0004 | Cost incured by the proxy request. |
-> | model | `string` | gpt-4-1105-preview | Model used in the proxy request. |
+> | key_id | `string` | `YOUR_KEY_ID` | Key Id associated with the proxy request. |
+> | cost_in_usd | `float64` | `0.0004` | Cost incured by the proxy request. |
+> | model | `string` | `gpt-4-1105-preview` | Model used in the proxy request. |
 > | provider | `string` | `openai` | Provider for the proxy request. |
 > | status | `int` | `200` | Http status. |
 > | prompt_token_count | `int` | `8` | Prompt token count of the proxy request. |
 > | completion_token_count | `int` | `16` | Completion token counts of the proxy request. |
 > | latency_in_ms | `int` | `160` | Provider setting name. |
-> | path | `string` | /api/v1/chat/completion | Provider setting name. |
-> | method | `string` | POST | Http method for the assoicated proxu request. |
-> | custom_id | `string` | YOUR_CUSTOM_ID | Custom Id passed by the user in the headers of proxy requests. |
+> | path | `string` | `/api/v1/chat/completion` | Provider setting name. |
+> | method | `string` | `POST` | Http method for the assoicated proxu request. |
+> | custom_id | `string` | `YOUR_CUSTOM_ID` | Custom Id passed by the user in the headers of proxy requests. |
 </details>
 
 <details>
@@ -700,12 +709,142 @@ This endpoint is for getting custom providers.
 Provider
 > | Field | type | example                      | description |
 > |---------------|-----------------------------------|-|-|
-> | id | `int64` | `1699933571` | Unique identifier associated with the event.  |
+> | id | `int64` | `9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb` | Unique identifier associated with the event.  |
 > | created_at | `int64` | `1699933571` | Unix timestamp for creation time.  |
 > | updated_at | `int64` | `1699933571` | Unix timestamp for update time.  |
 > | provider | `string` | `bricks`  | Unique identifier associated with the route config. |
 > | route_configs | `[]RouteConfig` | `{{ "path": "/chat/completions", "target_url": "https://api.openai.com/v1/chat/completions" }}` | Start timestamp for the requested timeseries data. |
 > | authentication_param | `string` | `apikey` | The authentication parameter required for. |
+</details>
+
+<details>
+  <summary>Create routes: <code>POST</code> <code><b>/api/routes</b></code></summary>
+
+##### Description
+This endpoint is for creating routes.
+
+##### Step Config
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | provider | required | `enum` | `azure` | Provider for the step. Can only be either `azure` or `openai`. |
+> | model | required | `string` | `gpt-3.5-turbo` | Model that the step should call. Can only be chat completion or embedding models from OpenAI or Azure OpenAI. |
+> | retries | optional | `int` | `2` | Number of retries. |
+> | params | optional | `object` | `{ deploymentId: "ada-test",apiVersion: "2022-12-01" }` | Params required for maing API requests to desired modela and provider combo. Required if the provider is `azure` |
+
+##### Cache Config
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | enabled | required | `bool` | `false` | Boolean flag indicating whether caching is enabled. |
+> | ttl | optional | `string` | `5s` | TTL for the cache. |
+
+##### Request
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | name | required | `string` | `staging-openai-azure-completion-route` | Name for the route. |
+> | path | required | `string` | `/` | Unique identifier for. |
+> | steps | required | `[]StepConfig` | `apikey` | The authentication parameter required for. |
+> | keyIds | required | `[]string` | `[]` | The authentication parameter required for. |
+> | cacheConfig | required | `CacheConfig` | `[]` | The authentication parameter required for. |
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `500, 400`        | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `400`            |
+> | title         | `string` | `request body reader error`             |
+> | type         | `string` | `/errors/request-body-read`             |
+> | detail         | `string` | `something is wrong`            |
+> | instance         | `string` | `/api/routes`           |
+
+##### Response
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | id | required | `string` | `9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb` | Unique identifier for route. |
+> | createdAt | required | `string` | `1699933571` | Creation time of the route. |
+> | updatedAt | required | `string` | `1699933571` | Update time of the route. |
+> | name | required | `string` | `staging-openai-azure-completion-route` | Name for the route. |
+> | path | required | `string` | `/production/chat/completion` | Unique path for the route. |
+> | steps | required | `[]StepConfig` | `[{"order": 0, "retries": 2, "provider": "openai", "params": {}, "model": "gpt-3.5-turbo", "timeout": "1s"}]` | List of steps configurations that details sequences of API calls. |
+> | keyIds | required | `[]string` | `["9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb"]` | List of key IDs that can be used to access the route. |
+> | cacheConfig | required | `CacheConfig` | `{ "enabled": false, "ttl": "5s" }` | The caching configurations parameter required for. |
+</details>
+
+<details>
+  <summary>Retrieve a route: <code>GET</code> <code><b>/api/routes/:id</b></code></summary>
+
+##### Description
+This endpoint is for retrieving a route.
+
+##### Parameters
+> | name   |  type      | data type      | description                                          |
+> |--------|------------|----------------|------------------------------------------------------|
+> | `id` |  required  | `string`         | Unique identifier for the route.     
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `500, 404`        | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `404`            |
+> | title         | `string` | `request body reader error`             |
+> | type         | `string` | `/errors/request-body-read`             |
+> | detail         | `string` | `something is wrong`            |
+> | instance         | `string` | `/api/routes/:id`           |
+
+##### Response
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | id | required | `string` | `9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb` | Unique identifier for route. |
+> | createdAt | required | `string` | `1699933571` | Creation time of the route. |
+> | updatedAt | required | `string` | `1699933571` | Update time of the route. |
+> | name | required | `string` | `staging-openai-azure-completion-route` | Name for the route. |
+> | path | required | `string` | `/production/chat/completion` | Unique path for the route. |
+> | steps | required | `[]StepConfig` | `[{"order": 0, "retries": 2, "provider": "openai", "params": {}, "model": "gpt-3.5-turbo", "timeout": "1s"}]` | List of steps configurations that details sequences of API calls. |
+> | keyIds | required | `[]string` | `["9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb"]` | List of key IDs that can be used to access the route. |
+> | cacheConfig | required | `CacheConfig` | `{ "enabled": false, "ttl": "5s" }` | The caching configurations parameter required for. |
+</details>
+
+<details>
+  <summary>Retrieve routes: <code>GET</code> <code><b>/api/routes</b></code></summary>
+
+##### Description
+This endpoint is for retrieving routes.
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `500`        | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `404`            |
+> | title         | `string` | `request body reader error`             |
+> | type         | `string` | `/errors/request-body-read`             |
+> | detail         | `string` | `something is wrong`            |
+> | instance         | `string` | `/api/routes/:id`           |
+
+##### RouteConfig
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | id | required | `string` | `9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb` | Unique identifier for route. |
+> | createdAt | required | `string` | `1699933571` | Creation time of the route. |
+> | updatedAt | required | `string` | `1699933571` | Update time of the route. |
+> | name | required | `string` | `staging-openai-azure-completion-route` | Name for the route. |
+> | path | required | `string` | `/production/chat/completion` | Unique path for the route. |
+> | steps | required | `[]StepConfig` | `[{"order": 0, "retries": 2, "provider": "openai", "params": {}, "model": "gpt-3.5-turbo", "timeout": "1s"}]` | List of steps configurations that details sequences of API calls. |
+> | keyIds | required | `[]string` | `["9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb"]` | List of key IDs that can be used to access the route. |
+> | cacheConfig | required | `CacheConfig` | `{ "enabled": false, "ttl": "5s" }` | The caching configurations parameter required for. |
+
+
+##### Response
+```
+[]RouteConfig
+```
 </details>
 
 ## OpenAI Proxy
@@ -1084,7 +1223,7 @@ This endpoint is set up for listing OpenAI run steps. Documentation for this end
 The custom provider proxy runs on Port `8002`.
 
 <details>
-  <summary>Create Azure OpenAI chat completion: <code>POST</code> <code><b>/api/providers/azure/openai/deployments/:deploymentId/chat/completions?api-version={API_VERSION}</b></code></summary>
+  <summary>Create Azure OpenAI chat completion: <code>POST</code> <code><b>/api/providers/azure/openai/deployments/:deployment_id/chat/completions?api-version={API_VERSION}</b></code></summary>
 
 ##### Description
 This endpoint is set up for proxying Anthropic completion requests. Documentation for this endpoint can be found [here](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference).
@@ -1092,7 +1231,7 @@ This endpoint is set up for proxying Anthropic completion requests. Documentatio
 </details>
 
 <details>
-  <summary>Create Azure OpenAI embeddings: <code>POST</code> <code><b>/api/providers/azure/openai/deployments/:deploymentId/embeddings?api-version={API_VERSION}</b></code></summary>
+  <summary>Create Azure OpenAI embeddings: <code>POST</code> <code><b>/api/providers/azure/openai/deployments/:deployment_id/embeddings?api-version={API_VERSION}</b></code></summary>
 
 ##### Description
 This endpoint is set up for proxying Azure OpenAI completion requests. Documentation for this endpoint can be found [here](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference).
@@ -1120,4 +1259,17 @@ The custom provider proxy runs on Port `8002`.
 ##### Description
 First you need to use create custom providers endpoint to create custom providers. Then create corresponding provider setting for the newly created custom provider. Afterward, you can start creating keys associated with the custom provider, and use the keys to access this endpoint by placing the created key in ```Authorization: Bearer YOUR_BRICKSLLM_KEY``` as part of your HTTP request headers.
 
+</details>
+
+## Route Proxy
+The custom provider proxy runs on Port `8002`.
+
+<details>
+  <summary>Call a route: <code>POST</code> <code><b>/api/route/*</b></code></summary>
+
+##### Description
+Route helps you interpolate different models (embeddings or chat completion models) and providers (OpenAI or Azure OpenAI) to gurantee API responses.
+
+First you need to use create route endpoint to create routes. If the route uses both Azure and OpenAI, you need to create API keys with corresponding provider settings as well. If the route is for chat completion, just call the route using the [OpenAI chat completion format](https://platform.openai.com/docs/api-reference/chat). On the other hand, if the route is for embeddings, just call the route using the [embeddings format](https://platform.openai.com/docs/api-reference/embeddings).
+ 
 </details>

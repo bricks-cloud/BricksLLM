@@ -10,6 +10,10 @@ type Setting struct {
 	AllowedModels []string          `json:"allowedModels"`
 }
 
+func (s *Setting) GetParam(key string) string {
+	return s.Setting[key]
+}
+
 type UpdateSetting struct {
 	UpdatedAt     int64             `json:"updatedAt"`
 	Setting       map[string]string `json:"setting,omitempty"`

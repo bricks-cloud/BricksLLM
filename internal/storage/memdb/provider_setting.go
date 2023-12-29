@@ -10,7 +10,7 @@ import (
 )
 
 type ProviderSettingsStorage interface {
-	GetProviderSettings(withSecret bool) ([]*provider.Setting, error)
+	GetProviderSettings(withSecret bool, ids []string) ([]*provider.Setting, error)
 	GetUpdatedProviderSettings(updatedAt int64) ([]*provider.Setting, error)
 }
 
@@ -26,7 +26,7 @@ type ProviderSettingsMemDb struct {
 
 func NewProviderSettingsMemDb(ex ProviderSettingsStorage, log *zap.Logger, interval time.Duration) (*ProviderSettingsMemDb, error) {
 	m := map[string]*provider.Setting{}
-	settings, err := ex.GetProviderSettings(true)
+	settings, err := ex.GetProviderSettings(true, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -64,6 +64,19 @@ func (mdb *ProviderSettingsMemDb) GetSetting(k string) *provider.Setting {
 	return nil
 }
 
+func (mdb *ProviderSettingsMemDb) GetSettings(ks []string) []*provider.Setting {
+	result := []*provider.Setting{}
+
+	for _, k := range ks {
+		v, ok := mdb.settings[k]
+		if ok {
+			result = append(result, v)
+		}
+	}
+
+	return result
+}
+
 func (mdb *ProviderSettingsMemDb) SetSetting(s *provider.Setting) {
 	mdb.lock.RLock()
 	defer mdb.lock.RUnlock()
@@ -94,7 +107,7 @@ func (mdb *ProviderSettingsMemDb) Listen() {
 				if err != nil {
 					stats.Incr("bricksllm.memdb.provider_settings_memdb.listen.get_updated_provider_settings_err", nil, 1)
 
-					mdb.log.Sugar().Debugf("provider settings memdb failed to update a provider setting: %v", err)
+					mdb.log.Sugar().Debugf("provider settings memdb failed to update provider settings: %v", err)
 					continue
 				}
 

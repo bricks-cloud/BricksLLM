@@ -9,10 +9,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
-	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/gin-gonic/gin"
@@ -66,23 +64,7 @@ func getCustomProviderHandler(prod, private bool, psm ProviderSettingsManager, c
 			return
 		}
 
-		raw, exists := c.Get("key")
-		kc, ok := raw.(*key.ResponseKey)
-		if !exists || !ok {
-			stats.Incr("bricksllm.proxy.get_custom_provider_handler.api_key_not_registered", tags, 1)
-			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
-			return
-		}
-
-		raw, exists = c.Get("provider")
-		cp, ok := raw.(*custom.Provider)
-		if !exists || !ok {
-			stats.Incr("bricksllm.proxy.get_custom_provider_handler.provider_not_found", tags, 1)
-			JSON(c, http.StatusNotFound, "[BricksLLM] requested custom provider is not found")
-			return
-		}
-
-		raw, exists = c.Get("route_config")
+		raw, exists := c.Get("route_config")
 		rc, ok := raw.(*custom.RouteConfig)
 		if !exists || !ok {
 			stats.Incr("bricksllm.proxy.get_custom_provider_handler.route_config_not_found", tags, 1)
@@ -107,19 +89,7 @@ func getCustomProviderHandler(prod, private bool, psm ProviderSettingsManager, c
 			return
 		}
 
-		for k := range c.Request.Header {
-			if !strings.HasPrefix(strings.ToLower(k), "x") {
-				req.Header.Set(k, c.Request.Header.Get(k))
-			}
-		}
-
-		err = setAuthenticationHeader(psm, req, kc.SettingId, cp.AuthenticationParam)
-		if err != nil {
-			stats.Incr("bricksllm.proxy.get_pass_through_handler.set_authentication_header_error", tags, 1)
-			logError(log, "error when setting http request authentication header", prod, cid, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] error when setting authentication header")
-			return
-		}
+		copyHttpHeaders(c.Request, req)
 
 		isStreaming := c.GetBool("stream")
 		if isStreaming {

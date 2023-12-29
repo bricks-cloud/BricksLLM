@@ -16,11 +16,12 @@ type ProviderSettingsStorage interface {
 	CreateProviderSetting(setting *provider.Setting) (*provider.Setting, error)
 	GetProviderSetting(id string) (*provider.Setting, error)
 	GetCustomProviderByName(name string) (*custom.Provider, error)
-	GetProviderSettings(withSecret bool) ([]*provider.Setting, error)
+	GetProviderSettings(withSecret bool, ids []string) ([]*provider.Setting, error)
 }
 
 type ProviderSettingsMemStorage interface {
 	GetSetting(id string) *provider.Setting
+	GetSettings(ids []string) []*provider.Setting
 }
 
 type ProviderSettingsManager struct {
@@ -137,8 +138,8 @@ func (m *ProviderSettingsManager) GetSetting(id string) (*provider.Setting, erro
 	return setting, nil
 }
 
-func (m *ProviderSettingsManager) GetSettings() ([]*provider.Setting, error) {
-	settings, err := m.Storage.GetProviderSettings(false)
+func (m *ProviderSettingsManager) GetSettings(ids []string) ([]*provider.Setting, error) {
+	settings, err := m.Storage.GetProviderSettings(false, ids)
 	if err != nil {
 		return nil, internal_errors.NewNotFoundError("provider setting is not found")
 	}

@@ -1,6 +1,7 @@
 package key
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -15,11 +16,16 @@ type UpdateKey struct {
 	Revoked       *bool         `json:"revoked"`
 	RevokedReason string        `json:"revokedReason"`
 	SettingId     string        `json:"settingId"`
+	SettingIds    []string      `json:"settingIds"`
 	AllowedPaths  *[]PathConfig `json:"allowedPaths,omitempty"`
 }
 
 func (uk *UpdateKey) Validate() error {
 	invalid := []string{}
+
+	if len(uk.SettingId) != 0 && len(uk.SettingIds) != 0 {
+		return errors.New("either settingId or settingIds")
+	}
 
 	for _, tag := range uk.Tags {
 		if len(tag) == 0 {
@@ -30,6 +36,14 @@ func (uk *UpdateKey) Validate() error {
 
 	if uk.UpdatedAt <= 0 {
 		invalid = append(invalid, "updatedAt")
+	}
+
+	if len(uk.SettingIds) != 0 {
+		for index, id := range uk.SettingIds {
+			if len(id) == 0 {
+				invalid = append(invalid, fmt.Sprintf("settingIds.[%d]", index))
+			}
+		}
 	}
 
 	if uk.AllowedPaths != nil {
@@ -73,10 +87,19 @@ type RequestKey struct {
 	Ttl                    string       `json:"ttl"`
 	SettingId              string       `json:"settingId"`
 	AllowedPaths           []PathConfig `json:"allowedPaths"`
+	SettingIds             []string     `json:"settingIds"`
 }
 
 func (rk *RequestKey) Validate() error {
 	invalid := []string{}
+
+	if len(rk.SettingId) == 0 && len(rk.SettingIds) == 0 {
+		return errors.New("settingId is not set in either setting_id or setting_ids field")
+	}
+
+	if len(rk.SettingId) != 0 && len(rk.SettingIds) != 0 {
+		return errors.New("either settingId or settingIds")
+	}
 
 	for _, tag := range rk.Tags {
 		if len(tag) == 0 {
@@ -105,8 +128,12 @@ func (rk *RequestKey) Validate() error {
 		invalid = append(invalid, "keyId")
 	}
 
-	if len(rk.SettingId) == 0 {
-		invalid = append(invalid, "settingId")
+	if len(rk.SettingIds) != 0 {
+		for index, id := range rk.SettingIds {
+			if len(id) == 0 {
+				invalid = append(invalid, fmt.Sprintf("settingIds.[%d]", index))
+			}
+		}
 	}
 
 	if rk.CostLimitInUsd < 0 {
@@ -204,4 +231,20 @@ type ResponseKey struct {
 	Ttl                    string       `json:"ttl"`
 	SettingId              string       `json:"settingId"`
 	AllowedPaths           []PathConfig `json:"allowedPaths"`
+	SettingIds             []string     `json:"settingIds"`
+}
+
+func (rk *ResponseKey) GetSettingIds() []string {
+	settingIds := []string{}
+	if len(rk.SettingId) != 0 {
+		settingIds = append(settingIds, rk.SettingId)
+	}
+
+	for _, settingId := range rk.SettingIds {
+		if len(settingId) != 0 {
+			settingIds = append(settingIds, settingId)
+		}
+	}
+
+	return settingIds
 }
