@@ -10,7 +10,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
@@ -56,12 +55,12 @@ type CustomProvidersManager interface {
 	GetCustomProviderFromMem(name string) *custom.Provider
 }
 
-func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, kms keyMemStorage, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, r recorder, credential string, enc encrypter, rlm rateLimitManager, timeOut time.Duration) (*ProxyServer, error) {
+func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, rm routeManager, a authenticator, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, kms keyMemStorage, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, r recorder, rlm rateLimitManager, timeOut time.Duration) (*ProxyServer, error) {
 	router := gin.New()
 	prod := mode == "production"
 	private := privacyMode == "strict"
 
-	router.Use(getMiddleware(kms, cpm, psm, prod, private, e, ae, aoe, v, ks, log, enc, rlm, r, "proxy"))
+	router.Use(getMiddleware(kms, cpm, rm, a, prod, private, e, ae, aoe, v, ks, log, rlm, r, "proxy"))
 
 	client := http.Client{}
 
@@ -69,88 +68,88 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, psm
 	router.POST("/api/health", getGetHealthCheckHandler())
 
 	// audios
-	router.POST("/api/providers/openai/v1/audio/speech", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/audio/transcriptions", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/audio/translations", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/audio/speech", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/audio/transcriptions", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/audio/translations", getPassThroughHandler(r, prod, private, client, log, timeOut))
 
 	// completions
-	router.POST("/api/providers/openai/v1/chat/completions", getChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+	router.POST("/api/providers/openai/v1/chat/completions", getChatCompletionHandler(r, prod, private, psm, client, kms, log, e, timeOut))
 
 	// embeddings
-	router.POST("/api/providers/openai/v1/embeddings", getEmbeddingHandler(r, prod, private, psm, client, kms, log, enc, e, timeOut))
+	router.POST("/api/providers/openai/v1/embeddings", getEmbeddingHandler(r, prod, private, psm, client, kms, log, e, timeOut))
 
 	// moderations
-	router.POST("/api/providers/openai/v1/moderations", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/moderations", getPassThroughHandler(r, prod, private, client, log, timeOut))
 
 	// models
-	router.GET("/api/providers/openai/v1/models", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/models/:model", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.DELETE("/api/providers/openai/v1/models/:model", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/models", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/models/:model", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.DELETE("/api/providers/openai/v1/models/:model", getPassThroughHandler(r, prod, private, client, log, timeOut))
 
 	// assistants
-	router.POST("/api/providers/openai/v1/assistants", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.DELETE("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/assistants", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/assistants", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.DELETE("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/assistants", getPassThroughHandler(r, prod, private, client, log, timeOut))
 
 	// assistant files
-	router.POST("/api/providers/openai/v1/assistants/:assistant_id/files", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/assistants/:assistant_id/files/:file_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.DELETE("/api/providers/openai/v1/assistants/:assistant_id/files/:file_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/assistants/:assistant_id/files", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/assistants/:assistant_id/files", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/assistants/:assistant_id/files/:file_id", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.DELETE("/api/providers/openai/v1/assistants/:assistant_id/files/:file_id", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/assistants/:assistant_id/files", getPassThroughHandler(r, prod, private, client, log, timeOut))
 
 	// threads
-	router.POST("/api/providers/openai/v1/threads", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.DELETE("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/threads", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.DELETE("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(r, prod, private, client, log, timeOut))
 
 	// messages
-	router.POST("/api/providers/openai/v1/threads/:thread_id/messages", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/threads/:thread_id/messages/:message_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/messages", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/messages", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/messages/:message_id", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/messages", getPassThroughHandler(r, prod, private, client, log, timeOut))
 
 	// message files
-	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files/:file_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files/:file_id", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files", getPassThroughHandler(r, prod, private, client, log, timeOut))
 
 	// runs
-	router.POST("/api/providers/openai/v1/threads/:thread_id/runs", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/runs", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/cancel", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/threads/runs", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps/:step_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/runs", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/runs", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/cancel", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/threads/runs", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps/:step_id", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps", getPassThroughHandler(r, prod, private, client, log, timeOut))
 
 	// files
-	router.GET("/api/providers/openai/v1/files", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/files", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.DELETE("/api/providers/openai/v1/files/:file_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/files/:file_id", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/files/:file_id/content", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/files", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/files", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.DELETE("/api/providers/openai/v1/files/:file_id", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/files/:file_id", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/files/:file_id/content", getPassThroughHandler(r, prod, private, client, log, timeOut))
 
 	// images
-	router.POST("/api/providers/openai/v1/images/generations", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/images/edits", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/images/variations", getPassThroughHandler(r, prod, private, psm, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/images/generations", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/images/edits", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/images/variations", getPassThroughHandler(r, prod, private, client, log, timeOut))
 
 	// azure
-	router.POST("/api/providers/azure/openai/deployments/:deployment_id/chat/completions", getAzureChatCompletionHandler(r, prod, private, psm, client, kms, log, enc, aoe, timeOut))
-	router.POST("/api/providers/azure/openai/deployments/:deployment_id/embeddings", getAzureEmbeddingsHandler(r, prod, private, psm, client, kms, log, enc, aoe, timeOut))
+	router.POST("/api/providers/azure/openai/deployments/:deployment_id/chat/completions", getAzureChatCompletionHandler(r, prod, private, psm, client, kms, log, aoe, timeOut))
+	router.POST("/api/providers/azure/openai/deployments/:deployment_id/embeddings", getAzureEmbeddingsHandler(r, prod, private, psm, client, kms, log, aoe, timeOut))
 
 	// anthropic
-	router.POST("/api/providers/anthropic/v1/complete", getCompletionHandler(r, prod, private, psm, client, kms, log, enc, ae, timeOut))
+	router.POST("/api/providers/anthropic/v1/complete", getCompletionHandler(r, prod, private, client, kms, log, ae, timeOut))
 
 	// custom provider
 	router.POST("/api/custom/providers/:provider/*wildcard", getCustomProviderHandler(prod, private, psm, cpm, client, log, timeOut))
 
 	// custom route
-	router.POST("/api/routes/:route", getCustomProviderHandler(prod, private, psm, cpm, client, log, timeOut))
+	router.POST("/api/routes/*route", getRouteHandler(prod, private, rm, aoe, e, r, client, log, timeOut))
 
 	srv := &http.Server{
 		Addr:    ":8002",
@@ -167,24 +166,6 @@ func getGetHealthCheckHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	}
-}
-
-func setAuthenticationHeader(psm ProviderSettingsManager, req *http.Request, settingId, authParam string) error {
-	setting, err := psm.GetSetting(settingId)
-	if err != nil {
-		return errors.New("open ai key is not set")
-	}
-
-	if len(authParam) != 0 {
-		key, ok := setting.Setting[authParam]
-		if !ok || len(key) == 0 {
-			return errors.New("api key is not found in setting")
-		}
-
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", key))
-	}
-
-	return nil
 }
 
 type Form struct {
@@ -222,7 +203,7 @@ func writeFieldToBuffer(fields []string, c *gin.Context, writer *multipart.Write
 	return nil
 }
 
-func getPassThroughHandler(r recorder, prod, private bool, psm ProviderSettingsManager, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
+func getPassThroughHandler(r recorder, prod, private bool, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tags := []string{
 			fmt.Sprintf("path:%s", c.FullPath()),
@@ -232,14 +213,6 @@ func getPassThroughHandler(r recorder, prod, private bool, psm ProviderSettingsM
 
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
-			return
-		}
-
-		raw, exists := c.Get("key")
-		kc, ok := raw.(*key.ResponseKey)
-		if !exists || !ok {
-			stats.Incr("bricksllm.proxy.get_pass_through_handler.api_key_not_registered", tags, 1)
-			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
 			return
 		}
 
@@ -263,19 +236,7 @@ func getPassThroughHandler(r recorder, prod, private bool, psm ProviderSettingsM
 			return
 		}
 
-		for k := range c.Request.Header {
-			if !strings.HasPrefix(strings.ToLower(k), "x") {
-				req.Header.Set(k, c.Request.Header.Get(k))
-			}
-		}
-
-		err = setAuthenticationHeader(psm, req, kc.SettingId, "apikey")
-		if err != nil {
-			stats.Incr("bricksllm.proxy.get_pass_through_handler.set_authentication_header_error", tags, 1)
-			logError(log, "error when setting http request authentication header", prod, cid, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] error when setting authentication header")
-			return
-		}
+		copyHttpHeaders(c.Request, req)
 
 		if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodPost {
 			purpose := c.PostForm("purpose")
@@ -973,7 +934,7 @@ type EmbeddingResponseBase64 struct {
 	Usage  goopenai.Usage             `json:"usage"`
 }
 
-func getEmbeddingHandler(r recorder, prod, private bool, psm ProviderSettingsManager, client http.Client, kms keyMemStorage, log *zap.Logger, enc encrypter, e estimator, timeOut time.Duration) gin.HandlerFunc {
+func getEmbeddingHandler(r recorder, prod, private bool, psm ProviderSettingsManager, client http.Client, kms keyMemStorage, log *zap.Logger, e estimator, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.proxy.get_embedding_handler.requests", nil, 1)
 		if c == nil || c.Request == nil {
@@ -1001,19 +962,7 @@ func getEmbeddingHandler(r recorder, prod, private bool, psm ProviderSettingsMan
 			return
 		}
 
-		for k := range c.Request.Header {
-			if !strings.HasPrefix(strings.ToLower(k), "x") {
-				req.Header.Set(k, c.Request.Header.Get(k))
-			}
-		}
-
-		err = setAuthenticationHeader(psm, req, kc.SettingId, "apikey")
-		if err != nil {
-			stats.Incr("bricksllm.proxy.get_pass_through_handler.set_authentication_header_error", nil, 1)
-			logError(log, "error when setting http request authentication header", prod, id, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] error when setting authentication header")
-			return
-		}
+		copyHttpHeaders(c.Request, req)
 
 		start := time.Now()
 
@@ -1126,7 +1075,7 @@ var (
 	errorPrefix           = []byte(`data: {"error":`)
 )
 
-func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettingsManager, client http.Client, kms keyMemStorage, log *zap.Logger, enc encrypter, e estimator, timeOut time.Duration) gin.HandlerFunc {
+func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettingsManager, client http.Client, kms keyMemStorage, log *zap.Logger, e estimator, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.proxy.get_chat_completion_handler.requests", nil, 1)
 
@@ -1144,24 +1093,6 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 			return
 		}
 
-		setting, err := psm.GetSetting(kc.SettingId)
-		if err != nil {
-			stats.Incr("bricksllm.proxy.get_chat_completion_handler.provider_setting_not_found", nil, 1)
-
-			logError(log, "openai api key is not set", prod, cid, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] openai api key is not set")
-			return
-		}
-
-		key, ok := setting.Setting["apikey"]
-		if !ok || len(key) == 0 {
-			stats.Incr("bricksllm.proxy.get_chat_completion_handler.provider_setting_api_key_not_found", nil, 1)
-
-			logError(log, "openai api key is not found in setting", prod, cid, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] openai api key is not found in setting")
-			return
-		}
-
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
 
@@ -1172,11 +1103,7 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 			return
 		}
 
-		for k := range c.Request.Header {
-			if !strings.HasPrefix(strings.ToLower(k), "x") {
-				req.Header.Set(k, c.Request.Header.Get(k))
-			}
-		}
+		copyHttpHeaders(c.Request, req)
 
 		isStreaming := c.GetBool("stream")
 		if isStreaming {
@@ -1184,8 +1111,6 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 			req.Header.Set("Cache-Control", "no-cache")
 			req.Header.Set("Connection", "keep-alive")
 		}
-
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", key))
 
 		start := time.Now()
 		res, err := client.Do(req)
@@ -1432,6 +1357,9 @@ func (ps *ProxyServer) Run() {
 
 		// custom provider
 		ps.log.Info("PORT 8002 | POST   | /api/custom/providers/:provider/*wildcard is ready for forwarding requests to custom providers")
+
+		// custom route
+		ps.log.Info("PORT 8002 | POST   | /api/routes/*route is ready for forwarding requests to a custom route")
 
 		if err := ps.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			ps.log.Sugar().Fatalf("error proxy server listening: %v", err)
