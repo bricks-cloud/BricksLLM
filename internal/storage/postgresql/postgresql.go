@@ -693,6 +693,10 @@ func (s *Store) GetProviderSettings(withSecret bool, ids []string) ([]*provider.
 		settings = append(settings, setting)
 	}
 
+	if len(ids) != 0 && len(ids) != len(settings) {
+		return nil, errors.New("not all settings are found")
+	}
+
 	return settings, nil
 }
 
