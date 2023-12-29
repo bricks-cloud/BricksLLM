@@ -64,6 +64,19 @@ func (mdb *ProviderSettingsMemDb) GetSetting(k string) *provider.Setting {
 	return nil
 }
 
+func (mdb *ProviderSettingsMemDb) GetSettings(ks []string) []*provider.Setting {
+	result := []*provider.Setting{}
+
+	for _, k := range ks {
+		v, ok := mdb.settings[k]
+		if ok {
+			result = append(result, v)
+		}
+	}
+
+	return result
+}
+
 func (mdb *ProviderSettingsMemDb) SetSetting(s *provider.Setting) {
 	mdb.lock.RLock()
 	defer mdb.lock.RUnlock()
