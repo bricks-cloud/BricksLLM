@@ -3,10 +3,8 @@ package proxy
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
@@ -16,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func getAzureEmbeddingsHandler(r recorder, prod, private bool, psm ProviderSettingsManager, client http.Client, kms keyMemStorage, log *zap.Logger, enc encrypter, aoe azureEstimator, timeOut time.Duration) gin.HandlerFunc {
+func getAzureEmbeddingsHandler(r recorder, prod, private bool, psm ProviderSettingsManager, client http.Client, kms keyMemStorage, log *zap.Logger, aoe azureEstimator, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.requests", nil, 1)
 		if c == nil || c.Request == nil {
@@ -33,40 +31,17 @@ func getAzureEmbeddingsHandler(r recorder, prod, private bool, psm ProviderSetti
 			return
 		}
 
-		setting, err := psm.GetSetting(kc.SettingId)
-		if err != nil {
-			stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.provider_setting_not_found", nil, 1)
-
-			logError(log, "openai api key is not set", prod, cid, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] openai api key is not set")
-			return
-		}
-
-		key, ok := setting.Setting["apikey"]
-		if !ok || len(key) == 0 {
-			stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.provider_setting_api_key_not_found", nil, 1)
-			logError(log, "azure openai api key is not found in setting", prod, cid, errors.New("api key is not found in provider settings"))
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] azure openai api key is not found in setting")
-			return
-		}
-
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
 
-		req, err := http.NewRequestWithContext(ctx, c.Request.Method, buildAzureUrl(c.FullPath(), c.Param("deployment_id"), c.Query("api-version"), setting.Setting), c.Request.Body)
+		req, err := http.NewRequestWithContext(ctx, c.Request.Method, buildAzureUrl(c.FullPath(), c.Param("deployment_id"), c.Query("api-version"), c.GetString("resourceName")), c.Request.Body)
 		if err != nil {
 			logError(log, "error when creating openai http request", prod, cid, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai http request")
 			return
 		}
 
-		for k := range c.Request.Header {
-			if !strings.HasPrefix(strings.ToLower(k), "x") {
-				req.Header.Set(k, c.Request.Header.Get(k))
-			}
-		}
-
-		req.Header.Set("api-key", key)
+		copyHttpHeaders(c.Request, req)
 
 		start := time.Now()
 

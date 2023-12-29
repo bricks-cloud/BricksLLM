@@ -5,11 +5,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
@@ -19,8 +17,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func buildAzureUrl(path, deploymentId, apiVersion string, params map[string]string) string {
-	resourceName := params["resourceName"]
+func buildAzureUrl(path, deploymentId, apiVersion, resourceName string) string {
 	if path == "/api/providers/azure/openai/deployments/:deployment_id/chat/completions" {
 		return fmt.Sprintf("https://%s.openai.azure.com/openai/deployments/%s/chat/completions?api-version=%s", resourceName, deploymentId, apiVersion)
 	}
@@ -28,7 +25,7 @@ func buildAzureUrl(path, deploymentId, apiVersion string, params map[string]stri
 	return fmt.Sprintf("https://%s.openai.azure.com/openai/deployments/%s/embeddings?api-version=%s", resourceName, deploymentId, apiVersion)
 }
 
-func getAzureChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettingsManager, client http.Client, kms keyMemStorage, log *zap.Logger, enc encrypter, aoe azureEstimator, timeOut time.Duration) gin.HandlerFunc {
+func getAzureChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettingsManager, client http.Client, kms keyMemStorage, log *zap.Logger, aoe azureEstimator, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.requests", nil, 1)
 
@@ -46,38 +43,17 @@ func getAzureChatCompletionHandler(r recorder, prod, private bool, psm ProviderS
 			return
 		}
 
-		setting, err := psm.GetSetting(kc.SettingId)
-		if err != nil {
-			stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.provider_setting_not_found", nil, 1)
-
-			logError(log, "openai api key is not set", prod, cid, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] openai api key is not set")
-			return
-		}
-
-		key, ok := setting.Setting["apikey"]
-		if !ok || len(key) == 0 {
-			stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.provider_setting_api_key_not_found", nil, 1)
-			logError(log, "openai api key is not found in setting", prod, cid, errors.New("api key is not found in provider settings"))
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] openai api key is not found in setting")
-			return
-		}
-
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, buildAzureUrl(c.FullPath(), c.Param("deployment_id"), c.Query("api-version"), setting.Setting), c.Request.Body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, buildAzureUrl(c.FullPath(), c.Param("deployment_id"), c.Query("api-version"), c.GetString("resourceName")), c.Request.Body)
 		if err != nil {
 			logError(log, "error when creating azure openai http request", prod, cid, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create azure openai http request")
 			return
 		}
 
-		for k := range c.Request.Header {
-			if !strings.HasPrefix(strings.ToLower(k), "x") {
-				req.Header.Set(k, c.Request.Header.Get(k))
-			}
-		}
+		copyHttpHeaders(c.Request, req)
 
 		isStreaming := c.GetBool("stream")
 		if isStreaming {
@@ -85,8 +61,6 @@ func getAzureChatCompletionHandler(r recorder, prod, private bool, psm ProviderS
 			req.Header.Set("Cache-Control", "no-cache")
 			req.Header.Set("Connection", "keep-alive")
 		}
-
-		req.Header.Set("api-key", key)
 
 		start := time.Now()
 		res, err := client.Do(req)

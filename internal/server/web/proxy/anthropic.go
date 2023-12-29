@@ -30,7 +30,15 @@ type anthropicEstimator interface {
 	Count(input string) int
 }
 
-func getCompletionHandler(r recorder, prod, private bool, psm ProviderSettingsManager, client http.Client, kms keyMemStorage, log *zap.Logger, enc encrypter, e anthropicEstimator, timeOut time.Duration) gin.HandlerFunc {
+func copyHttpHeaders(source *http.Request, dest *http.Request) {
+	for k := range source.Header {
+		if strings.ToLower(k) != "X-CUSTOM-EVENT-ID" {
+			dest.Header.Set(k, source.Header.Get(k))
+		}
+	}
+}
+
+func getCompletionHandler(r recorder, prod, private bool, client http.Client, kms keyMemStorage, log *zap.Logger, e anthropicEstimator, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.proxy.get_completion_handler.requests", nil, 1)
 
@@ -58,29 +66,7 @@ func getCompletionHandler(r recorder, prod, private bool, psm ProviderSettingsMa
 			return
 		}
 
-		setting, err := psm.GetSetting(kc.SettingId)
-		if err != nil {
-			stats.Incr("bricksllm.proxy.get_completion_handler.provider_setting_not_found", nil, 1)
-
-			logError(log, "anthropic api key is not set", prod, cid, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] anthropic api key is not set")
-			return
-		}
-
-		key, ok := setting.Setting["apikey"]
-		if !ok || len(key) == 0 {
-			stats.Incr("bricksllm.proxy.get_completion_handler.provider_setting_api_key_not_found", nil, 1)
-
-			logError(log, "anthropic api key is not found in setting", prod, cid, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] anthropic api key is not found in setting")
-			return
-		}
-
-		for k := range c.Request.Header {
-			if !strings.HasPrefix(strings.ToLower(k), "x") {
-				req.Header.Set(k, c.Request.Header.Get(k))
-			}
-		}
+		copyHttpHeaders(c.Request, req)
 
 		isStreaming := c.GetBool("stream")
 		if isStreaming {
@@ -88,8 +74,6 @@ func getCompletionHandler(r recorder, prod, private bool, psm ProviderSettingsMa
 			req.Header.Set("Cache-Control", "no-cache")
 			req.Header.Set("Connection", "keep-alive")
 		}
-
-		req.Header.Set("x-api-key", key)
 
 		start := time.Now()
 		res, err := client.Do(req)
