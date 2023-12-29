@@ -11,6 +11,7 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
+	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/bricks-cloud/bricksllm/internal/util"
@@ -58,6 +59,10 @@ type azureEstimator interface {
 	EstimateEmbeddingsInputCost(model string, tks int) (float64, error)
 }
 
+type authenticator interface {
+	AuthenticateHttpRequest(req *http.Request) (*key.ResponseKey, []*provider.Setting, error)
+}
+
 type validator interface {
 	Validate(k *key.ResponseKey, promptCost float64) error
 }
@@ -79,31 +84,15 @@ func JSON(c *gin.Context, code int, message string) {
 	})
 }
 
-func validateProviderPath(providerName string, path string) bool {
-	if strings.HasPrefix(path, "/api/custom/routes") {
-		return true
-	}
-
-	if providerName == "azure" && !strings.HasPrefix(path, "/api/providers/azure/openai") {
-		return false
-	}
-
-	if providerName == "openai" && !strings.HasPrefix(path, "/api/providers/openai") {
-		return false
-	}
-
-	if providerName == "anthropic" && !strings.HasPrefix(path, "/api/providers/anthropic") {
-		return false
-	}
-
-	if providerName != "openai" && providerName != "anthropic" && providerName != "azure" && !strings.HasPrefix(path, "/api/custom/providers/") {
-		return false
-	}
-
-	return true
+type notAuthorizedError interface {
+	Authenticated()
 }
 
-func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, psm ProviderSettingsManager, prod, private bool, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, ks keyStorage, log *zap.Logger, enc encrypter, rlm rateLimitManager, r recorder, prefix string) gin.HandlerFunc {
+type notFoundError interface {
+	NotFound()
+}
+
+func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManager, a authenticator, prod, private bool, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, ks keyStorage, log *zap.Logger, rlm rateLimitManager, r recorder, prefix string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] request is empty")
@@ -145,6 +134,10 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, psm ProviderSe
 			}
 
 			stats.Timing("bricksllm.proxy.get_middleware.proxy_latency_in_ms", dur, nil, 1)
+
+			if len(c.GetString("provider")) != 0 {
+				selectedProvider = c.GetString("provider")
+			}
 
 			if prod {
 				log.Info("response to proxy",
@@ -194,48 +187,42 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, psm ProviderSe
 			return
 		}
 
-		apiKey := getAuthTokenFromHeader(c)
-		if len(apiKey) == 0 {
-			stats.Incr("bricksllm.proxy.get_middleware.missing_authorization_token", nil, 1)
-			JSON(c, http.StatusUnauthorized, "[BricksLLM] authorization token is not present")
+		kc, settings, err := a.AuthenticateHttpRequest(c.Request)
+		_, ok := err.(notAuthorizedError)
+		if ok {
+			stats.Incr("bricksllm.proxy.get_middleware.authentication_error", nil, 1)
+			JSON(c, http.StatusUnauthorized, "[BricksLLM] not authorized")
 			c.Abort()
 			return
 		}
 
-		hash := enc.Encrypt(apiKey)
-
-		kc := kms.GetKey(hash)
-		if kc == nil {
-			stats.Incr("bricksllm.proxy.get_middleware.api_key_is_not_authorized", nil, 1)
-
-			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is unauthorized")
+		_, ok = err.(notFoundError)
+		if ok {
+			stats.Incr("bricksllm.proxy.get_middleware.not_found_error", nil, 1)
+			JSON(c, http.StatusNotFound, "[BricksLLM] route not found")
 			c.Abort()
 			return
 		}
 
-		if kc.Revoked {
-			stats.Incr("bricksllm.proxy.get_middleware.api_key_revoked", nil, 1)
-
-			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key has been revoked")
+		if err != nil {
+			stats.Incr("bricksllm.proxy.get_middleware.authenticate_http_request_error", nil, 1)
+			logError(log, "error when authenticating http requests", prod, cid, err)
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] internal authentication error")
 			c.Abort()
 			return
 		}
 
 		c.Set("key", kc)
+		c.Set("settings", settings)
 
-		setting, err := psm.GetSetting(kc.SettingId)
-		if err != nil {
-			stats.Incr("bricksllm.proxy.get_middleware.setting_not_found_error", nil, 1)
-			JSON(c, http.StatusUnauthorized, "[BricksLLM] provider setting is not found")
-			c.Abort()
-			return
-		}
+		if len(settings) >= 1 {
+			if strings.HasPrefix(c.FullPath(), "/api/providers/azure/openai") {
+				selected := settings[0]
 
-		if !validateProviderPath(setting.Provider, c.FullPath()) {
-			stats.Incr("bricksllm.proxy.get_middleware.provider_path_do_not_match", nil, 1)
-			JSON(c, http.StatusForbidden, "[BricksLLM] path is not allowed for this key")
-			c.Abort()
-			return
+				if selected != nil && len(selected.Setting["resourceName"]) != 0 {
+					c.Set("resourceName", selected.Setting["resourceName"])
+				}
+			}
 		}
 
 		body, err := io.ReadAll(c.Request.Body)
@@ -324,7 +311,54 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, psm ProviderSe
 			}
 		}
 
+		if strings.HasPrefix(c.FullPath(), "/api/routes") {
+			route := c.Param("route")
+			rc := rm.GetRouteFromMemDb(route)
+
+			if rc == nil {
+				stats.Incr("bricksllm.proxy.get_middleware.route_config_not_found", nil, 1)
+				JSON(c, http.StatusNotFound, "[BricksLLM] route config is not found")
+				c.Abort()
+				return
+			}
+
+			c.Set("route_config", rc)
+
+			if rc.ShouldRunEmbeddings() {
+				er := &goopenai.EmbeddingRequest{}
+				err = json.Unmarshal(body, er)
+				if err != nil {
+					logError(log, "error when unmarshalling azure openai embedding request", prod, cid, err)
+					return
+				}
+
+				c.Set("encoding_format", string(er.EncodingFormat))
+
+				logEmbeddingRequest(log, prod, private, cid, er)
+			}
+
+			if !rc.ShouldRunEmbeddings() {
+				ccr := &goopenai.ChatCompletionRequest{}
+				err = json.Unmarshal(body, ccr)
+				if err != nil {
+					logError(log, "error when unmarshalling azure openai chat completion request", prod, cid, err)
+					return
+				}
+
+				logRequest(log, prod, private, cid, ccr)
+
+				if ccr.Stream {
+					stats.Incr("bricksllm.proxy.get_middleware.streaming_not_allowed", nil, 1)
+					JSON(c, http.StatusForbidden, "[BricksLLM] streaming is not allowed")
+					c.Abort()
+					return
+				}
+			}
+		}
+
 		if c.FullPath() == "/api/providers/azure/openai/deployments/:deployment_id/chat/completions" {
+			selectedProvider = "azure"
+
 			ccr := &goopenai.ChatCompletionRequest{}
 			err = json.Unmarshal(body, ccr)
 			if err != nil {
@@ -347,6 +381,8 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, psm ProviderSe
 		}
 
 		if c.FullPath() == "/api/providers/azure/openai/deployments/:deployment_id/embeddings" {
+			selectedProvider = "azure"
+
 			er := &goopenai.EmbeddingRequest{}
 			err = json.Unmarshal(body, er)
 			if err != nil {
@@ -509,7 +545,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, psm ProviderSe
 		}
 
 		model := c.GetString("model")
-		if len(setting.AllowedModels) != 0 && len(model) != 0 && !contains(setting.AllowedModels, model) {
+		if !isModelAllowed(model, settings) {
 			stats.Incr("bricksllm.proxy.get_middleware.model_not_allowed", nil, 1)
 			JSON(c, http.StatusForbidden, "[BricksLLM] model is not allowed")
 			c.Abort()
@@ -739,6 +775,24 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, psm ProviderSe
 func contains(arr []string, target string) bool {
 	for _, str := range arr {
 		if str == target {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isModelAllowed(model string, settings []*provider.Setting) bool {
+	if len(model) == 0 {
+		return true
+	}
+
+	for _, setting := range settings {
+		if len(setting.AllowedModels) == 0 {
+			return true
+		}
+
+		if contains(setting.AllowedModels, model) {
 			return true
 		}
 	}
