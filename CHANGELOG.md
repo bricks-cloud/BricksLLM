@@ -1,3 +1,8 @@
+## 1.7.0 - 2023-12-29
+### Added
+- Added the ability to make API calls with fallbacks
+- Added the support for multiple sets of provider settings per key
+
 ## 1.6.0 - 2023-12-17
 ### Added
 - Added support for Azure OpenAI embeddings and chat completions endpoints
