@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	auth "github.com/bricks-cloud/bricksllm/internal/authenticator"
 	"github.com/bricks-cloud/bricksllm/internal/config"
 	"github.com/bricks-cloud/bricksllm/internal/encrypter"
 	"github.com/bricks-cloud/bricksllm/internal/logger/zap"
@@ -167,7 +168,7 @@ func main() {
 	krm := manager.NewReportingManager(costStorage, store, store)
 	psm := manager.NewProviderSettingsManager(store, psMemStore)
 	cpm := manager.NewCustomProvidersManager(store, cpMemStore)
-	rm := manager.NewRouteManager(store, store, rMemStore)
+	rm := manager.NewRouteManager(store, store, rMemStore, psMemStore)
 
 	as, err := admin.NewAdminServer(log, *modePtr, m, krm, psm, cpm, rm)
 	if err != nil {
@@ -195,8 +196,9 @@ func main() {
 	v := validator.NewValidator(costLimitCache, rateLimitCache, costStorage)
 	rec := recorder.NewRecorder(costStorage, costLimitCache, ce, store)
 	rlm := manager.NewRateLimitManager(rateLimitCache)
+	a := auth.NewAuthenticator(psm, memStore, rm, e)
 
-	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, m, psm, cpm, store, memStore, ce, ace, aoe, v, rec, cfg.OpenAiKey, e, rlm, cfg.ProxyTimeout)
+	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, m, rm, a, psm, cpm, store, memStore, ce, ace, aoe, v, rec, rlm, cfg.ProxyTimeout)
 	if err != nil {
 		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}
