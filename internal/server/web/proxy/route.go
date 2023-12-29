@@ -1,7 +1,9 @@
 package proxy
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,7 +18,11 @@ import (
 	"go.uber.org/zap"
 )
 
-func getRouteHandler(prod, private bool, psm ProviderSettingsManager, aoe azureEstimator, e estimator, r recorder, cpm CustomProvidersManager, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
+type routeManager interface {
+	GetRouteFromMemDb(path string) *route.Route
+}
+
+func getRouteHandler(prod, private bool, rm routeManager, aoe azureEstimator, e estimator, r recorder, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tags := []string{
 			fmt.Sprintf("path:%s", c.FullPath()),
@@ -36,29 +42,53 @@ func getRouteHandler(prod, private bool, psm ProviderSettingsManager, aoe azureE
 			return
 		}
 
-		settings := map[string]*provider.Setting{}
 		raw, exists = c.Get("route_config")
 		rc, ok := raw.(*route.Route)
 		if !exists || !ok {
 			stats.Incr("bricksllm.proxy.get_route_handeler.route_config_not_found", tags, 1)
-			JSON(c, http.StatusNotFound, "[BricksLLM] requested route config is not found")
+			JSON(c, http.StatusNotFound, "[BricksLLM] route config not found")
 			return
+		}
+
+		raw, exists = c.Get("settings")
+		settings, ok := raw.([]*provider.Setting)
+		if !exists || !ok {
+			stats.Incr("bricksllm.proxy.get_route_handeler.provider_settings_not_found", tags, 1)
+			JSON(c, http.StatusNotFound, "[BricksLLM] provider settings not found")
+			return
+		}
+
+		settingsMap := map[string]*provider.Setting{}
+		for _, setting := range settings {
+			settingsMap[setting.Id] = setting
 		}
 
 		cid := c.GetString(correlationId)
 		start := time.Now()
 		runRes, err := rc.RunSteps(&route.Request{
-			Settings:  settings,
+			Settings:  settingsMap,
 			Key:       kc,
 			Client:    client,
 			Forwarded: c.Request,
 		})
 
 		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				stats.Incr("bricksllm.proxy.get_route_handeler.timeout", tags, 1)
+				logError(log, "running steps time out", prod, cid, err)
+				JSON(c, http.StatusRequestTimeout, "[BricksLLM] request timeout")
+				return
+			}
+
 			stats.Incr("bricksllm.proxy.get_route_handeler.run_steps_error", tags, 1)
+			logError(log, "error when running steps", prod, cid, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot run route steps")
 			return
 		}
+
+		defer runRes.Cancel()
+
+		c.Set("model", runRes.Model)
 
 		res := runRes.Response
 		defer res.Body.Close()
@@ -73,8 +103,6 @@ func getRouteHandler(prod, private bool, psm ProviderSettingsManager, aoe azureE
 			return
 		}
 
-		var cost float64 = 0
-		promptTokenCounts := 0
 		if res.StatusCode == http.StatusOK {
 			stats.Incr("bricksllm.proxy.get_route_handeler.success", nil, 1)
 			stats.Timing("bricksllm.proxy.get_route_handeler.success_latency", dur, nil, 1)
@@ -84,9 +112,6 @@ func getRouteHandler(prod, private bool, psm ProviderSettingsManager, aoe azureE
 				logError(log, "error when parsing run steps result", prod, cid, err)
 			}
 		}
-
-		c.Set("costInUsd", cost)
-		c.Set("promptTokenCount", promptTokenCounts)
 
 		if res.StatusCode != http.StatusOK {
 			stats.Timing("bricksllm.proxy.get_azure_embeddings_handler.error_latency", dur, nil, 1)
@@ -120,6 +145,7 @@ func parseResult(c *gin.Context, kc *key.ResponseKey, runEmbeddings bool, bytes 
 	completionTokenCounts := 0
 
 	defer func() {
+		c.Set("provider", provider)
 		c.Set("costInUsd", cost)
 		c.Set("promptTokenCount", promptTokenCounts)
 		c.Set("completionTokenCount", completionTokenCounts)
@@ -183,7 +209,8 @@ func parseResult(c *gin.Context, kc *key.ResponseKey, runEmbeddings bool, bytes 
 			return err
 		}
 
-		c.Set("model", chatRes.Model)
+		promptTokenCounts = chatRes.Usage.PromptTokens
+		completionTokenCounts = chatRes.Usage.CompletionTokens
 
 		if provider == "azure" {
 			cost, err = aoe.EstimateTotalCost(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
@@ -203,8 +230,6 @@ func parseResult(c *gin.Context, kc *key.ResponseKey, runEmbeddings bool, bytes 
 		if err != nil {
 			return err
 		}
-
-		completionTokenCounts = chatRes.Usage.CompletionTokens
 	}
 
 	return nil
