@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/bricks-cloud/bricksllm/internal/encrypter"
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
@@ -25,23 +26,17 @@ type keyMemStorage interface {
 	GetKey(hash string) *key.ResponseKey
 }
 
-type encrypter interface {
-	Encrypt(secret string) string
-}
-
 type Authenticator struct {
 	psm providerSettingsManager
 	kms keyMemStorage
 	rm  routesManager
-	enc encrypter
 }
 
-func NewAuthenticator(psm providerSettingsManager, kms keyMemStorage, rm routesManager, enc encrypter) *Authenticator {
+func NewAuthenticator(psm providerSettingsManager, kms keyMemStorage, rm routesManager) *Authenticator {
 	return &Authenticator{
 		psm: psm,
 		kms: kms,
 		rm:  rm,
-		enc: enc,
 	}
 }
 
@@ -161,7 +156,7 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 		return nil, nil, err
 	}
 
-	hash := a.enc.Encrypt(raw)
+	hash := encrypter.Encrypt(raw)
 
 	key := a.kms.GetKey(hash)
 	if key == nil || key.Revoked {
