@@ -1,3 +1,7 @@
+## 1.7.1 - 2023-12-29
+### Added
+- Started supporting caching in routes
+
 ## 1.7.0 - 2023-12-29
 ### Added
 - Added the ability to make API calls with fallbacks
