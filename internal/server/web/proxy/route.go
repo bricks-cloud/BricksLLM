@@ -22,8 +22,15 @@ type routeManager interface {
 	GetRouteFromMemDb(path string) *route.Route
 }
 
-func getRouteHandler(prod, private bool, rm routeManager, aoe azureEstimator, e estimator, r recorder, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
+type cache interface {
+	StoreBytes(key string, value []byte, ttl time.Duration) error
+	GetBytes(key string) ([]byte, error)
+}
+
+func getRouteHandler(prod, private bool, rm routeManager, ca cache, aoe azureEstimator, e estimator, r recorder, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		trueStart := time.Now()
+
 		tags := []string{
 			fmt.Sprintf("path:%s", c.FullPath()),
 		}
@@ -48,6 +55,21 @@ func getRouteHandler(prod, private bool, rm routeManager, aoe azureEstimator, e 
 			stats.Incr("bricksllm.proxy.get_route_handeler.route_config_not_found", tags, 1)
 			JSON(c, http.StatusNotFound, "[BricksLLM] route config not found")
 			return
+		}
+
+		cacheKey := c.GetString("cache_key")
+		shouldCache := len(cacheKey) != 0
+
+		if shouldCache {
+			bytes, err := ca.GetBytes(cacheKey)
+			if err == nil && len(bytes) != 0 {
+				stats.Incr("bricksllm.proxy.get_route_handeler.success", nil, 1)
+				stats.Timing("bricksllm.proxy.get_route_handeler.success_latency", time.Now().Sub(trueStart), nil, 1)
+
+				c.Set("provider", "cached")
+				c.Data(http.StatusOK, "application/json", bytes)
+				return
+			}
 		}
 
 		raw, exists = c.Get("settings")
@@ -98,8 +120,8 @@ func getRouteHandler(prod, private bool, rm routeManager, aoe azureEstimator, e 
 
 		bytes, err := io.ReadAll(res.Body)
 		if err != nil {
-			logError(log, "error when reading openai embedding response body", prod, cid, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read azure openai embedding response body")
+			logError(log, "error when reading route response body", prod, cid, err)
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read route response body")
 			return
 		}
 
@@ -107,7 +129,22 @@ func getRouteHandler(prod, private bool, rm routeManager, aoe azureEstimator, e 
 			stats.Incr("bricksllm.proxy.get_route_handeler.success", nil, 1)
 			stats.Timing("bricksllm.proxy.get_route_handeler.success_latency", dur, nil, 1)
 
-			err := parseResult(c, kc, rc.ShouldRunEmbeddings(), bytes, e, aoe, r, runRes.Model, runRes.Provider)
+			if shouldCache && rc.CacheConfig != nil {
+				parsed, err := time.ParseDuration(rc.CacheConfig.Ttl)
+				if err != nil {
+					logError(log, "error when parsing cache config ttl", prod, cid, err)
+				}
+
+				if err == nil {
+					err := ca.StoreBytes(cacheKey, bytes, parsed)
+					if err != nil {
+						logError(log, "error when storing cached response", prod, cid, err)
+					}
+				}
+
+			}
+
+			err := parseResult(c, ca, kc, rc.ShouldRunEmbeddings(), bytes, e, aoe, r, runRes.Model, runRes.Provider)
 			if err != nil {
 				logError(log, "error when parsing run steps result", prod, cid, err)
 			}
@@ -136,7 +173,7 @@ func getRouteHandler(prod, private bool, rm routeManager, aoe azureEstimator, e 
 	}
 }
 
-func parseResult(c *gin.Context, kc *key.ResponseKey, runEmbeddings bool, bytes []byte, e estimator, aoe azureEstimator, r recorder, model, provider string) error {
+func parseResult(c *gin.Context, ca cache, kc *key.ResponseKey, runEmbeddings bool, bytes []byte, e estimator, aoe azureEstimator, r recorder, model, provider string) error {
 	base64ChatRes := &EmbeddingResponseBase64{}
 	chatRes := &EmbeddingResponse{}
 

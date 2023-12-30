@@ -260,8 +260,15 @@ func (m *RouteManager) validateRoute(r *route.Route) error {
 	}
 
 	if r.CacheConfig != nil {
-		if r.CacheConfig.Enabled && len(r.CacheConfig.Ttl) == 0 {
+		parsed, err := time.ParseDuration(r.CacheConfig.Ttl)
+		if err != nil {
 			fields = append(fields, "cacheConfig.ttl")
+		}
+
+		max := time.Hour * 720
+
+		if parsed > max {
+			return internal_errors.NewValidationError("cacheConfig.ttl exceedes 30 days")
 		}
 	}
 
