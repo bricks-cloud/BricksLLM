@@ -10,8 +10,8 @@ import (
 	"time"
 
 	auth "github.com/bricks-cloud/bricksllm/internal/authenticator"
+	"github.com/bricks-cloud/bricksllm/internal/cache"
 	"github.com/bricks-cloud/bricksllm/internal/config"
-	"github.com/bricks-cloud/bricksllm/internal/encrypter"
 	logger "github.com/bricks-cloud/bricksllm/internal/logger/zap"
 	"github.com/bricks-cloud/bricksllm/internal/manager"
 	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
@@ -158,12 +158,24 @@ func main() {
 		log.Sugar().Fatalf("error connecting to cost limit redis storage: %v", err)
 	}
 
+	apiRedisCache := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
+		Password: cfg.RedisPassword,
+		DB:       3,
+	})
+
+	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := apiRedisCache.Ping(ctx).Err(); err != nil {
+		log.Sugar().Fatalf("error connecting to api redis cache: %v", err)
+	}
+
 	rateLimitCache := redisStorage.NewCache(rateLimitRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 	costLimitCache := redisStorage.NewCache(costLimitRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 	costStorage := redisStorage.NewStore(costRedisStorage, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
+	apiCache := redisStorage.NewCache(apiRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 
-	e := encrypter.NewEncrypter()
-	m := manager.NewManager(store, e)
+	m := manager.NewManager(store)
 	krm := manager.NewReportingManager(costStorage, store, store)
 	psm := manager.NewProviderSettingsManager(store, psMemStore)
 	cpm := manager.NewCustomProvidersManager(store, cpMemStore)
@@ -173,6 +185,7 @@ func main() {
 	if err != nil {
 		log.Sugar().Fatalf("error creating admin http server: %v", err)
 	}
+	as.Run()
 
 	tc := openai.NewTokenCounter()
 	custom.NewTokenCounter()
@@ -181,18 +194,19 @@ func main() {
 		log.Sugar().Fatalf("error creating anthropic token counter: %v", err)
 	}
 
-	as.Run()
+	ae := anthropic.NewCostEstimator(atc)
 
 	ce := openai.NewCostEstimator(openai.OpenAiPerThousandTokenCost, tc)
-	ae := anthropic.NewCostEstimator(atc)
 	v := validator.NewValidator(costLimitCache, rateLimitCache, costStorage)
 	rec := recorder.NewRecorder(costStorage, costLimitCache, ce, store)
 	rlm := manager.NewRateLimitManager(rateLimitCache)
-	a := auth.NewAuthenticator(psm, memStore, rm, e)
+	a := auth.NewAuthenticator(psm, memStore, rm)
+
+	c := cache.NewCache(apiCache)
 
 	aoe := azure.NewCostEstimator()
 
-	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, m, rm, a, psm, cpm, store, memStore, ce, ae, aoe, v, rec, rlm, cfg.ProxyTimeout)
+	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, c, m, rm, a, psm, cpm, store, memStore, ce, ae, aoe, v, rec, rlm, cfg.ProxyTimeout)
 	if err != nil {
 		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}

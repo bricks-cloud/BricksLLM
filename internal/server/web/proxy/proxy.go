@@ -55,7 +55,7 @@ type CustomProvidersManager interface {
 	GetCustomProviderFromMem(name string) *custom.Provider
 }
 
-func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, rm routeManager, a authenticator, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, kms keyMemStorage, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, r recorder, rlm rateLimitManager, timeOut time.Duration) (*ProxyServer, error) {
+func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyManager, rm routeManager, a authenticator, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, kms keyMemStorage, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, r recorder, rlm rateLimitManager, timeOut time.Duration) (*ProxyServer, error) {
 	router := gin.New()
 	prod := mode == "production"
 	private := privacyMode == "strict"
@@ -149,7 +149,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, m KeyManager, rm 
 	router.POST("/api/custom/providers/:provider/*wildcard", getCustomProviderHandler(prod, private, psm, cpm, client, log, timeOut))
 
 	// custom route
-	router.POST("/api/routes/*route", getRouteHandler(prod, private, rm, aoe, e, r, client, log, timeOut))
+	router.POST("/api/routes/*route", getRouteHandler(prod, private, rm, c, aoe, e, r, client, log, timeOut))
 
 	srv := &http.Server{
 		Addr:    ":8002",

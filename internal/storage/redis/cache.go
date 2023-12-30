@@ -24,6 +24,30 @@ func NewCache(c *redis.Client, wt time.Duration, rt time.Duration) *Cache {
 	}
 }
 
+func (c *Cache) Set(key string, value interface{}, ttl time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), c.wt)
+	defer cancel()
+	err := c.client.Set(ctx, key, value, ttl).Err()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Cache) GetBytes(key string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), c.rt)
+	defer cancel()
+
+	result := c.client.Get(ctx, key)
+	err := result.Err()
+	if err != nil {
+		return nil, err
+	}
+
+	return result.Bytes()
+}
+
 func (c *Cache) IncrementCounter(keyId string, timeUnit key.TimeUnit, incr int64) error {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), c.wt)
 	defer cancel()

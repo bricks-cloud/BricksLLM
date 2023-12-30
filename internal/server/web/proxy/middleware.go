@@ -13,6 +13,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
+	"github.com/bricks-cloud/bricksllm/internal/route"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
@@ -312,8 +313,8 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 		}
 
 		if strings.HasPrefix(c.FullPath(), "/api/routes") {
-			route := c.Param("route")
-			rc := rm.GetRouteFromMemDb(route)
+			r := c.Param("route")
+			rc := rm.GetRouteFromMemDb(r)
 
 			if rc == nil {
 				stats.Incr("bricksllm.proxy.get_middleware.route_config_not_found", nil, 1)
@@ -328,8 +329,12 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 				er := &goopenai.EmbeddingRequest{}
 				err = json.Unmarshal(body, er)
 				if err != nil {
-					logError(log, "error when unmarshalling azure openai embedding request", prod, cid, err)
+					logError(log, "error when unmarshalling route embedding request", prod, cid, err)
 					return
+				}
+
+				if rc.CacheConfig != nil && rc.CacheConfig.Enabled {
+					c.Set("cache_key", route.ComputeCacheKeyForEmbeddingsRequest(er))
 				}
 
 				c.Set("encoding_format", string(er.EncodingFormat))
@@ -341,7 +346,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 				ccr := &goopenai.ChatCompletionRequest{}
 				err = json.Unmarshal(body, ccr)
 				if err != nil {
-					logError(log, "error when unmarshalling azure openai chat completion request", prod, cid, err)
+					logError(log, "error when unmarshalling route chat completion request", prod, cid, err)
 					return
 				}
 
@@ -352,6 +357,10 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 					JSON(c, http.StatusForbidden, "[BricksLLM] streaming is not allowed")
 					c.Abort()
 					return
+				}
+
+				if rc.CacheConfig != nil && rc.CacheConfig.Enabled {
+					c.Set("cache_key", route.ComputeCacheKeyForChatCompletionRequest(ccr))
 				}
 			}
 		}

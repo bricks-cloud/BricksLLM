@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/bricks-cloud/bricksllm/internal/encrypter"
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/util"
@@ -26,13 +27,11 @@ type Encrypter interface {
 
 type Manager struct {
 	s Storage
-	e Encrypter
 }
 
-func NewManager(s Storage, e Encrypter) *Manager {
+func NewManager(s Storage) *Manager {
 	return &Manager{
 		s: s,
-		e: e,
 	}
 }
 
@@ -57,7 +56,7 @@ func (m *Manager) areProviderSettingsUniqueness(settings []*provider.Setting) bo
 func (m *Manager) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 	rk.CreatedAt = time.Now().Unix()
 	rk.UpdatedAt = time.Now().Unix()
-	rk.Key = m.e.Encrypt(rk.Key)
+	rk.Key = encrypter.Encrypt(rk.Key)
 	rk.KeyId = util.NewUuid()
 
 	if err := rk.Validate(); err != nil {
