@@ -6,7 +6,7 @@ import (
 	goopenai "github.com/sashabaranov/go-openai"
 )
 
-func ComputeCacheKeyForEmbeddingsRequest(req *goopenai.EmbeddingRequest) string {
+func ComputeCacheKeyForEmbeddingsRequest(path string, req *goopenai.EmbeddingRequest) string {
 	if req == nil {
 		return ""
 	}
@@ -23,10 +23,10 @@ func ComputeCacheKeyForEmbeddingsRequest(req *goopenai.EmbeddingRequest) string 
 		input += ele
 	}
 
-	return fmt.Sprintf("%s-%s-%s", input, req.EncodingFormat, req.User)
+	return fmt.Sprintf("%s-%s-%s-%s", path, input, req.EncodingFormat, req.User)
 }
 
-func ComputeCacheKeyForChatCompletionRequest(req *goopenai.ChatCompletionRequest) string {
+func ComputeCacheKeyForChatCompletionRequest(path string, req *goopenai.ChatCompletionRequest) string {
 	if req == nil {
 		return ""
 	}
@@ -38,5 +38,5 @@ func ComputeCacheKeyForChatCompletionRequest(req *goopenai.ChatCompletionRequest
 		input += m.Content
 	}
 
-	return fmt.Sprintf("%s-%s-%s", input, req.User, req.ResponseFormat)
+	return fmt.Sprintf("%s-%s-%s-%s", path, input, req.User, req.ResponseFormat)
 }
