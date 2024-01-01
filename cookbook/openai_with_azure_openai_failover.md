@@ -43,7 +43,7 @@ curl -X PUT http://localhost:8001/api/key-management/keys \
 ```
 
 ### Step 4 - Create a route that calls OpenAI chat completion with Azure OpenAI chat completion as fallback
-Use `id` from the step 3 as part of `keyIds` to create a route with a caching TTL of 5 seconds.
+Use `id` from the step 3 as part of `keyIds` to create a route with a caching TTL of 5 seconds, 2 retries for the initial OpenAI requests with a timeout of 10 seconds and 2 retries for the azure openai failover with a timeout of 10 seconds.
 
 ```bash
 curl -X POST http://localhost:8001/api/routes \
