@@ -11,9 +11,25 @@
    <a href="https://github.com/bricks-cloud/bricks/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-red" alt="License"></a>
 </p>
 
-**BricksLLM** is a cloud native AI gateway written in Go. Currently, it serves as a proxy to OpenAI. We let you create API keys that have rate limits, cost limits and TTLs. The API keys can be used in both development and production to achieve fine-grained access control that is not provided by OpenAI at the moment. The proxy is compatible with OpenAI API and its SDKs.
+**BricksLLM** is a cloud native AI gateway written in Go. Currently, it provide native support for OpenAI, Anthropic and Azure OpenAI. We let you create API keys that have rate limits, cost limits and TTLs. The API keys can be used in both development and production to achieve fine-grained access control that is not provided by any of the foundational model providers. The proxy is designed to be 100% compatible with existing SDKs.
 
-The vision of BricksLLM is to support many more large language models such as LLama2, Claude, PaLM2 etc, and streamline LLM operations.
+## Features
+- [x] Rate limit
+- [x] Cost control
+- [x] Cost analytics
+- [x] Request analytics
+- [x] [Caching](https://github.com/bricks-cloud/BricksLLM/blob/main/cookbook/openai_with_azure_openai_failover.md)
+- [x] [Request Retries](https://github.com/bricks-cloud/BricksLLM/blob/main/cookbook/openai_with_azure_openai_failover.md)
+- [x] [Failover](https://github.com/bricks-cloud/BricksLLM/blob/main/cookbook/openai_with_azure_openai_failover.md)
+- [x] [Model access control](https://github.com/bricks-cloud/BricksLLM/blob/main/cookbook/granular_access_control.md)
+- [x] [Endpoint access control](https://github.com/bricks-cloud/BricksLLM/blob/main/cookbook/granular_access_control.md)
+- [x] Native support for all OpenAI endpoints
+- [x] Native support for Anthropic
+- [x] Native support for Azure OpenAI
+- [x] Integration with custom models
+- [x] Datadog integration
+- [x] Logging with privacy control
+
 
 ## Roadmap
 - [x] Access control via API key with rate limit, cost limit and ttl
@@ -567,7 +583,7 @@ Event
 ##### Description
 This endpoint is creating custom providers.
 
-##### Route Config
+##### RouteConfig
 > | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | path | required | `string` | `/chat/completion` | Path associated with the custom provider route. It must be unique within the custom provider. |
@@ -618,7 +634,7 @@ This endpoint is creating custom providers.
 ##### Description
 This endpoint is updating a custom provider.
 
-##### Route Config
+##### RouteConfig
 > | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | path | required | `string` | `/chat/completion` | Path associated with the custom provider route. It must be unique within the custom provider. |
@@ -668,7 +684,7 @@ This endpoint is updating a custom provider.
 ##### Description
 This endpoint is for getting custom providers.
 
-##### Route Config
+##### RouteConfig
 > | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | path | required | `string` | `/chat/completion` | Path associated with the custom provider route. It must be unique within the custom provider. |
@@ -723,19 +739,21 @@ Provider
 ##### Description
 This endpoint is for creating routes.
 
-##### Step Config
+##### StepConfig
 > | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | provider | required | `enum` | `azure` | Provider for the step. Can only be either `azure` or `openai`. |
 > | model | required | `string` | `gpt-3.5-turbo` | Model that the step should call. Can only be chat completion or embedding models from OpenAI or Azure OpenAI. |
 > | retries | optional | `int` | `2` | Number of retries. |
 > | params | optional | `object` | `{ deploymentId: "ada-test",apiVersion: "2022-12-01" }` | Params required for maing API requests to desired modela and provider combo. Required if the provider is `azure` |
+> | timeout | optional | `string` | `5s` | Timeout desired for each request. Default value is `5m`. |
 
-##### Cache Config
+
+##### CacheConfig
 > | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | enabled | required | `bool` | `false` | Boolean flag indicating whether caching is enabled. |
-> | ttl | optional | `string` | `5s` | TTL for the cache. |
+> | ttl | optional | `string` | `5s` | TTL for the cache. Default value is `168h`. |
 
 ##### Request
 > | Field | required | type | example                      | description |
@@ -767,7 +785,7 @@ This endpoint is for creating routes.
 > | updatedAt | required | `string` | `1699933571` | Update time of the route. |
 > | name | required | `string` | `staging-openai-azure-completion-route` | Name for the route. |
 > | path | required | `string` | `/production/chat/completion` | Unique path for the route. |
-> | steps | required | `[]StepConfig` | `[{"order": 0, "retries": 2, "provider": "openai", "params": {}, "model": "gpt-3.5-turbo", "timeout": "1s"}]` | List of steps configurations that details sequences of API calls. |
+> | steps | required | `[]StepConfig` | `[{"retries": 2, "provider": "openai", "params": {}, "model": "gpt-3.5-turbo", "timeout": "1s"}]` | List of steps configurations that details sequences of API calls. |
 > | keyIds | required | `[]string` | `["9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb"]` | List of key IDs that can be used to access the route. |
 > | cacheConfig | required | `CacheConfig` | `{ "enabled": false, "ttl": "5s" }` | The caching configurations parameter required for. |
 </details>
@@ -804,7 +822,7 @@ This endpoint is for retrieving a route.
 > | updatedAt | required | `string` | `1699933571` | Update time of the route. |
 > | name | required | `string` | `staging-openai-azure-completion-route` | Name for the route. |
 > | path | required | `string` | `/production/chat/completion` | Unique path for the route. |
-> | steps | required | `[]StepConfig` | `[{"order": 0, "retries": 2, "provider": "openai", "params": {}, "model": "gpt-3.5-turbo", "timeout": "1s"}]` | List of steps configurations that details sequences of API calls. |
+> | steps | required | `[]StepConfig` | `[{"retries": 2, "provider": "openai", "params": {}, "model": "gpt-3.5-turbo", "timeout": "1s"}]` | List of steps configurations that details sequences of API calls. |
 > | keyIds | required | `[]string` | `["9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb"]` | List of key IDs that can be used to access the route. |
 > | cacheConfig | required | `CacheConfig` | `{ "enabled": false, "ttl": "5s" }` | The caching configurations parameter required for. |
 </details>
@@ -828,6 +846,22 @@ This endpoint is for retrieving routes.
 > | detail         | `string` | `something is wrong`            |
 > | instance         | `string` | `/api/routes/:id`           |
 
+##### CacheConfig
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | enabled | required | `bool` | `false` | Boolean flag indicating whether caching is enabled. |
+> | ttl | optional | `string` | `5s` | TTL for the cache. Default value is `168h`. |
+
+##### StepConfig
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | provider | required | `enum` | `azure` | Provider for the step. Can only be either `azure` or `openai`. |
+> | model | required | `string` | `gpt-3.5-turbo` | Model that the step should call. Can only be chat completion or embedding models from OpenAI or Azure OpenAI. |
+> | retries | optional | `int` | `2` | Number of retries. |
+> | params | optional | `object` | `{ deploymentId: "ada-test",apiVersion: "2022-12-01" }` | Params required for maing API requests to desired modela and provider combo. Required if the provider is `azure` |
+> | timeout | optional | `string` | `5s` | Timeout desired for each request. Default value is `5m`. |
+
+
 ##### RouteConfig
 > | Field | type | example                      | description |
 > |---------------|-----------------------------------|-|-|
@@ -836,7 +870,7 @@ This endpoint is for retrieving routes.
 > | updatedAt | required | `string` | `1699933571` | Update time of the route. |
 > | name | required | `string` | `staging-openai-azure-completion-route` | Name for the route. |
 > | path | required | `string` | `/production/chat/completion` | Unique path for the route. |
-> | steps | required | `[]StepConfig` | `[{"order": 0, "retries": 2, "provider": "openai", "params": {}, "model": "gpt-3.5-turbo", "timeout": "1s"}]` | List of steps configurations that details sequences of API calls. |
+> | steps | required | `[]StepConfig` | `[{"retries": 2, "provider": "openai", "params": {}, "model": "gpt-3.5-turbo", "timeout": "1s"}]` | List of steps configurations that details sequences of API calls. |
 > | keyIds | required | `[]string` | `["9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb"]` | List of key IDs that can be used to access the route. |
 > | cacheConfig | required | `CacheConfig` | `{ "enabled": false, "ttl": "5s" }` | The caching configurations parameter required for. |
 
