@@ -59,7 +59,22 @@ func (m *RouteManager) CreateRoute(r *route.Route) (*route.Route, error) {
 		return nil, err
 	}
 
+	addDefaultValues(r)
+
 	return m.s.CreateRoute(r)
+}
+
+func addDefaultValues(r *route.Route) {
+	if r.CacheConfig != nil && r.CacheConfig.Enabled && len(r.CacheConfig.Ttl) == 0 {
+		r.CacheConfig.Ttl = "168h"
+	}
+
+	for _, step := range r.Steps {
+		if len(step.Timeout) == 0 {
+			step.Timeout = "5m"
+		}
+	}
+
 }
 
 func checkModelValidity(provider, model string) bool {
@@ -259,7 +274,7 @@ func (m *RouteManager) validateRoute(r *route.Route) error {
 		fields = append(fields, "cacheConfig")
 	}
 
-	if r.CacheConfig != nil {
+	if r.CacheConfig != nil && len(r.CacheConfig.Ttl) != 0 {
 		parsed, err := time.ParseDuration(r.CacheConfig.Ttl)
 		if err != nil {
 			fields = append(fields, "cacheConfig.ttl")
