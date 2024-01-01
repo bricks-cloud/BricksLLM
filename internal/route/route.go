@@ -23,7 +23,6 @@ type CacheConfig struct {
 }
 
 type Step struct {
-	Order    int               `json:"order"`
 	Retries  int               `json:"retries"`
 	Provider string            `json:"provider"`
 	Params   map[string]string `json:"params"`
