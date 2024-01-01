@@ -1,3 +1,8 @@
+## 1.7.2 - 2024-01-01
+### Added
+- Fix route caching issue
+- Add default values to route step timeout and cache TTL
+
 ## 1.7.1 - 2023-12-29
 ### Added
 - Started supporting caching in routes
