@@ -334,7 +334,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 				}
 
 				if rc.CacheConfig != nil && rc.CacheConfig.Enabled {
-					c.Set("cache_key", route.ComputeCacheKeyForEmbeddingsRequest(er))
+					c.Set("cache_key", route.ComputeCacheKeyForEmbeddingsRequest(r, er))
 				}
 
 				c.Set("encoding_format", string(er.EncodingFormat))
@@ -360,7 +360,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 				}
 
 				if rc.CacheConfig != nil && rc.CacheConfig.Enabled {
-					c.Set("cache_key", route.ComputeCacheKeyForChatCompletionRequest(ccr))
+					c.Set("cache_key", route.ComputeCacheKeyForChatCompletionRequest(r, ccr))
 				}
 			}
 		}
