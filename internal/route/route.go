@@ -215,13 +215,17 @@ func (r *Route) RunSteps(req *Request) (*Response, error) {
 				continue
 			}
 
+			responses = append(responses, res)
+
 			if res.StatusCode != http.StatusOK {
 				retries -= 1
 				continue
 			}
 
-			responses = append(responses, res)
+			break
+		}
 
+		if len(responses) > 0 && responses[len(responses)-1].StatusCode == http.StatusOK {
 			break
 		}
 	}
