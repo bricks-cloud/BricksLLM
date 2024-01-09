@@ -1,3 +1,7 @@
+## 1.7.4 - 2024-01-09
+### Fixed
+- Fix key exceeding spend limit error code issue
+
 ## 1.7.3 - 2024-01-08
 ### Fixed
 - Fixed a bug with route failover not working as expected
