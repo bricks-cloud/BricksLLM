@@ -80,7 +80,7 @@ func JSON(c *gin.Context, code int, message string) {
 	c.JSON(code, &goopenai.ErrorResponse{
 		Error: &goopenai.APIError{
 			Message: message,
-			Code:    code,
+			Code:    strconv.Itoa(code),
 		},
 	})
 }
