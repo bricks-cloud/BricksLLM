@@ -89,7 +89,19 @@ func (s *Store) CreateKeysTable() error {
 
 func (s *Store) AlterKeysTable() error {
 	alterTableQuery := `
-		ALTER TABLE keys ADD COLUMN IF NOT EXISTS setting_id VARCHAR(255), ADD COLUMN IF NOT EXISTS allowed_paths JSONB, ADD COLUMN IF NOT EXISTS setting_ids VARCHAR(255)[] NOT NULL DEFAULT ARRAY[]::VARCHAR(255)[]
+		DO $$
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1 
+				FROM pg_constraint 
+				WHERE conname = 'key_uniqueness'
+			) THEN
+				ALTER TABLE your_table_name
+				ADD CONSTRAINT key_uniqueness UNIQUE (key);
+			END IF;
+		END
+		$$;
+		ALTER TABLE keys ADD COLUMN IF NOT EXISTS setting_id VARCHAR(255), ADD COLUMN IF NOT EXISTS allowed_paths JSONB, ADD COLUMN IF NOT EXISTS setting_ids VARCHAR(255)[] NOT NULL DEFAULT ARRAY[]::VARCHAR(255)[];
 	`
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -1112,23 +1124,6 @@ func (s *Store) CreateProviderSetting(setting *provider.Setting) (*provider.Sett
 }
 
 func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
-	defer cancel()
-	duplicated, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM keys WHERE $1 = key", rk.Key)
-	if err != nil {
-		return nil, err
-	}
-	defer duplicated.Close()
-
-	i := 0
-	for duplicated.Next() {
-		i++
-	}
-
-	if i > 0 {
-		return nil, NewDuplicationError("key can not be duplicated")
-	}
-
 	query := `
 		INSERT INTO keys (name, created_at, updated_at, tags, revoked, key_id, key, revoked_reason, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl, setting_id, allowed_paths, setting_ids)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
@@ -1160,7 +1155,7 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		sliceToSqlStringArray(rk.SettingIds),
 	}
 
-	ctxTimeout, cancel = context.WithTimeout(context.Background(), s.wt)
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()
 
 	var k key.ResponseKey
