@@ -96,7 +96,7 @@ func (s *Store) AlterKeysTable() error {
 				FROM pg_constraint 
 				WHERE conname = 'key_uniqueness'
 			) THEN
-				ALTER TABLE your_table_name
+				ALTER TABLE keys
 				ADD CONSTRAINT key_uniqueness UNIQUE (key);
 			END IF;
 		END
