@@ -36,6 +36,8 @@ func copyHttpHeaders(source *http.Request, dest *http.Request) {
 			dest.Header.Set(k, source.Header.Get(k))
 		}
 	}
+
+	dest.Header.Set("Accept-Encoding", "*")
 }
 
 func getCompletionHandler(r recorder, prod, private bool, client http.Client, kms keyMemStorage, log *zap.Logger, e anthropicEstimator, timeOut time.Duration) gin.HandlerFunc {
