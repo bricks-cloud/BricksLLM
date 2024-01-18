@@ -1,6 +1,11 @@
+## 1.7.5 - 2024-01-09
+### Fixed
+- Fixed inability to parse OpenAI chat completion result
+- Fixed problem with keys containing duplicated API credentials
+
 ## 1.7.4 - 2024-01-09
 ### Fixed
-- Fix key exceeding spend limit error code issue
+- Fixed key exceeding spend limit error code issue
 
 ## 1.7.3 - 2024-01-08
 ### Fixed
