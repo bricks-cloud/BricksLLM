@@ -1,4 +1,8 @@
-## 1.7.5 - 2024-01-09
+## 1.7.6 - 2024-01-17
+### Fixed
+- Changed code to string in OpenAI error response
+
+## 1.7.5 - 2024-01-17
 ### Fixed
 - Fixed inability to parse OpenAI chat completion result
 - Fixed problem with keys containing duplicated API credentials
