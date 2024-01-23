@@ -14,6 +14,7 @@ import (
 	goopenai "github.com/sashabaranov/go-openai"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
+	"github.com/bricks-cloud/bricksllm/internal/policy"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
 )
 
@@ -31,14 +32,15 @@ type Step struct {
 }
 
 type Route struct {
-	Id          string       `json:"id"`
-	CreatedAt   int64        `json:"createdAt"`
-	UpdatedAt   int64        `json:"updatedAt"`
-	Name        string       `json:"name"`
-	Path        string       `json:"path"`
-	KeyIds      []string     `json:"keyIds"`
-	Steps       []*Step      `json:"steps"`
-	CacheConfig *CacheConfig `json:"cacheConfig"`
+	Id          string         `json:"id"`
+	CreatedAt   int64          `json:"createdAt"`
+	UpdatedAt   int64          `json:"updatedAt"`
+	Name        string         `json:"name"`
+	Path        string         `json:"path"`
+	KeyIds      []string       `json:"keyIds"`
+	Steps       []*Step        `json:"steps"`
+	CacheConfig *CacheConfig   `json:"cacheConfig"`
+	Policy      *policy.Policy `json:"policy"`
 }
 
 func (r *Route) ValidateSettings(settings []*provider.Setting) bool {
