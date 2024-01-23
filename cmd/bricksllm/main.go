@@ -70,6 +70,11 @@ func main() {
 		log.Sugar().Fatalf("error creating routes table: %v", err)
 	}
 
+	err = store.AlterRoutesTable()
+	if err != nil {
+		log.Sugar().Fatalf("error altering routes table: %v", err)
+	}
+
 	err = store.CreateKeysTable()
 	if err != nil {
 		log.Sugar().Fatalf("error creating keys table: %v", err)
