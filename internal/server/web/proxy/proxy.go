@@ -60,7 +60,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	prod := mode == "production"
 	private := privacyMode == "strict"
 
-	router.Use(getMiddleware(kms, cpm, rm, a, prod, private, e, ae, aoe, v, ks, log, rlm, r, "proxy"))
+	router.Use(getMiddleware(kms, cpm, rm, a, prod, private, e, ae, aoe, v, ks, log, rlm, r, "proxy", http.Client{}))
 
 	client := http.Client{}
 

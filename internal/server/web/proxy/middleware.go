@@ -93,7 +93,7 @@ type notFoundError interface {
 	NotFound()
 }
 
-func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManager, a authenticator, prod, private bool, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, ks keyStorage, log *zap.Logger, rlm rateLimitManager, r recorder, prefix string) gin.HandlerFunc {
+func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManager, a authenticator, prod, private bool, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, ks keyStorage, log *zap.Logger, rlm rateLimitManager, r recorder, prefix string, client http.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] request is empty")
@@ -340,6 +340,15 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 				c.Set("encoding_format", string(er.EncodingFormat))
 
 				logEmbeddingRequest(log, prod, private, cid, er)
+				err := rc.Policy.Filter(client, er)
+				if err != nil {
+					logError(log, "error when filtering openai embedding request", prod, cid, err)
+				}
+
+				data, err := json.Marshal(er)
+				if err == nil {
+					c.Request.Body = io.NopCloser(bytes.NewReader(data))
+				}
 			}
 
 			if !rc.ShouldRunEmbeddings() {
@@ -362,6 +371,17 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 				if rc.CacheConfig != nil && rc.CacheConfig.Enabled {
 					c.Set("cache_key", route.ComputeCacheKeyForChatCompletionRequest(r, ccr))
 				}
+
+				err := rc.Policy.Filter(client, ccr)
+				if err != nil {
+					logError(log, "error when filtering openai chat completion request", prod, cid, err)
+				}
+
+				data, err := json.Marshal(ccr)
+				if err == nil {
+					c.Request.Body = io.NopCloser(bytes.NewReader(data))
+				}
+
 			}
 		}
 
