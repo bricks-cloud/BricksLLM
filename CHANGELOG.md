@@ -1,4 +1,4 @@
-## 1.8.0 - 2024-01-17
+## 1.8.0 - 2024-01-26
 ### Added
 - Added key authentication for admin endpoints
   
