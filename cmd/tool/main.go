@@ -181,7 +181,7 @@ func main() {
 	cpm := manager.NewCustomProvidersManager(store, cpMemStore)
 	rm := manager.NewRouteManager(store, store, rMemStore, psMemStore)
 
-	as, err := admin.NewAdminServer(log, *modePtr, m, krm, psm, cpm, rm)
+	as, err := admin.NewAdminServer(log, *modePtr, m, krm, psm, cpm, rm, cfg.AdminPass)
 	if err != nil {
 		log.Sugar().Fatalf("error creating admin http server: %v", err)
 	}

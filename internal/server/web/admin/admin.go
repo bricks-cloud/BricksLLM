@@ -55,11 +55,11 @@ type AdminServer struct {
 	m      KeyManager
 }
 
-func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReportingManager, psm ProviderSettingsManager, cpm CustomProvidersManager, rm RouteManager) (*AdminServer, error) {
+func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReportingManager, psm ProviderSettingsManager, cpm CustomProvidersManager, rm RouteManager, adminPass string) (*AdminServer, error) {
 	router := gin.New()
 
 	prod := mode == "production"
-	router.Use(getAdminLoggerMiddleware(log, "admin", prod))
+	router.Use(getAdminLoggerMiddleware(log, "admin", prod, adminPass))
 
 	router.GET("/api/health", getGetHealthCheckHandler())
 
