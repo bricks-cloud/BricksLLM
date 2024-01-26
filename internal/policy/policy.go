@@ -5,9 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
+
+	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
 
 	goopenai "github.com/sashabaranov/go-openai"
 )
@@ -34,7 +37,6 @@ type RegularExpressionRule struct {
 }
 
 type Policy struct {
-	Id                     string                   `json:"id"`
 	NameRule               Action                   `json:"nameRule"`
 	AddressRule            Action                   `json:"addressRule"`
 	EmailRule              Action                   `json:"emailRule"`
@@ -45,12 +47,41 @@ type Policy struct {
 }
 
 type Request struct {
-	Contents []string `json:"content"`
+	Contents []string `json:"contents"`
 	Policy   *Policy  `json:"policy"`
+}
+
+type Response struct {
+	Contents       []string        `json:"contents"`
+	Action         Action          `json:"action"`
+	Warnings       map[string]bool `json:"warnings"`
+	BlockedReasons map[string]bool `json:"blockedReasons"`
 }
 
 func (p *Policy) Filter(client http.Client, input any) error {
 	if p == nil {
+		return nil
+	}
+
+	shouldInspect := false
+
+	if p.NameRule != Allow || p.AddressRule != Allow || p.EmailRule != Allow || p.SsnRule != Allow || p.PasswordRule != Allow {
+		shouldInspect = true
+	}
+
+	for _, cr := range p.CustomRules {
+		if cr.Action != Allow {
+			shouldInspect = true
+		}
+	}
+
+	for _, regexr := range p.RegularExpressionRules {
+		if regexr.Action != Allow {
+			shouldInspect = true
+		}
+	}
+
+	if !shouldInspect {
 		return nil
 	}
 
@@ -71,15 +102,16 @@ func (p *Policy) Filter(client http.Client, input any) error {
 
 			updated, err := p.inspect(client, inputsToInspect)
 			if err != nil {
-				return nil
+				return err
 			}
 
 			converted.Input = updated
 
 		} else if input, ok := converted.Input.(string); ok {
 			updated, err := p.inspect(client, []string{input})
+
 			if err != nil {
-				return nil
+				return err
 			}
 
 			if len(updated) == 1 {
@@ -138,10 +170,12 @@ func (p *Policy) inspect(client http.Client, contents []string) ([]string, error
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "", io.NopCloser(bytes.NewReader(data)))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://localhost:8080/inspect", io.NopCloser(bytes.NewReader(data)))
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add("Content-Type", "application/json")
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -155,11 +189,29 @@ func (p *Policy) inspect(client http.Client, contents []string) ([]string, error
 		return nil, err
 	}
 
-	parsed := []string{}
+	parsed := &Response{}
 	err = json.Unmarshal(body, &parsed)
 	if err != nil {
 		return nil, err
 	}
 
-	return parsed, nil
+	blockedReasons := []string{}
+	for blocked := range parsed.BlockedReasons {
+		blockedReasons = append(blockedReasons, blocked)
+	}
+
+	warnings := []string{}
+	for message := range parsed.Warnings {
+		warnings = append(warnings, message)
+	}
+
+	if parsed.Action == Block {
+		return nil, internal_errors.NewBlockedError(fmt.Sprintf("request blocked: %s", blockedReasons))
+	}
+
+	if len(parsed.Warnings) != 0 {
+		return nil, internal_errors.NewWarningError(fmt.Sprintf("request warned: %s", warnings))
+	}
+
+	return parsed.Contents, nil
 }
