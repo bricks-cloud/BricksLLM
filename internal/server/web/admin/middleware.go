@@ -8,8 +8,14 @@ import (
 	"go.uber.org/zap"
 )
 
-func getAdminLoggerMiddleware(log *zap.Logger, prefix string, prod bool) gin.HandlerFunc {
+func getAdminLoggerMiddleware(log *zap.Logger, prefix string, prod bool, adminPass string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if len(adminPass) != 0 && c.Request.Header.Get("X-API-KEY") != adminPass {
+			c.Status(200)
+			c.Abort()
+			return
+		}
+
 		c.Set(correlationId, util.NewUuid())
 		start := time.Now()
 		c.Next()

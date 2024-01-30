@@ -1,3 +1,7 @@
+## 1.8.0 - 2024-01-26
+### Added
+- Added key authentication for admin endpoints
+  
 ## 1.7.6 - 2024-01-17
 ### Fixed
 - Changed code to string in OpenAI error response

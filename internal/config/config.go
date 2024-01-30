@@ -24,6 +24,7 @@ type Config struct {
 	InMemoryDbUpdateInterval time.Duration `env:"IN_MEMORY_DB_UPDATE_INTERVAL" envDefault:"5s"`
 	OpenAiKey                string        `env:"OPENAI_API_KEY"`
 	StatsProvider            string        `env:"STATS_PROVIDER"`
+	AdminPass                string        `env:"ADMIN_PASS"`
 	ProxyTimeout             time.Duration `env:"PROXY_TIMEOUT" envDefault:"180s"`
 }
 

@@ -145,10 +145,18 @@ docker pull luyuanxin1995/bricksllm:1.4.0
 > | `REDIS_WRITE_TIME_OUT`         | optional | Timeout for Redis write operations | `500ms`
 > | `IN_MEMORY_DB_UPDATE_INTERVAL`         | optional | The interval BricksLLM API gateway polls Postgresql DB for latest key configurations | `1s`
 > | `STATS_PROVIDER`         | optional | This value can only be datadog. Required for integration with Datadog.  |
-> | `PROXY_TIMEOUT`         | optional | This value can only be datadog. Required for integration with Datadog.  |
+> | `PROXY_TIMEOUT`         | optional | Timeout for proxy HTTP requests. |
+> | `ADMIN_PASS`         | optional | Simple password authentication for admin endpoints.  |
 
 ## Configuration Endpoints
 The configuration server runs on Port `8001`.
+
+##### Headers
+> | name   |  type      | data type      | description                                          |
+> |--------|------------|----------------|------------------------------------------------------|
+> | `X-API-KEY` |  optional  | `string`         | Key authentication header.
+
+
 <details>
   <summary>Get keys: <code>GET</code> <code><b>/api/key-management/keys</b></code></summary>
 
