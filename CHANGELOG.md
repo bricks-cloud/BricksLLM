@@ -1,3 +1,7 @@
+## 1.8.1 - 2024-01-31
+### Fixed
+- Extended default proxy request timeout to 10m
+
 ## 1.8.0 - 2024-01-26
 ### Added
 - Added key authentication for admin endpoints

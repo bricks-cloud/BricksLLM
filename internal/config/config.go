@@ -25,7 +25,7 @@ type Config struct {
 	OpenAiKey                string        `env:"OPENAI_API_KEY"`
 	StatsProvider            string        `env:"STATS_PROVIDER"`
 	AdminPass                string        `env:"ADMIN_PASS"`
-	ProxyTimeout             time.Duration `env:"PROXY_TIMEOUT" envDefault:"180s"`
+	ProxyTimeout             time.Duration `env:"PROXY_TIMEOUT" envDefault:"600s"`
 }
 
 func ParseEnvVariables() (*Config, error) {
