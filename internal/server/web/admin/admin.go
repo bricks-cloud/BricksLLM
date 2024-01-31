@@ -37,7 +37,8 @@ type KeyManager interface {
 
 type KeyReportingManager interface {
 	GetKeyReporting(keyId string) (*key.KeyReporting, error)
-	GetEvent(customId string) (*event.Event, error)
+	GetEvents(customId string, keyIds []string) ([]*event.Event, error)
+	GetEvent(customId string, keyIds []string) (*event.Event, error)
 	GetEventReporting(e *event.ReportingRequest) (*event.ReportingResponse, error)
 }
 
@@ -819,20 +820,43 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 		}
 
 		cid := c.GetString(correlationId)
-		customId, ok := c.GetQuery("customId")
-		if !ok {
+		customId, ciok := c.GetQuery("customId")
+		keyIds, kiok := c.GetQueryArray("keyIds")
+		if !ciok && !kiok {
 			c.JSON(http.StatusBadRequest, &ErrorResponse{
-				Type:     "/errors/custom-id-empty",
-				Title:    "custom id is empty",
+				Type:     "/errors/no-filters-empty",
+				Title:    "neither customId nor keyIds are specified",
 				Status:   http.StatusBadRequest,
-				Detail:   "query param customId is empty. it is required for retrieving an event.",
+				Detail:   "both query params customId and keyIds are empty. either of them is required for retrieving events.",
 				Instance: path,
 			})
 
 			return
 		}
 
-		ev, err := m.GetEvent(customId)
+		if kiok {
+			evs, err := m.GetEvents(customId, keyIds)
+			if err != nil {
+				stats.Incr("bricksllm.admin.get_get_events_handler.get_events_error", nil, 1)
+
+				logError(log, "error when getting events", prod, cid, err)
+				c.JSON(http.StatusInternalServerError, &ErrorResponse{
+					Type:     "/errors/event-manager",
+					Title:    "getting events error",
+					Status:   http.StatusInternalServerError,
+					Detail:   err.Error(),
+					Instance: path,
+				})
+				return
+			}
+
+			stats.Incr("bricksllm.admin.get_get_events_handler.success", nil, 1)
+
+			c.JSON(http.StatusOK, evs)
+			return
+		}
+
+		ev, err := m.GetEvent(customId, keyIds)
 		if err != nil {
 			stats.Incr("bricksllm.admin.get_get_events_handler.get_event_error", nil, 1)
 
