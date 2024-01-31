@@ -167,6 +167,13 @@ func getCustomProviderHandler(prod, private bool, psm ProviderSettingsManager, c
 					return false
 				}
 
+				if errors.Is(err, context.DeadlineExceeded) {
+					stats.Incr("bricksllm.proxy.get_custom_provider_handler.context_deadline_exceeded_error", nil, 1)
+					logError(log, "context deadline exceeded when reading bytes from custom provider response", prod, cid, err)
+
+					return false
+				}
+
 				stats.Incr("bricksllm.proxy.get_custom_provider_handler.read_bytes_error", nil, 1)
 				logError(log, "error when reading bytes from custom provider response", prod, cid, err)
 
