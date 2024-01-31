@@ -834,36 +834,14 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 			return
 		}
 
-		if kiok {
-			evs, err := m.GetEvents(customId, keyIds)
-			if err != nil {
-				stats.Incr("bricksllm.admin.get_get_events_handler.get_events_error", nil, 1)
-
-				logError(log, "error when getting events", prod, cid, err)
-				c.JSON(http.StatusInternalServerError, &ErrorResponse{
-					Type:     "/errors/event-manager",
-					Title:    "getting events error",
-					Status:   http.StatusInternalServerError,
-					Detail:   err.Error(),
-					Instance: path,
-				})
-				return
-			}
-
-			stats.Incr("bricksllm.admin.get_get_events_handler.success", nil, 1)
-
-			c.JSON(http.StatusOK, evs)
-			return
-		}
-
-		ev, err := m.GetEvent(customId, keyIds)
+		evs, err := m.GetEvents(customId, keyIds)
 		if err != nil {
-			stats.Incr("bricksllm.admin.get_get_events_handler.get_event_error", nil, 1)
+			stats.Incr("bricksllm.admin.get_get_events_handler.get_events_error", nil, 1)
 
-			logError(log, "error when getting an event", prod, cid, err)
+			logError(log, "error when getting events", prod, cid, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/event-manager",
-				Title:    "getting an event error",
+				Title:    "getting events error",
 				Status:   http.StatusInternalServerError,
 				Detail:   err.Error(),
 				Instance: path,
@@ -873,7 +851,7 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 
 		stats.Incr("bricksllm.admin.get_get_events_handler.success", nil, 1)
 
-		c.JSON(http.StatusOK, []*event.Event{ev})
+		c.JSON(http.StatusOK, evs)
 	}
 }
 
