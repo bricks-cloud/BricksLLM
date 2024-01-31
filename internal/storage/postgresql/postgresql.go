@@ -251,7 +251,7 @@ func (s *Store) GetEvents(customId string, keyIds []string) ([]*event.Event, err
 	`
 
 	if len(customId) != 0 {
-		query += " custom_id = $1"
+		query += fmt.Sprintf(" custom_id = '%s'", customId)
 	}
 
 	if len(customId) != 0 && len(keyIds) != 0 {
@@ -266,7 +266,7 @@ func (s *Store) GetEvents(customId string, keyIds []string) ([]*event.Event, err
 	defer cancel()
 
 	events := []*event.Event{}
-	rows, err := s.db.QueryContext(ctxTimeout, query, customId)
+	rows, err := s.db.QueryContext(ctxTimeout, query)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return events, nil
