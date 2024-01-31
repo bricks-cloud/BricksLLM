@@ -1,3 +1,10 @@
+## 1.8.1 - 2024-01-31
+### Changed
+- Extended default proxy request timeout to 10m
+
+### Fixed
+- Fixed streaming response stuck at context deadline exceeded error
+
 ## 1.8.0 - 2024-01-26
 ### Added
 - Added key authentication for admin endpoints

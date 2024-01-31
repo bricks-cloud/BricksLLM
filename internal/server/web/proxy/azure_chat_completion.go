@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -180,6 +181,13 @@ func getAzureChatCompletionHandler(r recorder, prod, private bool, psm ProviderS
 			raw, err := buffer.ReadBytes('\n')
 			if err != nil {
 				if err == io.EOF {
+					return false
+				}
+
+				if errors.Is(err, context.DeadlineExceeded) {
+					stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.context_deadline_exceeded_error", nil, 1)
+					logError(log, "context deadline exceeded when reading bytes from azure openai chat completion response", prod, cid, err)
+
 					return false
 				}
 
