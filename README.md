@@ -536,6 +536,7 @@ Datapoint
 > | successCount | `int` | `555` | Aggregated number of successful http requests over the given time increment. |
 > | keyId | `int` | `555.7` | key Id associated with the event. |
 > | model | `string` | `gpt-3.5-turbo` | model associated with the event. |
+> | customId | `string` | `customId` | customId associated with the event. |
 
 </details>
 
