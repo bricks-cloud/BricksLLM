@@ -1,3 +1,8 @@
+## 1.8.2 - 2024-01-31
+### Added
+- Added support for new chat completion models
+- Added new quering options for metrics and events API
+
 ## 1.8.1 - 2024-01-31
 ### Changed
 - Extended default proxy request timeout to 10m
