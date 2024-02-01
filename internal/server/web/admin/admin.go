@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
@@ -37,7 +38,7 @@ type KeyManager interface {
 
 type KeyReportingManager interface {
 	GetKeyReporting(keyId string) (*key.KeyReporting, error)
-	GetEvent(customId string) (*event.Event, error)
+	GetEvents(customId string, keyIds []string, start int64, end int64) ([]*event.Event, error)
 	GetEventReporting(e *event.ReportingRequest) (*event.ReportingResponse, error)
 }
 
@@ -819,27 +820,89 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 		}
 
 		cid := c.GetString(correlationId)
-		customId, ok := c.GetQuery("customId")
-		if !ok {
+		customId, ciok := c.GetQuery("customId")
+		keyIds, kiok := c.GetQueryArray("keyIds")
+		if !ciok && !kiok {
 			c.JSON(http.StatusBadRequest, &ErrorResponse{
-				Type:     "/errors/custom-id-empty",
-				Title:    "custom id is empty",
+				Type:     "/errors/no-filters-empty",
+				Title:    "neither customId nor keyIds are specified",
 				Status:   http.StatusBadRequest,
-				Detail:   "query param customId is empty. it is required for retrieving an event.",
+				Detail:   "both query params customId and keyIds are empty. either of them is required for retrieving events.",
 				Instance: path,
 			})
 
 			return
 		}
 
-		ev, err := m.GetEvent(customId)
-		if err != nil {
-			stats.Incr("bricksllm.admin.get_get_events_handler.get_event_error", nil, 1)
+		var qstart int64 = 0
+		var qend int64 = 0
 
-			logError(log, "error when getting an event", prod, cid, err)
+		if kiok {
+			startstr, sok := c.GetQuery("start")
+			if !sok {
+				c.JSON(http.StatusBadRequest, &ErrorResponse{
+					Type:     "/errors/query-param-start-missing",
+					Title:    "query param start is missing",
+					Status:   http.StatusBadRequest,
+					Detail:   "start query param is not provided",
+					Instance: path,
+				})
+
+				return
+			}
+
+			parsedStart, err := strconv.ParseInt(startstr, 10, 64)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, &ErrorResponse{
+					Type:     "/errors/bad-start-query-param",
+					Title:    "start query cannot be parsed",
+					Status:   http.StatusBadRequest,
+					Detail:   "start query param must be int64",
+					Instance: path,
+				})
+
+				return
+			}
+
+			qstart = parsedStart
+
+			endstr, eoi := c.GetQuery("end")
+			if !eoi {
+				c.JSON(http.StatusBadRequest, &ErrorResponse{
+					Type:     "/errors/query-param-end-missing",
+					Title:    "query param end is missing",
+					Status:   http.StatusBadRequest,
+					Detail:   "end query param is not provided",
+					Instance: path,
+				})
+
+				return
+			}
+
+			parsedEnd, err := strconv.ParseInt(endstr, 10, 64)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, &ErrorResponse{
+					Type:     "/errors/bad-end-query-param",
+					Title:    "end query cannot be parsed",
+					Status:   http.StatusBadRequest,
+					Detail:   "end query param must be int64",
+					Instance: path,
+				})
+
+				return
+			}
+
+			qend = parsedEnd
+		}
+
+		evs, err := m.GetEvents(customId, keyIds, qstart, qend)
+		if err != nil {
+			stats.Incr("bricksllm.admin.get_get_events_handler.get_events_error", nil, 1)
+
+			logError(log, "error when getting events", prod, cid, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/event-manager",
-				Title:    "getting an event error",
+				Title:    "getting events error",
 				Status:   http.StatusInternalServerError,
 				Detail:   err.Error(),
 				Instance: path,
@@ -849,7 +912,7 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 
 		stats.Incr("bricksllm.admin.get_get_events_handler.success", nil, 1)
 
-		c.JSON(http.StatusOK, []*event.Event{ev})
+		c.JSON(http.StatusOK, evs)
 	}
 }
 
