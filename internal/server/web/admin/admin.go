@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
@@ -37,8 +38,7 @@ type KeyManager interface {
 
 type KeyReportingManager interface {
 	GetKeyReporting(keyId string) (*key.KeyReporting, error)
-	GetEvents(customId string, keyIds []string) ([]*event.Event, error)
-	GetEvent(customId string, keyIds []string) (*event.Event, error)
+	GetEvents(customId string, keyIds []string, start int64, end int64) ([]*event.Event, error)
 	GetEventReporting(e *event.ReportingRequest) (*event.ReportingResponse, error)
 }
 
@@ -834,7 +834,68 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 			return
 		}
 
-		evs, err := m.GetEvents(customId, keyIds)
+		var qstart int64 = 0
+		var qend int64 = 0
+
+		if kiok {
+			startstr, sok := c.GetQuery("start")
+			if !sok {
+				c.JSON(http.StatusBadRequest, &ErrorResponse{
+					Type:     "/errors/query-param-start-missing",
+					Title:    "query param start is missing",
+					Status:   http.StatusBadRequest,
+					Detail:   "start query param is not provided",
+					Instance: path,
+				})
+
+				return
+			}
+
+			parsedStart, err := strconv.ParseInt(startstr, 10, 64)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, &ErrorResponse{
+					Type:     "/errors/bad-start-query-param",
+					Title:    "start query cannot be parsed",
+					Status:   http.StatusBadRequest,
+					Detail:   "start query param must be int64",
+					Instance: path,
+				})
+
+				return
+			}
+
+			qstart = parsedStart
+
+			endstr, eoi := c.GetQuery("end")
+			if !eoi {
+				c.JSON(http.StatusBadRequest, &ErrorResponse{
+					Type:     "/errors/query-param-end-missing",
+					Title:    "query param end is missing",
+					Status:   http.StatusBadRequest,
+					Detail:   "end query param is not provided",
+					Instance: path,
+				})
+
+				return
+			}
+
+			parsedEnd, err := strconv.ParseInt(endstr, 10, 64)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, &ErrorResponse{
+					Type:     "/errors/bad-end-query-param",
+					Title:    "end query cannot be parsed",
+					Status:   http.StatusBadRequest,
+					Detail:   "end query param must be int64",
+					Instance: path,
+				})
+
+				return
+			}
+
+			qend = parsedEnd
+		}
+
+		evs, err := m.GetEvents(customId, keyIds, qstart, qend)
 		if err != nil {
 			stats.Incr("bricksllm.admin.get_get_events_handler.get_events_error", nil, 1)
 

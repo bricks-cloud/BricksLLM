@@ -241,9 +241,13 @@ func (s *Store) InsertEvent(e *event.Event) error {
 	return nil
 }
 
-func (s *Store) GetEvents(customId string, keyIds []string) ([]*event.Event, error) {
+func (s *Store) GetEvents(customId string, keyIds []string, start int64, end int64) ([]*event.Event, error) {
 	if len(customId) == 0 && len(keyIds) == 0 {
 		return nil, errors.New("neither customId nor keyIds are specified")
+	}
+
+	if len(keyIds) == 0 && (start == 0 || end == 0) {
+		return nil, errors.New("keyIds are provided but either start or end is not specified")
 	}
 
 	query := `
@@ -259,7 +263,7 @@ func (s *Store) GetEvents(customId string, keyIds []string) ([]*event.Event, err
 	}
 
 	if len(keyIds) != 0 {
-		query += fmt.Sprintf(" key_id = ANY('%s')", sliceToSqlStringArray(keyIds))
+		query += fmt.Sprintf(" key_id = ANY('%s') AND created_at >= %d AND created_at <= %d", sliceToSqlStringArray(keyIds), start, end)
 	}
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
