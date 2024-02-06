@@ -468,17 +468,17 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 
 			logRequest(log, prod, private, cid, ccr)
 
-			tks, cost, err := e.EstimateChatCompletionPromptCostWithTokenCounts(ccr)
-			if err != nil {
-				stats.Incr("bricksllm.proxy.get_middleware.estimate_chat_completion_prompt_cost_with_token_counts_error", nil, 1)
+			// tks, cost, err := e.EstimateChatCompletionPromptCostWithTokenCounts(ccr)
+			// if err != nil {
+			// 	stats.Incr("bricksllm.proxy.get_middleware.estimate_chat_completion_prompt_cost_with_token_counts_error", nil, 1)
 
-				logError(log, "error when estimating prompt cost", prod, cid, err)
-			}
+			// 	logError(log, "error when estimating prompt cost", prod, cid, err)
+			// }
 
 			if ccr.Stream {
 				c.Set("stream", true)
-				c.Set("estimatedPromptCostInUsd", cost)
-				c.Set("promptTokenCount", tks)
+				// c.Set("estimatedPromptCostInUsd", cost)
+				// c.Set("promptTokenCount", tks)
 			}
 		}
 
