@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/gin-gonic/gin"
 	goopenai "github.com/sashabaranov/go-openai"
@@ -36,13 +35,6 @@ func getAzureChatCompletionHandler(r recorder, prod, private bool, psm ProviderS
 		}
 
 		cid := c.GetString(correlationId)
-		raw, exists := c.Get("key")
-		kc, ok := raw.(*key.ResponseKey)
-		if !exists || !ok {
-			stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.api_key_not_registered", nil, 1)
-			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
-			return
-		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
@@ -111,12 +103,12 @@ func getAzureChatCompletionHandler(r recorder, prod, private bool, psm ProviderS
 					logError(log, "error when estimating azure openai cost", prod, cid, err)
 				}
 
-				micros := int64(cost * 1000000)
-				err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
-				if err != nil {
-					stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.record_key_spend_error", nil, 1)
-					logError(log, "error when recording azure openai spend", prod, cid, err)
-				}
+				// micros := int64(cost * 1000000)
+				// err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
+				// if err != nil {
+				// 	stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.record_key_spend_error", nil, 1)
+				// 	logError(log, "error when recording azure openai spend", prod, cid, err)
+				// }
 			}
 
 			c.Set("costInUsd", cost)
@@ -145,8 +137,8 @@ func getAzureChatCompletionHandler(r recorder, prod, private bool, psm ProviderS
 		}
 
 		buffer := bufio.NewReader(res.Body)
-		var totalCost float64 = 0
-		var totalTokens int = 0
+		// var totalCost float64 = 0
+		// var totalTokens int = 0
 		content := ""
 
 		model := ""
@@ -155,24 +147,26 @@ func getAzureChatCompletionHandler(r recorder, prod, private bool, psm ProviderS
 				c.Set("model", model)
 			}
 
-			tks, cost, err := aoe.EstimateChatCompletionStreamCostWithTokenCounts(model, content)
-			if err != nil {
-				stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.estimate_chat_completion_cost_and_tokens_error", nil, 1)
-				logError(log, "error when estimating azure openai chat completion stream cost with token counts", prod, cid, err)
-			}
+			c.Set("content", content)
 
-			estimatedPromptTokenCounts := c.GetInt("promptTokenCount")
-			promptCost, err := aoe.EstimatePromptCost(model, estimatedPromptTokenCounts)
-			if err != nil {
-				stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.estimate_chat_completion_cost_and_tokens_error", nil, 1)
-				logError(log, "error when estimating azure openai chat completion stream cost with token counts", prod, cid, err)
-			}
+			// tks, cost, err := aoe.EstimateChatCompletionStreamCostWithTokenCounts(model, content)
+			// if err != nil {
+			// 	stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.estimate_chat_completion_cost_and_tokens_error", nil, 1)
+			// 	logError(log, "error when estimating azure openai chat completion stream cost with token counts", prod, cid, err)
+			// }
 
-			totalCost = cost + promptCost
-			totalTokens += tks
+			// estimatedPromptTokenCounts := c.GetInt("promptTokenCount")
+			// promptCost, err := aoe.EstimatePromptCost(model, estimatedPromptTokenCounts)
+			// if err != nil {
+			// 	stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.estimate_chat_completion_cost_and_tokens_error", nil, 1)
+			// 	logError(log, "error when estimating azure openai chat completion stream cost with token counts", prod, cid, err)
+			// }
 
-			c.Set("costInUsd", totalCost)
-			c.Set("completionTokenCount", totalTokens)
+			// totalCost = cost + promptCost
+			// totalTokens += tks
+
+			// c.Set("costInUsd", totalCost)
+			// c.Set("completionTokenCount", totalTokens)
 		}()
 
 		stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.streaming_requests", nil, 1)
