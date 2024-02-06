@@ -198,7 +198,7 @@ func (ce *CostEstimator) EstimateChatCompletionStreamCostWithTokenCounts(model s
 }
 
 func (ce *CostEstimator) EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (float64, error) {
-	if len(r.Model.String()) == 0 {
+	if len(string(r.Model)) == 0 {
 		return 0, errors.New("model is not provided")
 	}
 
@@ -210,7 +210,7 @@ func (ce *CostEstimator) EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (f
 				return 0, errors.New("input is not string")
 			}
 
-			tks, err := ce.tc.Count(r.Model.String(), converted)
+			tks, err := ce.tc.Count(string(r.Model), converted)
 			if err != nil {
 				return 0, err
 			}
@@ -218,14 +218,14 @@ func (ce *CostEstimator) EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (f
 			total += tks
 		}
 
-		return ce.EstimateEmbeddingsInputCost(r.Model.String(), total)
+		return ce.EstimateEmbeddingsInputCost(string(r.Model), total)
 	} else if input, ok := r.Input.(string); ok {
-		tks, err := ce.tc.Count(r.Model.String(), input)
+		tks, err := ce.tc.Count(string(r.Model), input)
 		if err != nil {
 			return 0, err
 		}
 
-		return ce.EstimateEmbeddingsInputCost(r.Model.String(), tks)
+		return ce.EstimateEmbeddingsInputCost(string(r.Model), tks)
 	}
 
 	return 0, errors.New("input format is not recognized")

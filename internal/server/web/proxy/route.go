@@ -231,12 +231,12 @@ func parseResult(c *gin.Context, ca cache, kc *key.ResponseKey, runEmbeddings bo
 			cost = ecost
 		}
 
-		micros := int64(cost * 1000000)
+		// micros := int64(cost * 1000000)
 
-		err := r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
-		if err != nil {
-			return err
-		}
+		// err := r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
+		// if err != nil {
+		// 	return err
+		// }
 	}
 
 	if !runEmbeddings {
@@ -262,11 +262,11 @@ func parseResult(c *gin.Context, ca cache, kc *key.ResponseKey, runEmbeddings bo
 			}
 		}
 
-		micros := int64(cost * 1000000)
-		err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
-		if err != nil {
-			return err
-		}
+		// micros := int64(cost * 1000000)
+		// err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
+		// if err != nil {
+		// 	return err
+		// }
 	}
 
 	return nil

@@ -12,7 +12,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13
 	github.com/pkoukk/tiktoken-go-loader v0.0.1
 	github.com/redis/go-redis/v9 v9.0.5
-	github.com/sashabaranov/go-openai v1.17.7
+	github.com/sashabaranov/go-openai v1.19.2
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.24.0
 )
