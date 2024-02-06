@@ -1,3 +1,14 @@
+## 1.9.1 - 2024-02-06
+### Fixed
+- Fixed OpenAI chat completion endpoint being slow
+
+## 1.9.0 - 2024-02-06
+### Changed
+- Drastically improved performance through event driven architecture
+
+### Fixed
+- Fixed API calls that exceeds cost limit not being blocked bug
+
 ## 1.8.2 - 2024-01-31
 ### Added
 - Added support for new chat completion models
