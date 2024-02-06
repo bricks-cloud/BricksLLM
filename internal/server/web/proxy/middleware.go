@@ -210,6 +210,11 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 				enrichedEvent.Content = content
 			}
 
+			resp, ok := c.Get("response")
+			if ok {
+				enrichedEvent.Response = resp
+			}
+
 			pub.Publish(message.Message{
 				Type: "event",
 				Data: enrichedEvent,
@@ -310,6 +315,8 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 			providerName := c.Param("provider")
 
 			rc := cpm.GetRouteConfigFromMem(providerName, c.Param("wildcard"))
+			enrichedEvent.RouteConfig = rc
+
 			cp := cpm.GetCustomProviderFromMem(providerName)
 			if cp == nil {
 				stats.Incr("bricksllm.proxy.get_middleware.provider_not_found", nil, 1)

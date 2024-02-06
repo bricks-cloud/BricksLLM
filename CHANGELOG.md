@@ -1,3 +1,7 @@
+## 1.9.2 - 2024-02-06
+### Fixed
+- Fixed custom route tokens recording issue incurred by the new architecture
+
 ## 1.9.1 - 2024-02-06
 ### Fixed
 - Fixed OpenAI chat completion endpoint being slow

@@ -380,13 +380,6 @@ func (h *Handler) decorateEvent(m Message) error {
 			return errors.New("event request data cannot be parsed as anthropic completon request")
 		}
 
-		content, ok := e.Response.([]byte)
-		if !ok {
-			stats.Incr("bricksllm.message.handler.decorate_event.event_response_custom_provider_parsing_error", nil, 1)
-			h.log.Debug("event contains response that cannot be converted to bytes", zap.Any("data", m.Data))
-			return errors.New("event response data cannot be converted to bytes")
-		}
-
 		tks, err := countTokensFromJson(body, e.RouteConfig.RequestPromptLocation)
 		if err != nil {
 			stats.Incr("bricksllm.message.handler.decorate_event.count_tokens_from_json_error", nil, 1)
@@ -408,6 +401,13 @@ func (h *Handler) decorateEvent(m Message) error {
 		}
 
 		if !result.IsBool() {
+			content, ok := e.Response.([]byte)
+			if !ok {
+				stats.Incr("bricksllm.message.handler.decorate_event.event_response_custom_provider_parsing_error", nil, 1)
+				h.log.Debug("event contains response that cannot be converted to bytes", zap.Any("data", m.Data))
+				return errors.New("event response data cannot be converted to bytes")
+			}
+
 			completiontks, err := countTokensFromJson(content, e.RouteConfig.ResponseCompletionLocation)
 			if err != nil {
 				stats.Incr("bricksllm.message.handler.decorate_event.count_tokens_from_json_error", nil, 1)
