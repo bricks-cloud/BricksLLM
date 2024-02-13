@@ -55,11 +55,31 @@ type CustomProvidersManager interface {
 	GetCustomProviderFromMem(name string) *custom.Provider
 }
 
+func CorsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		a_or_b := func(a, b string) string {
+			if a != "" {
+				return a
+			} else {
+				return b
+			}
+		}
+		c.Header("Access-Control-Allow-Origin", a_or_b(c.GetHeader("Origin"), "*"))
+		if c.Request.Method == "OPTIONS" {
+			c.Header("Access-Control-Allow-Methods", a_or_b(c.GetHeader("Access-Control-Request-Method"), "*"))
+			c.Header("Access-Control-Allow-Headers", a_or_b(c.GetHeader("Access-Control-Request-Headers"), "*"))
+			c.Header("Access-Control-Max-Age", "3600")
+			c.AbortWithStatus(204)
+		}
+	}
+}
+
 func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyManager, rm routeManager, a authenticator, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, kms keyMemStorage, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, r recorder, pub publisher, rlm rateLimitManager, timeOut time.Duration, ac accessCache) (*ProxyServer, error) {
 	router := gin.New()
 	prod := mode == "production"
 	private := privacyMode == "strict"
 
+	router.Use(CorsMiddleware())
 	router.Use(getMiddleware(kms, cpm, rm, a, prod, private, e, ae, aoe, v, ks, log, rlm, pub, "proxy", ac))
 
 	client := http.Client{}
