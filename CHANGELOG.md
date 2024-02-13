@@ -1,3 +1,7 @@
+## 1.9.3 - 2024-02-13
+### Added
+- Added CORS support in the proxy
+
 ## 1.9.2 - 2024-02-06
 ### Fixed
 - Fixed custom route tokens recording issue incurred by the new architecture
