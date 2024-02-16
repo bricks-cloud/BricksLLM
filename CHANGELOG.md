@@ -1,3 +1,8 @@
+## 1.9.4 - 2024-02-16
+### Added
+- Added support for calculating cost for the cheaper 3.5 turbo model 
+- Added validation to updating revoked key field
+
 ## 1.9.3 - 2024-02-13
 ### Added
 - Added CORS support in the proxy
