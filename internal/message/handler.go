@@ -159,14 +159,13 @@ func (h *Handler) handleValidationResult(kc *key.ResponseKey, cost float64) erro
 	if err != nil {
 		stats.Incr("bricksllm.message.handler.handle_validation_result.handle_validation_result", nil, 1)
 
-		// tested
 		if _, ok := err.(expirationError); ok {
 			stats.Incr("bricksllm.message.handler.handle_validation_result.expiraton_error", nil, 1)
 
 			truePtr := true
 			_, err = h.km.UpdateKey(kc.KeyId, &key.UpdateKey{
 				Revoked:       &truePtr,
-				RevokedReason: "Key has expired or exceeded set spend limit",
+				RevokedReason: key.RevokedReasonExpired,
 			})
 
 			if err != nil {
@@ -177,7 +176,6 @@ func (h *Handler) handleValidationResult(kc *key.ResponseKey, cost float64) erro
 			return nil
 		}
 
-		// tested
 		if _, ok := err.(rateLimitError); ok {
 			stats.Incr("bricksllm.message.handler.handle_validation_result.rate_limit_error", nil, 1)
 
@@ -190,7 +188,6 @@ func (h *Handler) handleValidationResult(kc *key.ResponseKey, cost float64) erro
 			return nil
 		}
 
-		// tested
 		if _, ok := err.(costLimitError); ok {
 			stats.Incr("bricksllm.message.handler.handle_validation_result.cost_limit_error", nil, 1)
 
@@ -224,7 +221,6 @@ func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 			h.log.Debug("error when decorating event", zap.Error(err))
 		}
 
-		// tested
 		if e.Event.CostInUsd != 0 {
 			micros := int64(e.Event.CostInUsd * 1000000)
 			err = h.recorder.RecordKeySpend(e.Event.KeyId, micros, e.Key.CostLimitInUsdUnit)
@@ -234,7 +230,6 @@ func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 			}
 		}
 
-		// tested
 		if len(e.Key.RateLimitUnit) != 0 {
 			if err := h.rlm.Increment(e.Key.KeyId, e.Key.RateLimitUnit); err != nil {
 				stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.rate_limit_increment_error", nil, 1)
@@ -243,7 +238,6 @@ func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 			}
 		}
 
-		// tested
 		err = h.handleValidationResult(e.Key, e.Event.CostInUsd)
 		if err != nil {
 			stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.handle_validation_result_error", nil, 1)
@@ -252,7 +246,6 @@ func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 
 	}
 
-	// tested
 	start := time.Now()
 	err := h.recorder.RecordEvent(e.Event)
 	if err != nil {
@@ -276,7 +269,6 @@ func (h *Handler) decorateEvent(m Message) error {
 		return errors.New("message data cannot be parsed as event with request and response")
 	}
 
-	// tested
 	if e.Event.Provider == "anthropic" && e.Event.Path == "/api/providers/anthropic/v1/complete" {
 		cr, ok := e.Request.(*anthropic.CompletionRequest)
 		if !ok {
@@ -310,7 +302,6 @@ func (h *Handler) decorateEvent(m Message) error {
 		e.Event.CostInUsd = completionCost + cost
 	}
 
-	// tested
 	if e.Event.Provider == "azure" && e.Event.Path == "/api/providers/azure/openai/deployments/:deployment_id/chat/completions" {
 		ccr, ok := e.Request.(*goopenai.ChatCompletionRequest)
 		if !ok {
@@ -344,7 +335,6 @@ func (h *Handler) decorateEvent(m Message) error {
 		}
 	}
 
-	// tested
 	if e.Event.Provider == "openai" && e.Event.Path == "/api/providers/openai/v1/chat/completions" {
 		ccr, ok := e.Request.(*goopenai.ChatCompletionRequest)
 		if !ok {
