@@ -120,12 +120,14 @@ func getCustomProviderHandler(prod, private bool, psm ProviderSettingsManager, c
 				return
 			}
 
-			tks, err := countTokensFromJson(bytes, rc.ResponseCompletionLocation)
-			if err != nil {
-				logError(log, "error when counting tokens for custom provider completion response", prod, cid, err)
-			}
+			c.Set("response", bytes)
 
-			c.Set("completionTokenCount", tks)
+			// tks, err := countTokensFromJson(bytes, rc.ResponseCompletionLocation)
+			// if err != nil {
+			// 	logError(log, "error when counting tokens for custom provider completion response", prod, cid, err)
+			// }
+
+			// c.Set("completionTokenCount", tks)
 			c.Data(res.StatusCode, "application/json", bytes)
 			return
 		}
@@ -149,13 +151,15 @@ func getCustomProviderHandler(prod, private bool, psm ProviderSettingsManager, c
 		buffer := bufio.NewReader(res.Body)
 		aggregated := ""
 		defer func() {
-			tks, err := custom.Count(aggregated)
-			if err != nil {
-				stats.Incr("bricksllm.proxy.get_custom_provider_handler.count_error", nil, 1)
-				logError(log, "error when counting tokens for custom provider streaming response", prod, cid, err)
-			}
+			c.Set("content", aggregated)
 
-			c.Set("completionTokenCount", tks)
+			// tks, err := custom.Count(aggregated)
+			// if err != nil {
+			// 	stats.Incr("bricksllm.proxy.get_custom_provider_handler.count_error", nil, 1)
+			// 	logError(log, "error when counting tokens for custom provider streaming response", prod, cid, err)
+			// }
+
+			// c.Set("completionTokenCount", tks)
 		}()
 
 		stats.Incr("bricksllm.proxy.get_custom_provider_handler.streaming_requests", nil, 1)
@@ -164,6 +168,13 @@ func getCustomProviderHandler(prod, private bool, psm ProviderSettingsManager, c
 			raw, err := buffer.ReadBytes('\n')
 			if err != nil {
 				if err == io.EOF {
+					return false
+				}
+
+				if errors.Is(err, context.DeadlineExceeded) {
+					stats.Incr("bricksllm.proxy.get_custom_provider_handler.context_deadline_exceeded_error", nil, 1)
+					logError(log, "context deadline exceeded when reading bytes from custom provider response", prod, cid, err)
+
 					return false
 				}
 

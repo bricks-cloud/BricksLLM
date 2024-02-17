@@ -39,7 +39,7 @@ type ProxyServer struct {
 }
 
 type recorder interface {
-	RecordKeySpend(keyId string, micros int64, costLimitUnit key.TimeUnit) error
+	// RecordKeySpend(keyId string, micros int64, costLimitUnit key.TimeUnit) error
 	RecordEvent(e *event.Event) error
 }
 
@@ -55,12 +55,32 @@ type CustomProvidersManager interface {
 	GetCustomProviderFromMem(name string) *custom.Provider
 }
 
-func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyManager, rm routeManager, a authenticator, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, kms keyMemStorage, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, r recorder, rlm rateLimitManager, timeOut time.Duration) (*ProxyServer, error) {
+func CorsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		a_or_b := func(a, b string) string {
+			if a != "" {
+				return a
+			} else {
+				return b
+			}
+		}
+		c.Header("Access-Control-Allow-Origin", a_or_b(c.GetHeader("Origin"), "*"))
+		if c.Request.Method == "OPTIONS" {
+			c.Header("Access-Control-Allow-Methods", a_or_b(c.GetHeader("Access-Control-Request-Method"), "*"))
+			c.Header("Access-Control-Allow-Headers", a_or_b(c.GetHeader("Access-Control-Request-Headers"), "*"))
+			c.Header("Access-Control-Max-Age", "3600")
+			c.AbortWithStatus(204)
+		}
+	}
+}
+
+func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyManager, rm routeManager, a authenticator, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, kms keyMemStorage, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, r recorder, pub publisher, rlm rateLimitManager, timeOut time.Duration, ac accessCache) (*ProxyServer, error) {
 	router := gin.New()
 	prod := mode == "production"
 	private := privacyMode == "strict"
 
-	router.Use(getMiddleware(kms, cpm, rm, a, prod, private, e, ae, aoe, v, ks, log, rlm, r, "proxy"))
+	router.Use(CorsMiddleware())
+	router.Use(getMiddleware(kms, cpm, rm, a, prod, private, e, ae, aoe, v, ks, log, rlm, pub, "proxy", ac))
 
 	client := http.Client{}
 
@@ -942,13 +962,13 @@ func getEmbeddingHandler(r recorder, prod, private bool, psm ProviderSettingsMan
 			return
 		}
 
-		raw, exists := c.Get("key")
-		kc, ok := raw.(*key.ResponseKey)
-		if !exists || !ok {
-			stats.Incr("bricksllm.proxy.get_embedding_handler.api_key_not_registered", nil, 1)
-			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
-			return
-		}
+		// raw, exists := c.Get("key")
+		// kc, ok := raw.(*key.ResponseKey)
+		// if !exists || !ok {
+		// 	stats.Incr("bricksllm.proxy.get_embedding_handler.api_key_not_registered", nil, 1)
+		// 	JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
+		// 	return
+		// }
 
 		id := c.GetString(correlationId)
 
@@ -1032,12 +1052,12 @@ func getEmbeddingHandler(r recorder, prod, private bool, psm ProviderSettingsMan
 					logError(log, "error when estimating openai cost for embedding", prod, id, err)
 				}
 
-				micros := int64(cost * 1000000)
-				err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
-				if err != nil {
-					stats.Incr("bricksllm.proxy.get_embedding_handler.record_key_spend_error", nil, 1)
-					logError(log, "error when recording openai spend for embedding", prod, id, err)
-				}
+				// micros := int64(cost * 1000000)
+				// err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
+				// if err != nil {
+				// 	stats.Incr("bricksllm.proxy.get_embedding_handler.record_key_spend_error", nil, 1)
+				// 	logError(log, "error when recording openai spend for embedding", prod, id, err)
+				// }
 			}
 		}
 
@@ -1085,13 +1105,13 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 		}
 
 		cid := c.GetString(correlationId)
-		raw, exists := c.Get("key")
-		kc, ok := raw.(*key.ResponseKey)
-		if !exists || !ok {
-			stats.Incr("bricksllm.proxy.get_chat_completion_handler.api_key_not_registered", nil, 1)
-			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
-			return
-		}
+		// raw, exists := c.Get("key")
+		// kc, ok := raw.(*key.ResponseKey)
+		// if !exists || !ok {
+		// 	stats.Incr("bricksllm.proxy.get_chat_completion_handler.api_key_not_registered", nil, 1)
+		// 	JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
+		// 	return
+		// }
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
@@ -1161,12 +1181,12 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 					logError(log, "error when estimating openai cost", prod, cid, err)
 				}
 
-				micros := int64(cost * 1000000)
-				err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
-				if err != nil {
-					stats.Incr("bricksllm.proxy.get_chat_completion_handler.record_key_spend_error", nil, 1)
-					logError(log, "error when recording openai spend", prod, cid, err)
-				}
+				// micros := int64(cost * 1000000)
+				// err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
+				// if err != nil {
+				// 	stats.Incr("bricksllm.proxy.get_chat_completion_handler.record_key_spend_error", nil, 1)
+				// 	logError(log, "error when recording openai spend", prod, cid, err)
+				// }
 			}
 
 			c.Set("costInUsd", cost)
@@ -1195,22 +1215,24 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 		}
 
 		buffer := bufio.NewReader(res.Body)
-		var totalCost float64 = 0
-		var totalTokens int = 0
+		// var totalCost float64 = 0
+		// var totalTokens int = 0
 		content := ""
 		defer func() {
-			tks, cost, err := e.EstimateChatCompletionStreamCostWithTokenCounts(model, content)
-			if err != nil {
-				stats.Incr("bricksllm.proxy.get_chat_completion_handler.estimate_chat_completion_cost_and_tokens_error", nil, 1)
-				logError(log, "error when estimating chat completion stream cost with token counts", prod, cid, err)
-			}
+			c.Set("content", content)
 
-			estimatedPromptCost := c.GetFloat64("estimatedPromptCostInUsd")
-			totalCost = cost + estimatedPromptCost
-			totalTokens += tks
+			// tks, cost, err := e.EstimateChatCompletionStreamCostWithTokenCounts(model, content)
+			// if err != nil {
+			// 	stats.Incr("bricksllm.proxy.get_chat_completion_handler.estimate_chat_completion_cost_and_tokens_error", nil, 1)
+			// 	logError(log, "error when estimating chat completion stream cost with token counts", prod, cid, err)
+			// }
 
-			c.Set("costInUsd", totalCost)
-			c.Set("completionTokenCount", totalTokens)
+			// estimatedPromptCost := c.GetFloat64("estimatedPromptCostInUsd")
+			// totalCost = cost + estimatedPromptCost
+			// totalTokens += tks
+
+			// c.Set("costInUsd", totalCost)
+			// c.Set("completionTokenCount", totalTokens)
 		}()
 
 		stats.Incr("bricksllm.proxy.get_chat_completion_handler.streaming_requests", nil, 1)
@@ -1219,6 +1241,13 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 			raw, err := buffer.ReadBytes('\n')
 			if err != nil {
 				if err == io.EOF {
+					return false
+				}
+
+				if errors.Is(err, context.DeadlineExceeded) {
+					stats.Incr("bricksllm.proxy.get_chat_completion_handler.context_deadline_exceeded_error", nil, 1)
+					logError(log, "context deadline exceeded when reading bytes from openai chat completion response", prod, cid, err)
+
 					return false
 				}
 
@@ -1515,7 +1544,7 @@ func logEmbeddingRequest(log *zap.Logger, prod, private bool, id string, r *goop
 	if prod {
 		fields := []zapcore.Field{
 			zap.String(correlationId, id),
-			zap.String("model", r.Model.String()),
+			zap.String("model", string(r.Model)),
 			zap.String("encoding_format", string(r.EncodingFormat)),
 			zap.String("user", r.User),
 		}

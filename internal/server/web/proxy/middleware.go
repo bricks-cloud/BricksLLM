@@ -11,6 +11,7 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
+	"github.com/bricks-cloud/bricksllm/internal/message"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
 	"github.com/bricks-cloud/bricksllm/internal/route"
@@ -72,6 +73,10 @@ type rateLimitManager interface {
 	Increment(keyId string, timeUnit key.TimeUnit) error
 }
 
+type accessCache interface {
+	GetAccessStatus(key string) bool
+}
+
 type encrypter interface {
 	Encrypt(secret string) string
 }
@@ -93,7 +98,40 @@ type notFoundError interface {
 	NotFound()
 }
 
-func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManager, a authenticator, prod, private bool, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, ks keyStorage, log *zap.Logger, rlm rateLimitManager, r recorder, prefix string) gin.HandlerFunc {
+type publisher interface {
+	Publish(message.Message)
+}
+
+func getProvider(c *gin.Context) string {
+	existing := c.GetString("provider")
+	if len(existing) != 0 {
+		return existing
+	}
+
+	parts := strings.Split(c.FullPath(), "/")
+
+	spaceRemoved := []string{}
+
+	for _, part := range parts {
+		if len(part) != 0 {
+			spaceRemoved = append(spaceRemoved, part)
+		}
+	}
+
+	if strings.HasPrefix(c.FullPath(), "/api/providers/") {
+		if len(spaceRemoved) >= 3 {
+			return spaceRemoved[2]
+		}
+	}
+
+	if strings.HasPrefix(c.FullPath(), "/api/custom/providers/") {
+		return c.Param("provider")
+	}
+
+	return ""
+}
+
+func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManager, a authenticator, prod, private bool, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, ks keyStorage, log *zap.Logger, rlm rateLimitManager, pub publisher, prefix string, ac accessCache) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] request is empty")
@@ -110,17 +148,12 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 		c.Set(correlationId, cid)
 		start := time.Now()
 
-		selectedProvider := "openai"
+		enrichedEvent := &event.EventWithRequestAndContent{}
 
 		customId := c.Request.Header.Get("X-CUSTOM-EVENT-ID")
 		defer func() {
 			dur := time.Now().Sub(start)
 			latency := int(dur.Milliseconds())
-			raw, exists := c.Get("key")
-			var kc *key.ResponseKey
-			if exists {
-				kc = raw.(*key.ResponseKey)
-			}
 
 			if !prod {
 				log.Sugar().Infof("%s | %d | %s | %s | %dms", prefix, c.Writer.Status(), c.Request.Method, c.FullPath(), latency)
@@ -129,16 +162,14 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 			keyId := ""
 			tags := []string{}
 
-			if kc != nil {
-				keyId = kc.KeyId
-				tags = kc.Tags
+			if enrichedEvent.Key != nil {
+				keyId = enrichedEvent.Key.KeyId
+				tags = enrichedEvent.Key.Tags
 			}
 
 			stats.Timing("bricksllm.proxy.get_middleware.proxy_latency_in_ms", dur, nil, 1)
 
-			if len(c.GetString("provider")) != 0 {
-				selectedProvider = c.GetString("provider")
-			}
+			selectedProvider := getProvider(c)
 
 			if prod {
 				log.Info("response to proxy",
@@ -173,12 +204,21 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 				CustomId:             customId,
 			}
 
-			err := r.RecordEvent(evt)
-			if err != nil {
-				stats.Incr("bricksllm.proxy.get_middleware.record_event_error", nil, 1)
-
-				logError(log, "error when recording openai event", prod, cid, err)
+			enrichedEvent.Event = evt
+			content := c.GetString("content")
+			if len(content) != 0 {
+				enrichedEvent.Content = content
 			}
+
+			resp, ok := c.Get("response")
+			if ok {
+				enrichedEvent.Response = resp
+			}
+
+			pub.Publish(message.Message{
+				Type: "event",
+				Data: enrichedEvent,
+			})
 		}()
 
 		if len(c.FullPath()) == 0 {
@@ -189,6 +229,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 		}
 
 		kc, settings, err := a.AuthenticateHttpRequest(c.Request)
+		enrichedEvent.Key = kc
 		_, ok := err.(notAuthorizedError)
 		if ok {
 			stats.Incr("bricksllm.proxy.get_middleware.authentication_error", nil, 1)
@@ -236,12 +277,11 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 			c.Request.Body = io.NopCloser(bytes.NewReader(body))
 		}
 
-		var cost float64 = 0
+		// var cost float64 = 0
 
 		if c.FullPath() == "/api/providers/anthropic/v1/complete" {
 			logCompletionRequest(log, body, prod, private, cid)
 
-			selectedProvider = "anthropic"
 			cr := &anthropic.CompletionRequest{}
 			err = json.Unmarshal(body, cr)
 			if err != nil {
@@ -249,19 +289,21 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 				return
 			}
 
-			tks := ae.Count(cr.Prompt)
-			tks += anthropicPromptMagicNum
-			c.Set("promptTokenCount", tks)
+			enrichedEvent.Request = cr
 
-			model := cr.Model
-			cost, err = ae.EstimatePromptCost(model, tks)
-			if err != nil {
-				logError(log, "error when estimating anthropic completion prompt cost", prod, cid, err)
-			}
+			// tks := ae.Count(cr.Prompt)
+			// tks += anthropicPromptMagicNum
+			// c.Set("promptTokenCount", tks)
+
+			// model := cr.Model
+			// cost, err = ae.EstimatePromptCost(model, tks)
+			// if err != nil {
+			// 	logError(log, "error when estimating anthropic completion prompt cost", prod, cid, err)
+			// }
 
 			if cr.Stream {
 				c.Set("stream", cr.Stream)
-				c.Set("estimatedPromptCostInUsd", cost)
+				// c.Set("estimatedPromptCostInUsd", cost)
 			}
 
 			if len(cr.Model) != 0 {
@@ -273,6 +315,8 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 			providerName := c.Param("provider")
 
 			rc := cpm.GetRouteConfigFromMem(providerName, c.Param("wildcard"))
+			enrichedEvent.RouteConfig = rc
+
 			cp := cpm.GetCustomProviderFromMem(providerName)
 			if cp == nil {
 				stats.Incr("bricksllm.proxy.get_middleware.provider_not_found", nil, 1)
@@ -288,17 +332,22 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 				return
 			}
 
-			selectedProvider = cp.Provider
-
 			c.Set("provider", cp)
 			c.Set("route_config", rc)
 
-			tks, err := countTokensFromJson(body, rc.RequestPromptLocation)
-			if err != nil {
-				logError(log, "error when counting tokens for custom provider request", prod, cid, err)
+			enrichedEvent.Request = body
+
+			customResponse, ok := c.Get("response")
+			if ok {
+				enrichedEvent.Response = customResponse
 			}
 
-			c.Set("promptTokenCount", tks)
+			// tks, err := countTokensFromJson(body, rc.RequestPromptLocation)
+			// if err != nil {
+			// 	logError(log, "error when counting tokens for custom provider request", prod, cid, err)
+			// }
+
+			// c.Set("promptTokenCount", tks)
 
 			result := gjson.Get(string(body), rc.StreamLocation)
 
@@ -344,11 +393,14 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 
 			if !rc.ShouldRunEmbeddings() {
 				ccr := &goopenai.ChatCompletionRequest{}
+
 				err = json.Unmarshal(body, ccr)
 				if err != nil {
 					logError(log, "error when unmarshalling route chat completion request", prod, cid, err)
 					return
 				}
+
+				enrichedEvent.Request = ccr
 
 				logRequest(log, prod, private, cid, ccr)
 
@@ -366,8 +418,6 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 		}
 
 		if c.FullPath() == "/api/providers/azure/openai/deployments/:deployment_id/chat/completions" {
-			selectedProvider = "azure"
-
 			ccr := &goopenai.ChatCompletionRequest{}
 			err = json.Unmarshal(body, ccr)
 			if err != nil {
@@ -375,23 +425,23 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 				return
 			}
 
+			enrichedEvent.Request = ccr
+
 			logRequest(log, prod, private, cid, ccr)
 
-			tks, err := e.EstimateChatCompletionPromptTokenCounts("gpt-3.5-turbo", ccr)
-			if err != nil {
-				stats.Incr("bricksllm.proxy.get_middleware.estimate_chat_completion_prompt_token_counts_error", nil, 1)
-				logError(log, "error when estimating prompt cost", prod, cid, err)
-			}
+			// tks, err := e.EstimateChatCompletionPromptTokenCounts("gpt-3.5-turbo", ccr)
+			// if err != nil {
+			// 	stats.Incr("bricksllm.proxy.get_middleware.estimate_chat_completion_prompt_token_counts_error", nil, 1)
+			// 	logError(log, "error when estimating prompt cost", prod, cid, err)
+			// }
 
 			if ccr.Stream {
 				c.Set("stream", true)
-				c.Set("promptTokenCount", tks)
+				// c.Set("promptTokenCount", tks)
 			}
 		}
 
 		if c.FullPath() == "/api/providers/azure/openai/deployments/:deployment_id/embeddings" {
-			selectedProvider = "azure"
-
 			er := &goopenai.EmbeddingRequest{}
 			err = json.Unmarshal(body, er)
 			if err != nil {
@@ -404,11 +454,11 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 
 			logEmbeddingRequest(log, prod, private, cid, er)
 
-			cost, err = aoe.EstimateEmbeddingsCost(er)
-			if err != nil {
-				stats.Incr("bricksllm.proxy.get_middleware.estimate_azure_openai_embeddings_cost_error", nil, 1)
-				logError(log, "error when estimating azure openai embeddings cost", prod, cid, err)
-			}
+			// cost, err = aoe.EstimateEmbeddingsCost(er)
+			// if err != nil {
+			// 	stats.Incr("bricksllm.proxy.get_middleware.estimate_azure_openai_embeddings_cost_error", nil, 1)
+			// 	logError(log, "error when estimating azure openai embeddings cost", prod, cid, err)
+			// }
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/chat/completions" {
@@ -419,21 +469,23 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 				return
 			}
 
+			enrichedEvent.Request = ccr
+
 			c.Set("model", ccr.Model)
 
 			logRequest(log, prod, private, cid, ccr)
 
-			tks, cost, err := e.EstimateChatCompletionPromptCostWithTokenCounts(ccr)
-			if err != nil {
-				stats.Incr("bricksllm.proxy.get_middleware.estimate_chat_completion_prompt_cost_with_token_counts_error", nil, 1)
+			// tks, cost, err := e.EstimateChatCompletionPromptCostWithTokenCounts(ccr)
+			// if err != nil {
+			// 	stats.Incr("bricksllm.proxy.get_middleware.estimate_chat_completion_prompt_cost_with_token_counts_error", nil, 1)
 
-				logError(log, "error when estimating prompt cost", prod, cid, err)
-			}
+			// 	logError(log, "error when estimating prompt cost", prod, cid, err)
+			// }
 
 			if ccr.Stream {
 				c.Set("stream", true)
-				c.Set("estimatedPromptCostInUsd", cost)
-				c.Set("promptTokenCount", tks)
+				// c.Set("estimatedPromptCostInUsd", cost)
+				// c.Set("promptTokenCount", tks)
 			}
 		}
 
@@ -445,16 +497,16 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 				return
 			}
 
-			c.Set("model", er.Model.String())
+			c.Set("model", string(er.Model))
 			c.Set("encoding_format", string(er.EncodingFormat))
 
 			logEmbeddingRequest(log, prod, private, cid, er)
 
-			cost, err = e.EstimateEmbeddingsCost(er)
-			if err != nil {
-				stats.Incr("bricksllm.proxy.get_middleware.estimate_embeddings_cost_error", nil, 1)
-				logError(log, "error when estimating embeddings cost", prod, cid, err)
-			}
+			// cost, err = e.EstimateEmbeddingsCost(er)
+			// if err != nil {
+			// 	stats.Incr("bricksllm.proxy.get_middleware.estimate_embeddings_cost_error", nil, 1)
+			// 	logError(log, "error when estimating embeddings cost", prod, cid, err)
+			// }
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/images/generations" && c.Request.Method == http.MethodPost {
@@ -735,46 +787,11 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 			logRetrieveFileContentRequest(log, body, prod, cid, fid)
 		}
 
-		err = v.Validate(kc, cost)
-		if err != nil {
-			stats.Incr("bricksllm.proxy.get_middleware.validation_error", nil, 1)
-
-			if _, ok := err.(expirationError); ok {
-				stats.Incr("bricksllm.proxy.get_middleware.key_expired", nil, 1)
-
-				truePtr := true
-				_, err = ks.UpdateKey(kc.KeyId, &key.UpdateKey{
-					Revoked:       &truePtr,
-					RevokedReason: "Key has expired or exceeded set spend limit",
-				})
-
-				if err != nil {
-					stats.Incr("bricksllm.proxy.get_middleware.update_key_error", nil, 1)
-					log.Sugar().Debugf("error when updating revoking the api key %s: %v", kc.KeyId, err)
-				}
-
-				JSON(c, http.StatusUnauthorized, "[BricksLLM] key has expired")
-				c.Abort()
-				return
-			}
-
-			if _, ok := err.(rateLimitError); ok {
-				stats.Incr("bricksllm.proxy.get_middleware.rate_limited", nil, 1)
-				JSON(c, http.StatusTooManyRequests, "[BricksLLM] too many requests")
-				c.Abort()
-				return
-			}
-
-			logError(log, "error when validating api key", prod, cid, err)
+		if ac.GetAccessStatus(kc.KeyId) {
+			stats.Incr("bricksllm.proxy.get_middleware.rate_limited", nil, 1)
+			JSON(c, http.StatusTooManyRequests, "[BricksLLM] too many requests")
+			c.Abort()
 			return
-		}
-
-		if len(kc.RateLimitUnit) != 0 {
-			if err := rlm.Increment(kc.KeyId, kc.RateLimitUnit); err != nil {
-				stats.Incr("bricksllm.proxy.get_middleware.rate_limit_increment_error", nil, 1)
-
-				logError(log, "error when incrementing rate limit counter", prod, cid, err)
-			}
 		}
 
 		c.Next()

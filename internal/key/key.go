@@ -9,6 +9,8 @@ import (
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
 )
 
+const RevokedReasonExpired string = "expired"
+
 type UpdateKey struct {
 	Name          string        `json:"name"`
 	UpdatedAt     int64         `json:"updatedAt"`

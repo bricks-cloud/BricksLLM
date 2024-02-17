@@ -241,16 +241,36 @@ func (s *Store) InsertEvent(e *event.Event) error {
 	return nil
 }
 
-func (s *Store) GetEvents(customId string) ([]*event.Event, error) {
+func (s *Store) GetEvents(customId string, keyIds []string, start int64, end int64) ([]*event.Event, error) {
+	if len(customId) == 0 && len(keyIds) == 0 {
+		return nil, errors.New("neither customId nor keyIds are specified")
+	}
+
+	if len(keyIds) == 0 && (start == 0 || end == 0) {
+		return nil, errors.New("keyIds are provided but either start or end is not specified")
+	}
+
 	query := `
-		SELECT * FROM events WHERE $1 = custom_id
+		SELECT * FROM events WHERE
 	`
+
+	if len(customId) != 0 {
+		query += fmt.Sprintf(" custom_id = '%s'", customId)
+	}
+
+	if len(customId) != 0 && len(keyIds) != 0 {
+		query += " AND"
+	}
+
+	if len(keyIds) != 0 {
+		query += fmt.Sprintf(" key_id = ANY('%s') AND created_at >= %d AND created_at <= %d", sliceToSqlStringArray(keyIds), start, end)
+	}
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
 	events := []*event.Event{}
-	rows, err := s.db.QueryContext(ctxTimeout, query, customId)
+	rows, err := s.db.QueryContext(ctxTimeout, query)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return events, nil
@@ -356,7 +376,7 @@ func (s *Store) GetLatencyPercentiles(start, end int64, tags, keyIds []string) (
 	return data, nil
 }
 
-func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []string, filters []string) ([]*event.DataPoint, error) {
+func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds, customIds []string, filters []string) ([]*event.DataPoint, error) {
 	groupByQuery := "GROUP BY time_series_table.series"
 	selectQuery := "SELECT series AS time_stamp, COALESCE(COUNT(events_table.event_id),0) AS num_of_requests, COALESCE(SUM(events_table.cost_in_usd),0) AS cost_in_usd, COALESCE(SUM(events_table.latency_in_ms),0) AS latency_in_ms, COALESCE(SUM(events_table.prompt_token_count),0) AS prompt_token_count, COALESCE(SUM(events_table.completion_token_count),0) AS completion_token_count, COALESCE(SUM(CASE WHEN status_code = 200 THEN 1 END),0) AS success_count"
 
@@ -370,6 +390,11 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 			if filter == "keyId" {
 				groupByQuery += ",events_table.key_id"
 				selectQuery += ",events_table.key_id as keyId"
+			}
+
+			if filter == "customId" {
+				groupByQuery += ",events_table.custom_id"
+				selectQuery += ",events_table.custom_id as customId"
 			}
 		}
 	}
@@ -406,6 +431,10 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 		conditionBlock += fmt.Sprintf("AND key_id = ANY('%s')", sliceToSqlStringArray(keyIds))
 	}
 
+	if len(customIds) != 0 {
+		conditionBlock += fmt.Sprintf("AND custom_id = ANY('%s')", sliceToSqlStringArray(customIds))
+	}
+
 	eventSelectionBlock += conditionBlock
 	eventSelectionBlock += ")"
 
@@ -425,6 +454,7 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 		var e event.DataPoint
 		var model sql.NullString
 		var keyId sql.NullString
+		var customId sql.NullString
 
 		additional := []any{
 			&e.TimeStamp,
@@ -445,6 +475,10 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 				if filter == "keyId" {
 					additional = append(additional, &keyId)
 				}
+
+				if filter == "customId" {
+					additional = append(additional, &customId)
+				}
 			}
 		}
 
@@ -457,6 +491,7 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 		pe := &e
 		pe.Model = model.String
 		pe.KeyId = keyId.String
+		pe.CustomId = customId.String
 
 		data = append(data, pe)
 	}

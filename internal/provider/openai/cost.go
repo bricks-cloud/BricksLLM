@@ -12,6 +12,7 @@ import (
 var OpenAiPerThousandTokenCost = map[string]map[string]float64{
 	"prompt": {
 		"gpt-4-1106-preview":        0.01,
+		"gpt-4-0125-preview":        0.01,
 		"gpt-4-1106-vision-preview": 0.01,
 		"gpt-4":                     0.03,
 		"gpt-4-0314":                0.03,
@@ -21,6 +22,7 @@ var OpenAiPerThousandTokenCost = map[string]map[string]float64{
 		"gpt-4-32k-0314":            0.06,
 		"gpt-3.5-turbo":             0.0015,
 		"gpt-3.5-turbo-1106":        0.001,
+		"gpt-3.5-turbo-0125":        0.0005,
 		"gpt-3.5-turbo-0301":        0.0015,
 		"gpt-3.5-turbo-instruct":    0.0015,
 		"gpt-3.5-turbo-0613":        0.0015,
@@ -50,27 +52,14 @@ var OpenAiPerThousandTokenCost = map[string]map[string]float64{
 		"ada":              0.0004,
 	},
 	"embeddings": {
-		"text-embedding-ada-002":        0.0001,
-		"text-similarity-ada-001":       0.004,
-		"text-search-ada-doc-001":       0.004,
-		"text-search-ada-query-001":     0.004,
-		"code-search-ada-code-001":      0.004,
-		"code-search-ada-text-001":      0.004,
-		"code-search-babbage-code-001":  0.005,
-		"code-search-babbage-text-001":  0.005,
-		"text-similarity-babbage-001":   0.005,
-		"text-search-babbage-doc-001":   0.005,
-		"text-search-babbage-query-001": 0.005,
-		"text-similarity-curie-001":     0.02,
-		"text-search-curie-doc-001":     0.02,
-		"text-search-curie-query-001":   0.02,
-		"text-search-davinci-doc-001":   0.2,
-		"text-search-davinci-query-001": 0.2,
-		"text-similarity-davinci-001":   0.2,
+		"text-embedding-ada-002": 0.0001,
+		"text-embedding-3-small": 0.00002,
+		"text-embedding-3-large": 0.00013,
 	},
 	"completion": {
 		"gpt-3.5-turbo-1106":        0.002,
 		"gpt-4-1106-preview":        0.03,
+		"gpt-4-0125-preview":        0.03,
 		"gpt-4-1106-vision-preview": 0.03,
 		"gpt-4":                     0.06,
 		"gpt-4-0314":                0.06,
@@ -79,6 +68,7 @@ var OpenAiPerThousandTokenCost = map[string]map[string]float64{
 		"gpt-4-32k-0613":            0.12,
 		"gpt-4-32k-0314":            0.12,
 		"gpt-3.5-turbo":             0.002,
+		"gpt-3.5-turbo-0125":        0.0015,
 		"gpt-3.5-turbo-0301":        0.002,
 		"gpt-3.5-turbo-0613":        0.002,
 		"gpt-3.5-turbo-instruct":    0.002,
@@ -210,7 +200,7 @@ func (ce *CostEstimator) EstimateChatCompletionStreamCostWithTokenCounts(model s
 }
 
 func (ce *CostEstimator) EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (float64, error) {
-	if len(r.Model.String()) == 0 {
+	if len(string(r.Model)) == 0 {
 		return 0, errors.New("model is not provided")
 	}
 
@@ -222,7 +212,7 @@ func (ce *CostEstimator) EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (f
 				return 0, errors.New("input is not string")
 			}
 
-			tks, err := ce.tc.Count(r.Model.String(), converted)
+			tks, err := ce.tc.Count(string(r.Model), converted)
 			if err != nil {
 				return 0, err
 			}
@@ -230,14 +220,14 @@ func (ce *CostEstimator) EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (f
 			total += tks
 		}
 
-		return ce.EstimateEmbeddingsInputCost(r.Model.String(), total)
+		return ce.EstimateEmbeddingsInputCost(string(r.Model), total)
 	} else if input, ok := r.Input.(string); ok {
-		tks, err := ce.tc.Count(r.Model.String(), input)
+		tks, err := ce.tc.Count(string(r.Model), input)
 		if err != nil {
 			return 0, err
 		}
 
-		return ce.EstimateEmbeddingsInputCost(r.Model.String(), tks)
+		return ce.EstimateEmbeddingsInputCost(string(r.Model), tks)
 	}
 
 	return 0, errors.New("input format is not recognized")

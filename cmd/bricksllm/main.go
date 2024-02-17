@@ -14,6 +14,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/config"
 	"github.com/bricks-cloud/bricksllm/internal/logger/zap"
 	"github.com/bricks-cloud/bricksllm/internal/manager"
+	"github.com/bricks-cloud/bricksllm/internal/message"
 	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
 	"github.com/bricks-cloud/bricksllm/internal/provider/azure"
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
@@ -176,10 +177,23 @@ func main() {
 		log.Sugar().Fatalf("error connecting to api redis cache: %v", err)
 	}
 
+	accessRedisCache := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
+		Password: cfg.RedisPassword,
+		DB:       4,
+	})
+
+	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := apiRedisCache.Ping(ctx).Err(); err != nil {
+		log.Sugar().Fatalf("error connecting to api redis cache: %v", err)
+	}
+
 	rateLimitCache := redisStorage.NewCache(rateLimitRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 	costLimitCache := redisStorage.NewCache(costLimitRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 	costStorage := redisStorage.NewStore(costRedisStorage, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 	apiCache := redisStorage.NewCache(apiRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
+	accessCache := redisStorage.NewAccessCache(accessRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 
 	m := manager.NewManager(store)
 	krm := manager.NewReportingManager(costStorage, store, store)
@@ -214,7 +228,16 @@ func main() {
 
 	c := cache.NewCache(apiCache)
 
-	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, c, m, rm, a, psm, cpm, store, memStore, ce, ace, aoe, v, rec, rlm, cfg.ProxyTimeout)
+	messageBus := message.NewMessageBus()
+	eventMessageChan := make(chan message.Message)
+	messageBus.Subscribe("event", eventMessageChan)
+
+	handler := message.NewHandler(rec, log, ace, ce, aoe, v, m, rlm, accessCache)
+
+	eventConsumer := message.NewConsumer(eventMessageChan, log, 4, handler.HandleEventWithRequestAndResponse)
+	eventConsumer.StartEventMessageConsumers()
+
+	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, c, m, rm, a, psm, cpm, store, memStore, ce, ace, aoe, v, rec, messageBus, rlm, cfg.ProxyTimeout, accessCache)
 	if err != nil {
 		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}
@@ -225,6 +248,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
+	eventConsumer.Stop()
 	memStore.Stop()
 	psMemStore.Stop()
 	cpMemStore.Stop()

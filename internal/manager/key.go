@@ -19,6 +19,7 @@ type Storage interface {
 	DeleteKey(id string) error
 	GetProviderSetting(id string) (*provider.Setting, error)
 	GetProviderSettings(withSecret bool, ids []string) ([]*provider.Setting, error)
+	GetKey(keyId string) (*key.ResponseKey, error)
 }
 
 type Encrypter interface {
@@ -93,6 +94,15 @@ func (m *Manager) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, err
 
 	if err := uk.Validate(); err != nil {
 		return nil, err
+	}
+
+	existingKey, err := m.s.GetKey(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if uk.Revoked != nil && !*uk.Revoked && existingKey.RevokedReason == key.RevokedReasonExpired {
+		return nil, internal_errors.NewValidationError("cannot reenable an expired key")
 	}
 
 	if len(uk.SettingId) != 0 {
