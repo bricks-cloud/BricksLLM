@@ -310,8 +310,13 @@ PathConfig
 > | name | optional | `string` | spike's developer key | Name of the API key. |
 > | tags | optional | `[]string` | `["org-tag-12345"]`             | Identifiers associated with the key. |
 > | revoked | optional |  `boolean` | `true` | Indicator for whether the key is revoked.  |
-> | revokedReason| optional | `string` | The key has expired | Reason for why the key is revoked.  |
-> | allowedPaths | optional | `[]PathConfig` | 2d | Pathes allowed for access. |
+> | revokedReason | optional | `string` | The key has expired | Reason for why the key is revoked.  |
+> | costLimitInUsd | optional | `float64` | `5.5` | Total spend limit of the API key.
+> | costLimitInUsdOverTime | optional | `float64` | `2` | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
+> | costLimitInUsdUnit | optional | `enum` | `d`                       | Time unit for costLimitInUsdOverTime. Possible values are [`m`, `h`, `d`, `mo`].      |
+> | rateLimitOverTime | optional | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitUnit | optional | `string` | `m`                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+> | allowedPaths | optional | `[{ "path": "/api/providers/openai/v1/chat/completions", "method": "POST"}]` | `` | Pathes allowed for access. |
 
 ##### Error Response
 
