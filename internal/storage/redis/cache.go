@@ -35,6 +35,17 @@ func (c *Cache) Set(key string, value interface{}, ttl time.Duration) error {
 	return nil
 }
 
+func (c *Cache) Delete(key string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), c.wt)
+	defer cancel()
+	err := c.client.Del(ctx, key).Err()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (c *Cache) GetBytes(key string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.rt)
 	defer cancel()

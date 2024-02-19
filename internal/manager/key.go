@@ -22,17 +22,35 @@ type Storage interface {
 	GetKey(keyId string) (*key.ResponseKey, error)
 }
 
+type costLimitCache interface {
+	Delete(keyId string) error
+}
+
+type rateLimitCache interface {
+	Delete(keyId string) error
+}
+
+type accessCache interface {
+	Delete(keyId string) error
+}
+
 type Encrypter interface {
 	Encrypt(secret string) string
 }
 
 type Manager struct {
-	s Storage
+	s   Storage
+	clc costLimitCache
+	rlc rateLimitCache
+	ac  accessCache
 }
 
-func NewManager(s Storage) *Manager {
+func NewManager(s Storage, clc costLimitCache, rlc rateLimitCache, ac accessCache) *Manager {
 	return &Manager{
-		s: s,
+		s:   s,
+		clc: clc,
+		rlc: rlc,
+		ac:  ac,
 	}
 }
 
@@ -96,15 +114,6 @@ func (m *Manager) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, err
 		return nil, err
 	}
 
-	existingKey, err := m.s.GetKey(id)
-	if err != nil {
-		return nil, err
-	}
-
-	if uk.Revoked != nil && !*uk.Revoked && existingKey.RevokedReason == key.RevokedReasonExpired {
-		return nil, internal_errors.NewValidationError("cannot reenable an expired key")
-	}
-
 	if len(uk.SettingId) != 0 {
 		if _, err := m.s.GetProviderSetting(uk.SettingId); err != nil {
 			return nil, err
@@ -123,6 +132,27 @@ func (m *Manager) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, err
 
 		if !m.areProviderSettingsUniqueness(existing) {
 			return nil, internal_errors.NewValidationError("key can only be assoicated with one setting per provider")
+		}
+	}
+
+	if len(uk.CostLimitInUsdUnit) != 0 {
+		err := m.clc.Delete(id)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if len(uk.RateLimitUnit) != 0 {
+		err := m.rlc.Delete(id)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if len(uk.CostLimitInUsdUnit) != 0 || len(uk.RateLimitUnit) != 0 {
+		err := m.ac.Delete(id)
+		if err != nil {
+			return nil, err
 		}
 	}
 

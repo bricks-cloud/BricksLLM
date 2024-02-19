@@ -195,7 +195,7 @@ func main() {
 	apiCache := redisStorage.NewCache(apiRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 	accessCache := redisStorage.NewAccessCache(accessRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 
-	m := manager.NewManager(store)
+	m := manager.NewManager(store, costLimitCache, rateLimitCache, accessCache)
 	krm := manager.NewReportingManager(costStorage, store, store)
 	psm := manager.NewProviderSettingsManager(store, psMemStore)
 	cpm := manager.NewCustomProvidersManager(store, cpMemStore)

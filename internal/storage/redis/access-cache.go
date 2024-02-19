@@ -22,6 +22,17 @@ func NewAccessCache(c *redis.Client, wt time.Duration, rt time.Duration) *Access
 	}
 }
 
+func (ac *AccessCache) Delete(key string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), ac.wt)
+	defer cancel()
+	err := ac.client.Del(ctx, key).Err()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (ac *AccessCache) Set(key string, timeUnit key.TimeUnit) error {
 	ttl, err := getCounterTtl(timeUnit)
 	if err != nil {
