@@ -114,15 +114,6 @@ func (m *Manager) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, err
 		return nil, err
 	}
 
-	existingKey, err := m.s.GetKey(id)
-	if err != nil {
-		return nil, err
-	}
-
-	if uk.Revoked != nil && !*uk.Revoked && existingKey.RevokedReason == key.RevokedReasonExpired {
-		return nil, internal_errors.NewValidationError("cannot reenable an expired key")
-	}
-
 	if len(uk.SettingId) != 0 {
 		if _, err := m.s.GetProviderSetting(uk.SettingId); err != nil {
 			return nil, err
