@@ -340,7 +340,7 @@ func (h *Handler) decorateEvent(m Message) error {
 		if !ok {
 			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
 			h.log.Debug("event contains data that cannot be converted to openai completion request", zap.Any("data", m.Data))
-			return errors.New("event request data cannot be parsed as oepnai completon request")
+			return errors.New("event request data cannot be parsed as openai completon request")
 		}
 
 		if ccr.Stream {
