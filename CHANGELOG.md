@@ -1,3 +1,14 @@
+## 1.9.6 - 2024-02-18
+### Added
+- Added support for updating key cost limit and rate limit
+
+### Changed
+- Removed validation to updating revoked key field
+
+## 1.9.5 - 2024-02-18
+### Added
+- Added new model "gpt-4-turbo-preview" and "gpt-4-vision-preview" to the cost map
+
 ## 1.9.4 - 2024-02-16
 ### Added
 - Added support for calculating cost for the cheaper 3.5 turbo model 
