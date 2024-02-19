@@ -962,14 +962,50 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 	}
 
 	if uk.Revoked != nil {
+		if *uk.Revoked && len(uk.RevokedReason) != 0 {
+			values = append(values, uk.RevokedReason)
+			fields = append(fields, fmt.Sprintf("revoked_reason = $%d", counter))
+			counter++
+		}
+
+		if !*uk.Revoked {
+			values = append(values, "")
+			fields = append(fields, fmt.Sprintf("revoked_reason = $%d", counter))
+			counter++
+		}
+
 		values = append(values, uk.Revoked)
 		fields = append(fields, fmt.Sprintf("revoked = $%d", counter))
 		counter++
 	}
 
-	if len(uk.RevokedReason) != 0 {
-		values = append(values, uk.RevokedReason)
-		fields = append(fields, fmt.Sprintf("revoked_reason = $%d", counter))
+	if uk.CostLimitInUsd != 0 {
+		values = append(values, uk.CostLimitInUsd)
+		fields = append(fields, fmt.Sprintf("cost_limit_in_usd = $%d", counter))
+		counter++
+	}
+
+	if uk.CostLimitInUsdOverTime != 0 {
+		values = append(values, uk.CostLimitInUsdOverTime)
+		fields = append(fields, fmt.Sprintf("cost_limit_in_usd_over_time = $%d", counter))
+		counter++
+	}
+
+	if len(uk.CostLimitInUsdUnit) != 0 {
+		values = append(values, uk.CostLimitInUsdUnit)
+		fields = append(fields, fmt.Sprintf("cost_limit_in_usd_unit = $%d", counter))
+		counter++
+	}
+
+	if uk.RateLimitOverTime != 0 {
+		values = append(values, uk.RateLimitOverTime)
+		fields = append(fields, fmt.Sprintf("rate_limit_over_time = $%d", counter))
+		counter++
+	}
+
+	if len(uk.RateLimitUnit) != 0 {
+		values = append(values, uk.RateLimitUnit)
+		fields = append(fields, fmt.Sprintf("rate_limit_unit = $%d", counter))
 		counter++
 	}
 
