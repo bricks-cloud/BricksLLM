@@ -131,6 +131,16 @@ func getProvider(c *gin.Context) string {
 	return ""
 }
 
+type responseWriter struct {
+	gin.ResponseWriter
+	body *bytes.Buffer
+}
+
+func (w responseWriter) Write(b []byte) (int, error) {
+	w.body.Write(b)
+	return w.ResponseWriter.Write(b)
+}
+
 func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManager, a authenticator, prod, private bool, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, ks keyStorage, log *zap.Logger, rlm rateLimitManager, pub publisher, prefix string, ac accessCache) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
@@ -144,11 +154,17 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 			return
 		}
 
+		blw := &responseWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}
+		c.Writer = blw
+
 		cid := util.NewUuid()
 		c.Set(correlationId, cid)
 		start := time.Now()
 
 		enrichedEvent := &event.EventWithRequestAndContent{}
+		requestBytes := []byte(`{}`)
+		responseBytes := []byte(`{}`)
+		userId := ""
 
 		customId := c.Request.Header.Get("X-CUSTOM-EVENT-ID")
 		defer func() {
@@ -202,6 +218,9 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 				Path:                 c.FullPath(),
 				Method:               c.Request.Method,
 				CustomId:             customId,
+				Request:              requestBytes,
+				Response:             responseBytes,
+				UserId:               userId,
 			}
 
 			enrichedEvent.Event = evt
@@ -273,6 +292,10 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 			return
 		}
 
+		if kc.ShouldLogRequest {
+			requestBytes = body
+		}
+
 		if c.Request.Method != http.MethodGet {
 			c.Request.Body = io.NopCloser(bytes.NewReader(body))
 		}
@@ -287,6 +310,10 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 			if err != nil {
 				logError(log, "error when unmarshalling anthropic completion request", prod, cid, err)
 				return
+			}
+
+			if cr.Metadata != nil {
+				userId = cr.Metadata.UserId
 			}
 
 			enrichedEvent.Request = cr
@@ -382,6 +409,8 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 					return
 				}
 
+				userId = er.User
+
 				if rc.CacheConfig != nil && rc.CacheConfig.Enabled {
 					c.Set("cache_key", route.ComputeCacheKeyForEmbeddingsRequest(r, er))
 				}
@@ -400,6 +429,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 					return
 				}
 
+				userId = ccr.User
 				enrichedEvent.Request = ccr
 
 				logRequest(log, prod, private, cid, ccr)
@@ -425,6 +455,8 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 				return
 			}
 
+			userId = ccr.User
+
 			enrichedEvent.Request = ccr
 
 			logRequest(log, prod, private, cid, ccr)
@@ -449,6 +481,8 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 				return
 			}
 
+			userId = er.User
+
 			c.Set("model", "ada")
 			c.Set("encoding_format", string(er.EncodingFormat))
 
@@ -468,6 +502,8 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 				logError(log, "error when unmarshalling chat completion request", prod, cid, err)
 				return
 			}
+
+			userId = ccr.User
 
 			enrichedEvent.Request = ccr
 
@@ -496,6 +532,8 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 				logError(log, "error when unmarshalling embedding request", prod, cid, err)
 				return
 			}
+
+			userId = er.User
 
 			c.Set("model", string(er.Model))
 			c.Set("encoding_format", string(er.EncodingFormat))
@@ -532,6 +570,9 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 			model := c.PostForm("model")
 			size := c.PostForm("size")
 			user := c.PostForm("user")
+
+			userId = user
+
 			responseFormat := c.PostForm("response_format")
 			n, _ := strconv.Atoi(c.PostForm("n"))
 
@@ -548,6 +589,9 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 			model := c.PostForm("model")
 			size := c.PostForm("size")
 			user := c.PostForm("user")
+
+			userId = user
+
 			responseFormat := c.PostForm("response_format")
 			n, _ := strconv.Atoi(c.PostForm("n"))
 
@@ -795,6 +839,10 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 		}
 
 		c.Next()
+
+		if kc.ShouldLogResponse {
+			responseBytes = blw.body.Bytes()
+		}
 	}
 }
 
