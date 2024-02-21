@@ -248,7 +248,7 @@ func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 	start := time.Now()
 	err := h.recorder.RecordEvent(e.Event)
 	if err != nil {
-		h.log.Debug("error when recording event", zap.Error(err))
+		h.log.Debug("error when recording an event", zap.Error(err))
 		stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.record_event_error", nil, 1)
 		return err
 	}
