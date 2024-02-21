@@ -99,7 +99,7 @@ func (h *Handler) HandleEvent(m Message) error {
 	err := h.recorder.RecordEvent(e)
 	if err != nil {
 		stats.Incr("bricksllm.message.handler.handle_event.record_event_error", nil, 1)
-		h.log.Sugar().Debugf("error when publishin event: %v", err)
+		h.log.Sugar().Debugf("error when publish in event: %v", err)
 		return err
 	}
 
@@ -243,12 +243,12 @@ func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 			stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.handle_validation_result_error", nil, 1)
 			h.log.Debug("error when handling validation result", zap.Error(err))
 		}
-
 	}
 
 	start := time.Now()
 	err := h.recorder.RecordEvent(e.Event)
 	if err != nil {
+		h.log.Debug("error when recording event", zap.Error(err))
 		stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.record_event_error", nil, 1)
 		return err
 	}
