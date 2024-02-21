@@ -1,3 +1,8 @@
+## 1.10.0 - 2024-02-21
+### Added
+- Added `userId` as a new filter option for get events API endpoint
+- Added option to store request and response using keys
+
 ## 1.9.6 - 2024-02-18
 ### Added
 - Added support for updating key cost limit and rate limit

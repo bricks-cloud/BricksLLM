@@ -25,6 +25,8 @@ type UpdateKey struct {
 	RateLimitOverTime      int           `json:"rateLimitOverTime"`
 	RateLimitUnit          TimeUnit      `json:"rateLimitUnit"`
 	AllowedPaths           *[]PathConfig `json:"allowedPaths,omitempty"`
+	ShouldLogRequest       *bool         `json:"shouldLogRequest"`
+	ShouldLogResponse      *bool         `json:"shouldLogResponse"`
 }
 
 func (uk *UpdateKey) Validate() error {
@@ -127,6 +129,8 @@ type RequestKey struct {
 	SettingId              string       `json:"settingId"`
 	AllowedPaths           []PathConfig `json:"allowedPaths"`
 	SettingIds             []string     `json:"settingIds"`
+	ShouldLogRequest       bool         `json:"shouldLogRequest"`
+	ShouldLogResponse      bool         `json:"shouldLogResponse"`
 }
 
 func (rk *RequestKey) Validate() error {
@@ -271,6 +275,8 @@ type ResponseKey struct {
 	SettingId              string       `json:"settingId"`
 	AllowedPaths           []PathConfig `json:"allowedPaths"`
 	SettingIds             []string     `json:"settingIds"`
+	ShouldLogRequest       bool         `json:"shouldLogRequest"`
+	ShouldLogResponse      bool         `json:"shouldLogResponse"`
 }
 
 func (rk *ResponseKey) GetSettingIds() []string {
