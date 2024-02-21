@@ -408,7 +408,7 @@ func (s *Store) GetLatencyPercentiles(start, end int64, tags, keyIds []string) (
 	return data, nil
 }
 
-func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds, customIds []string, filters []string) ([]*event.DataPoint, error) {
+func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds, customIds, userIds []string, filters []string) ([]*event.DataPoint, error) {
 	groupByQuery := "GROUP BY time_series_table.series"
 	selectQuery := "SELECT series AS time_stamp, COALESCE(COUNT(events_table.event_id),0) AS num_of_requests, COALESCE(SUM(events_table.cost_in_usd),0) AS cost_in_usd, COALESCE(SUM(events_table.latency_in_ms),0) AS latency_in_ms, COALESCE(SUM(events_table.prompt_token_count),0) AS prompt_token_count, COALESCE(SUM(events_table.completion_token_count),0) AS completion_token_count, COALESCE(SUM(CASE WHEN status_code = 200 THEN 1 END),0) AS success_count"
 
@@ -427,6 +427,11 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds, cu
 			if filter == "customId" {
 				groupByQuery += ",events_table.custom_id"
 				selectQuery += ",events_table.custom_id as customId"
+			}
+
+			if filter == "userId" {
+				groupByQuery += ",events_table.user_id"
+				selectQuery += ",events_table.user_id as userId"
 			}
 		}
 	}
@@ -467,6 +472,10 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds, cu
 		conditionBlock += fmt.Sprintf("AND custom_id = ANY('%s')", sliceToSqlStringArray(customIds))
 	}
 
+	if len(userIds) != 0 {
+		conditionBlock += fmt.Sprintf("AND user_id = ANY('%s')", sliceToSqlStringArray(userIds))
+	}
+
 	eventSelectionBlock += conditionBlock
 	eventSelectionBlock += ")"
 
@@ -487,6 +496,7 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds, cu
 		var model sql.NullString
 		var keyId sql.NullString
 		var customId sql.NullString
+		var userId sql.NullString
 
 		additional := []any{
 			&e.TimeStamp,
@@ -511,6 +521,10 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds, cu
 				if filter == "customId" {
 					additional = append(additional, &customId)
 				}
+
+				if filter == "userId" {
+					additional = append(additional, &userId)
+				}
 			}
 		}
 
@@ -524,6 +538,7 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds, cu
 		pe.Model = model.String
 		pe.KeyId = keyId.String
 		pe.CustomId = customId.String
+		pe.UserId = userId.String
 
 		data = append(data, pe)
 	}
