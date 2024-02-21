@@ -15,8 +15,8 @@ type keyStorage interface {
 }
 
 type eventStorage interface {
-	GetEvents(customId string, keyIds []string, start, end int64) ([]*event.Event, error)
-	GetEventDataPoints(start, end, increment int64, tags, keyIds, customIds []string, filters []string) ([]*event.DataPoint, error)
+	GetEvents(userId, customId string, keyIds []string, start, end int64) ([]*event.Event, error)
+	GetEventDataPoints(start, end, increment int64, tags, keyIds, customIds, userIds []string, filters []string) ([]*event.DataPoint, error)
 	GetLatencyPercentiles(start, end int64, tags, keyIds []string) ([]float64, error)
 }
 
@@ -35,7 +35,7 @@ func NewReportingManager(cs costStorage, ks keyStorage, es eventStorage) *Report
 }
 
 func (rm *ReportingManager) GetEventReporting(e *event.ReportingRequest) (*event.ReportingResponse, error) {
-	dataPoints, err := rm.es.GetEventDataPoints(e.Start, e.End, e.Increment, e.Tags, e.KeyIds, e.CustomIds, e.Filters)
+	dataPoints, err := rm.es.GetEventDataPoints(e.Start, e.End, e.Increment, e.Tags, e.KeyIds, e.CustomIds, e.UserIds, e.Filters)
 	if err != nil {
 		return nil, err
 	}
@@ -77,8 +77,8 @@ func (rm *ReportingManager) GetKeyReporting(keyId string) (*key.KeyReporting, er
 	}, err
 }
 
-func (rm *ReportingManager) GetEvents(customId string, keyIds []string, start, end int64) ([]*event.Event, error) {
-	events, err := rm.es.GetEvents(customId, keyIds, start, end)
+func (rm *ReportingManager) GetEvents(userId, customId string, keyIds []string, start, end int64) ([]*event.Event, error) {
+	events, err := rm.es.GetEvents(userId, customId, keyIds, start, end)
 	if err != nil {
 		return nil, err
 	}
