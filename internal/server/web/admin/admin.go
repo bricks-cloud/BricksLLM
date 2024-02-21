@@ -38,7 +38,7 @@ type KeyManager interface {
 
 type KeyReportingManager interface {
 	GetKeyReporting(keyId string) (*key.KeyReporting, error)
-	GetEvents(customId string, keyIds []string, start int64, end int64) ([]*event.Event, error)
+	GetEvents(userId, customId string, keyIds []string, start int64, end int64) ([]*event.Event, error)
 	GetEventReporting(e *event.ReportingRequest) (*event.ReportingResponse, error)
 }
 
@@ -821,13 +821,14 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 
 		cid := c.GetString(correlationId)
 		customId, ciok := c.GetQuery("customId")
+		userId, uiok := c.GetQuery("userId")
 		keyIds, kiok := c.GetQueryArray("keyIds")
-		if !ciok && !kiok {
+		if !ciok && !kiok && !uiok {
 			c.JSON(http.StatusBadRequest, &ErrorResponse{
 				Type:     "/errors/no-filters-empty",
-				Title:    "neither customId nor keyIds are specified",
+				Title:    "none of customId, keyIds and userId is specified",
 				Status:   http.StatusBadRequest,
-				Detail:   "both query params customId and keyIds are empty. either of them is required for retrieving events.",
+				Detail:   "customId, userId and keyIds are empty. one of them is required for retrieving events.",
 				Instance: path,
 			})
 
@@ -895,7 +896,7 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 			qend = parsedEnd
 		}
 
-		evs, err := m.GetEvents(customId, keyIds, qstart, qend)
+		evs, err := m.GetEvents(userId, customId, keyIds, qstart, qend)
 		if err != nil {
 			stats.Incr("bricksllm.admin.get_get_events_handler.get_events_error", nil, 1)
 
