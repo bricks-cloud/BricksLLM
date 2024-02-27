@@ -88,9 +88,9 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	router.POST("/api/health", getGetHealthCheckHandler())
 
 	// audios
-	router.POST("/api/providers/openai/v1/audio/speech", getPassThroughHandler(r, prod, private, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/audio/transcriptions", getPassThroughHandler(r, prod, private, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/audio/translations", getPassThroughHandler(r, prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/audio/speech", getSpeechHandler(r, prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/audio/transcriptions", getTranscriptionsHandler(r, prod, private, client, log, timeOut, e))
+	router.POST("/api/providers/openai/v1/audio/translations", getTranslationsHandler(r, prod, private, client, log, timeOut, e))
 
 	// completions
 	router.POST("/api/providers/openai/v1/chat/completions", getChatCompletionHandler(r, prod, private, psm, client, kms, log, e, timeOut))
@@ -209,9 +209,16 @@ type TranslationForm struct {
 	File *multipart.FileHeader `form:"file" binding:"required"`
 }
 
-func writeFieldToBuffer(fields []string, c *gin.Context, writer *multipart.Writer) error {
+func writeFieldToBuffer(fields []string, c *gin.Context, writer *multipart.Writer, overWrites map[string]string) error {
 	for _, field := range fields {
 		val := c.PostForm(field)
+
+		if len(overWrites) != 0 {
+			if ow := overWrites[field]; len(ow) != 0 {
+				val = ow
+			}
+		}
+
 		if len(val) != 0 {
 			err := writer.WriteField(field, val)
 			if err != nil {
@@ -316,7 +323,7 @@ func getPassThroughHandler(r recorder, prod, private bool, client http.Client, l
 				"size",
 				"response_format",
 				"user",
-			}, c, writer)
+			}, c, writer, nil)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_pass_through_handler.write_field_to_buffer_error", tags, 1)
 				logError(log, "error when writing field to buffer", prod, cid, err)
@@ -396,7 +403,7 @@ func getPassThroughHandler(r recorder, prod, private bool, client http.Client, l
 				"size",
 				"response_format",
 				"user",
-			}, c, writer)
+			}, c, writer, nil)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_pass_through_handler.write_field_to_buffer_error", tags, 1)
 				logError(log, "error when writing field to buffer", prod, cid, err)
@@ -440,132 +447,25 @@ func getPassThroughHandler(r recorder, prod, private bool, client http.Client, l
 			req.Body = io.NopCloser(&b)
 		}
 
-		if c.FullPath() == "/api/providers/openai/v1/audio/transcriptions" && c.Request.Method == http.MethodPost {
-			var b bytes.Buffer
-			writer := multipart.NewWriter(&b)
-
-			err := writeFieldToBuffer([]string{
-				"model",
-				"language",
-				"prompt",
-				"response_format",
-				"temperature",
-			}, c, writer)
-			if err != nil {
-				stats.Incr("bricksllm.proxy.get_pass_through_handler.write_field_to_buffer_error", tags, 1)
-				logError(log, "error when writing field to buffer", prod, cid, err)
-				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot write field to buffer")
-				return
-			}
-
-			var form TransriptionForm
-			c.ShouldBind(&form)
-
-			if form.File != nil {
-				fieldWriter, err := writer.CreateFormFile("file", form.File.Filename)
-				if err != nil {
-					stats.Incr("bricksllm.proxy.get_pass_through_handler.create_transcription_file_error", tags, 1)
-					logError(log, "error when creating transcription file", prod, cid, err)
-					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create transcription file")
-					return
-				}
-
-				opened, err := form.File.Open()
-				if err != nil {
-					stats.Incr("bricksllm.proxy.get_pass_through_handler.open_transcription_file_error", tags, 1)
-					logError(log, "error when openning transcription file", prod, cid, err)
-					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open transcription file")
-					return
-				}
-
-				_, err = io.Copy(fieldWriter, opened)
-				if err != nil {
-					stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_transcription_file_error", tags, 1)
-					logError(log, "error when copying transcription file", prod, cid, err)
-					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy transcription file")
-					return
-				}
-			}
-
-			req.Header.Set("Content-Type", writer.FormDataContentType())
-
-			writer.Close()
-
-			req.Body = io.NopCloser(&b)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/audio/translations" && c.Request.Method == http.MethodPost {
-			var b bytes.Buffer
-			writer := multipart.NewWriter(&b)
-
-			err := writeFieldToBuffer([]string{
-				"model",
-				"prompt",
-				"response_format",
-				"temperature",
-			}, c, writer)
-			if err != nil {
-				stats.Incr("bricksllm.proxy.get_pass_through_handler.write_field_to_buffer_error", tags, 1)
-				logError(log, "error when writing field to buffer", prod, cid, err)
-				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot write field to buffer")
-				return
-			}
-
-			var form TranslationForm
-			c.ShouldBind(&form)
-
-			if form.File != nil {
-				fieldWriter, err := writer.CreateFormFile("file", form.File.Filename)
-				if err != nil {
-					stats.Incr("bricksllm.proxy.get_pass_through_handler.create_translation_file_error", tags, 1)
-					logError(log, "error when creating translation file", prod, cid, err)
-					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create translation file")
-					return
-				}
-
-				opened, err := form.File.Open()
-				if err != nil {
-					stats.Incr("bricksllm.proxy.get_pass_through_handler.open_translation_file_error", tags, 1)
-					logError(log, "error when openning translation file", prod, cid, err)
-					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open translation file")
-					return
-				}
-
-				_, err = io.Copy(fieldWriter, opened)
-				if err != nil {
-					stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_translation_file_error", tags, 1)
-					logError(log, "error when copying translation file", prod, cid, err)
-					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy translation file")
-					return
-				}
-			}
-
-			req.Header.Set("Content-Type", writer.FormDataContentType())
-
-			writer.Close()
-
-			req.Body = io.NopCloser(&b)
-		}
-
 		start := time.Now()
 
 		res, err := client.Do(req)
 		if err != nil {
 			stats.Incr("bricksllm.proxy.get_pass_through_handler.http_client_error", tags, 1)
 
-			logError(log, "error when sending embedding request to openai", prod, cid, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send embedding request to openai")
+			logError(log, "error when sending pass through request to openai", prod, cid, err)
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send pass through request to openai")
 			return
 		}
 		defer res.Body.Close()
 
-		dur := time.Now().Sub(start)
+		dur := time.Since(start)
 		stats.Timing("bricksllm.proxy.get_pass_through_handler.latency", dur, tags, 1)
 
 		bytes, err := io.ReadAll(res.Body)
 		if err != nil {
 			logError(log, "error when reading openai embedding response body", prod, cid, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read openai embedding response body")
+			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read openai pass through response body")
 			return
 		}
 
@@ -996,7 +896,7 @@ func getEmbeddingHandler(r recorder, prod, private bool, psm ProviderSettingsMan
 		}
 		defer res.Body.Close()
 
-		dur := time.Now().Sub(start)
+		dur := time.Since(start)
 		stats.Timing("bricksllm.proxy.get_embedding_handler.latency", dur, nil, 1)
 
 		bytes, err := io.ReadAll(res.Body)
@@ -1092,7 +992,6 @@ var (
 	eventCompletionPrefix = []byte("event: completion")
 	eventPingPrefix       = []byte("event: ping")
 	eventErrorPrefix      = []byte("event: error")
-	errorPrefix           = []byte(`data: {"error":`)
 )
 
 func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettingsManager, client http.Client, kms keyMemStorage, log *zap.Logger, e estimator, timeOut time.Duration) gin.HandlerFunc {
@@ -1153,7 +1052,7 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 		model := c.GetString("model")
 
 		if res.StatusCode == http.StatusOK && !isStreaming {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.proxy.get_chat_completion_handler.latency", dur, nil, 1)
 
 			bytes, err := io.ReadAll(res.Body)
@@ -1198,7 +1097,7 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 		}
 
 		if res.StatusCode != http.StatusOK {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.proxy.get_chat_completion_handler.error_latency", dur, nil, 1)
 			stats.Incr("bricksllm.proxy.get_chat_completion_handler.error_response", nil, 1)
 
@@ -1300,7 +1199,7 @@ func getChatCompletionHandler(r recorder, prod, private bool, psm ProviderSettin
 			return true
 		})
 
-		stats.Timing("bricksllm.proxy.get_chat_completion_handler.streaming_latency", time.Now().Sub(start), nil, 1)
+		stats.Timing("bricksllm.proxy.get_chat_completion_handler.streaming_latency", time.Since(start), nil, 1)
 	}
 }
 
