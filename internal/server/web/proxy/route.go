@@ -64,7 +64,7 @@ func getRouteHandler(prod, private bool, rm routeManager, ca cache, aoe azureEst
 			bytes, err := ca.GetBytes(cacheKey)
 			if err == nil && len(bytes) != 0 {
 				stats.Incr("bricksllm.proxy.get_route_handeler.success", nil, 1)
-				stats.Timing("bricksllm.proxy.get_route_handeler.success_latency", time.Now().Sub(trueStart), nil, 1)
+				stats.Timing("bricksllm.proxy.get_route_handeler.success_latency", time.Since(trueStart), nil, 1)
 
 				c.Set("provider", "cached")
 				c.Data(http.StatusOK, "application/json", bytes)
@@ -115,7 +115,7 @@ func getRouteHandler(prod, private bool, rm routeManager, ca cache, aoe azureEst
 		res := runRes.Response
 		defer res.Body.Close()
 
-		dur := time.Now().Sub(start)
+		dur := time.Since(start)
 		stats.Timing("bricksllm.proxy.get_route_handeler.latency", dur, nil, 1)
 
 		bytes, err := io.ReadAll(res.Body)
