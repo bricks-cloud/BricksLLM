@@ -18,11 +18,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-const (
-	anthropicPromptMagicNum     int = 1
-	anthropicCompletionMagicNum int = 4
-)
-
 type anthropicEstimator interface {
 	EstimateTotalCost(model string, promptTks, completionTks int) (float64, error)
 	EstimateCompletionCost(model string, tks int) (float64, error)
@@ -98,7 +93,7 @@ func getCompletionHandler(r recorder, prod, private bool, client http.Client, km
 		// model := c.GetString("model")
 
 		if !isStreaming && res.StatusCode == http.StatusOK {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.proxy.get_completion_handler.latency", dur, nil, 1)
 
 			bytes, err := io.ReadAll(res.Body)
@@ -148,7 +143,7 @@ func getCompletionHandler(r recorder, prod, private bool, client http.Client, km
 		}
 
 		if res.StatusCode != http.StatusOK {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.proxy.get_completion_handler.error_latency", dur, nil, 1)
 			stats.Incr("bricksllm.proxy.get_completion_handler.error_response", nil, 1)
 			bytes, err := io.ReadAll(res.Body)
@@ -258,7 +253,7 @@ func getCompletionHandler(r recorder, prod, private bool, client http.Client, km
 			return true
 		})
 
-		stats.Timing("bricksllm.proxy.get_completion_handler.streaming_latency", time.Now().Sub(start), nil, 1)
+		stats.Timing("bricksllm.proxy.get_completion_handler.streaming_latency", time.Since(start), nil, 1)
 	}
 }
 
