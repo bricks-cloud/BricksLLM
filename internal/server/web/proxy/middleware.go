@@ -24,16 +24,6 @@ import (
 	goopenai "github.com/sashabaranov/go-openai"
 )
 
-type rateLimitError interface {
-	Error() string
-	RateLimit()
-}
-
-type expirationError interface {
-	Error() string
-	Reason() string
-}
-
 type keyMemStorage interface {
 	GetKey(hash string) *key.ResponseKey
 }
@@ -43,6 +33,8 @@ type keyStorage interface {
 }
 
 type estimator interface {
+	EstimateTranscriptionCost(secs float64, model string) (float64, error)
+	EstimateSpeechCost(input string, model string) (float64, error)
 	EstimateChatCompletionPromptCostWithTokenCounts(r *goopenai.ChatCompletionRequest) (int, float64, error)
 	EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (float64, error)
 	EstimateChatCompletionStreamCostWithTokenCounts(model, content string) (int, float64, error)
@@ -75,10 +67,6 @@ type rateLimitManager interface {
 
 type accessCache interface {
 	GetAccessStatus(key string) bool
-}
-
-type encrypter interface {
-	Encrypt(secret string) string
 }
 
 func JSON(c *gin.Context, code int, message string) {
@@ -168,7 +156,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 
 		customId := c.Request.Header.Get("X-CUSTOM-EVENT-ID")
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			latency := int(dur.Milliseconds())
 
 			if !prod {
@@ -605,14 +593,16 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/audio/speech" && c.Request.Method == http.MethodPost {
-			sr := &SpeechRequest{}
+			sr := &goopenai.CreateSpeechRequest{}
 			err := json.Unmarshal(body, sr)
 			if err != nil {
 				logError(log, "error when unmarshalling create speech request", prod, cid, err)
 				return
 			}
 
-			c.Set("model", sr.Model)
+			enrichedEvent.Request = sr
+
+			c.Set("model", string(sr.Model))
 
 			logCreateSpeechRequest(log, sr, prod, private, cid)
 		}
@@ -882,22 +872,4 @@ func containsPath(arr []key.PathConfig, path, method string) bool {
 	}
 
 	return false
-}
-
-func getAuthTokenFromHeader(c *gin.Context) string {
-	if strings.HasPrefix(c.FullPath(), "/api/providers/anthropic") {
-		return c.GetHeader("x-api-key")
-	}
-
-	if strings.HasPrefix(c.FullPath(), "/api/providers/azure") {
-		return c.GetHeader("api-key")
-	}
-
-	split := strings.Split(c.Request.Header.Get("Authorization"), "Bearer ")
-	if len(split) < 2 || len(split[1]) == 0 {
-		return ""
-	}
-
-	return split[1]
-
 }
