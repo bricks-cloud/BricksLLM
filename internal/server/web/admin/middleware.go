@@ -19,7 +19,7 @@ func getAdminLoggerMiddleware(log *zap.Logger, prefix string, prod bool, adminPa
 		c.Set(correlationId, util.NewUuid())
 		start := time.Now()
 		c.Next()
-		latency := time.Now().Sub(start).Milliseconds()
+		latency := time.Since(start).Milliseconds()
 		if !prod {
 			log.Sugar().Infof("%s | %d | %s | %s | %dms", prefix, c.Writer.Status(), c.Request.Method, c.FullPath(), latency)
 		}
