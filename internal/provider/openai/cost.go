@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 
 	goopenai "github.com/sashabaranov/go-openai"
@@ -57,6 +58,11 @@ var OpenAiPerThousandTokenCost = map[string]map[string]float64{
 		"text-embedding-ada-002": 0.0001,
 		"text-embedding-3-small": 0.00002,
 		"text-embedding-3-large": 0.00013,
+	},
+	"audio": {
+		"whisper-1": 0.006,
+		"tts-1":     0.015,
+		"tts-1-hd":  0.03,
 	},
 	"completion": {
 		"gpt-3.5-turbo-1106":        0.002,
@@ -201,6 +207,34 @@ func (ce *CostEstimator) EstimateChatCompletionStreamCostWithTokenCounts(model s
 	}
 
 	return tks, cost, nil
+}
+
+func (ce *CostEstimator) EstimateTranscriptionCost(secs float64, model string) (float64, error) {
+	costMap, ok := ce.tokenCostMap["audio"]
+	if !ok {
+		return 0, errors.New("audio cost map is not provided")
+	}
+
+	cost, ok := costMap[model]
+	if !ok {
+		return 0, errors.New("model is not present in the audio cost map")
+	}
+
+	return math.Trunc(secs) / 60 * cost, nil
+}
+
+func (ce *CostEstimator) EstimateSpeechCost(input string, model string) (float64, error) {
+	costMap, ok := ce.tokenCostMap["audio"]
+	if !ok {
+		return 0, errors.New("audio cost map is not provided")
+	}
+
+	cost, ok := costMap[model]
+	if !ok {
+		return 0, errors.New("model is not present in the audio cost map")
+	}
+
+	return float64(len(input)) / 1000 * cost, nil
 }
 
 func (ce *CostEstimator) EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (float64, error) {
