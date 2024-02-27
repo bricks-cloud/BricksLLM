@@ -143,7 +143,7 @@ func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_get_keys_handler.latency", dur, nil, 1)
 		}()
 
@@ -208,7 +208,7 @@ func getGetProviderSettingsHandler(m ProviderSettingsManager, log *zap.Logger, p
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_get_provider_settings.latency", dur, nil, 1)
 		}()
 
@@ -258,7 +258,7 @@ func getCreateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_create_provider_setting_handler.latency", dur, nil, 1)
 		}()
 
@@ -348,7 +348,7 @@ func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_create_key_handler.latency", dur, nil, 1)
 		}()
 
@@ -438,7 +438,7 @@ func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_update_provider_setting_handler.latency", dur, nil, 1)
 		}()
 
@@ -540,7 +540,7 @@ func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_update_key_handler.latency", dur, nil, 1)
 		}()
 
@@ -715,7 +715,7 @@ func getGetEventMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bool
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_get_event_metrics.latency", dur, nil, 1)
 		}()
 
@@ -802,7 +802,7 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_get_events_handler.latency", dur, nil, 1)
 		}()
 
@@ -923,7 +923,7 @@ func getGetKeyReportingHandler(m KeyReportingManager, log *zap.Logger, prod bool
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_get_key_reporting_hanlder.latency", dur, nil, 1)
 		}()
 
@@ -1008,7 +1008,7 @@ func getCreateCustomProviderHandler(m CustomProvidersManager, log *zap.Logger, p
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_create_custom_provider_handler.latency", dur, nil, 1)
 		}()
 
@@ -1096,7 +1096,7 @@ func getGetCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, pro
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_get_custom_providers_handler.latency", dur, nil, 1)
 		}()
 
@@ -1144,7 +1144,7 @@ func getUpdateCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, 
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_update_custom_providers_handler.latency", dur, nil, 1)
 		}()
 
