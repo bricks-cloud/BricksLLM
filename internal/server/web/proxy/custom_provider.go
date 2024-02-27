@@ -110,7 +110,7 @@ func getCustomProviderHandler(prod, private bool, psm ProviderSettingsManager, c
 		defer res.Body.Close()
 
 		if res.StatusCode == http.StatusOK && !isStreaming {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.proxy.get_custom_provider_handler.latency", dur, tags, 1)
 
 			bytes, err := io.ReadAll(res.Body)
@@ -133,7 +133,7 @@ func getCustomProviderHandler(prod, private bool, psm ProviderSettingsManager, c
 		}
 
 		if res.StatusCode != http.StatusOK {
-			stats.Timing("bricksllm.proxy.get_custom_provider_handler.error_latency", time.Now().Sub(start), nil, 1)
+			stats.Timing("bricksllm.proxy.get_custom_provider_handler.error_latency", time.Since(start), nil, 1)
 			stats.Incr("bricksllm.proxy.get_custom_provider_handler.error_response", nil, 1)
 
 			bytes, err := io.ReadAll(res.Body)
@@ -217,6 +217,6 @@ func getCustomProviderHandler(prod, private bool, psm ProviderSettingsManager, c
 			return true
 		})
 
-		stats.Timing("bricksllm.proxy.get_custom_provider_handler.streaming_latency", time.Now().Sub(start), nil, 1)
+		stats.Timing("bricksllm.proxy.get_custom_provider_handler.streaming_latency", time.Since(start), nil, 1)
 	}
 }

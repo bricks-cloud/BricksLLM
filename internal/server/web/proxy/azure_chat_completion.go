@@ -73,7 +73,7 @@ func getAzureChatCompletionHandler(r recorder, prod, private bool, psm ProviderS
 		}
 
 		if res.StatusCode == http.StatusOK && !isStreaming {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.proxy.get_azure_chat_completion_handler.latency", dur, nil, 1)
 
 			bytes, err := io.ReadAll(res.Body)
@@ -120,7 +120,7 @@ func getAzureChatCompletionHandler(r recorder, prod, private bool, psm ProviderS
 		}
 
 		if res.StatusCode != http.StatusOK {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.proxy.get_azure_chat_completion_handler.error_latency", dur, nil, 1)
 			stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.error_response", nil, 1)
 
@@ -238,6 +238,6 @@ func getAzureChatCompletionHandler(r recorder, prod, private bool, psm ProviderS
 			return true
 		})
 
-		stats.Timing("bricksllm.proxy.get_azure_chat_completion_handler.streaming_latency", time.Now().Sub(start), nil, 1)
+		stats.Timing("bricksllm.proxy.get_azure_chat_completion_handler.streaming_latency", time.Since(start), nil, 1)
 	}
 }

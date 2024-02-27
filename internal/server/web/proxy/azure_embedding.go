@@ -54,7 +54,7 @@ func getAzureEmbeddingsHandler(r recorder, prod, private bool, psm ProviderSetti
 		}
 		defer res.Body.Close()
 
-		dur := time.Now().Sub(start)
+		dur := time.Since(start)
 		stats.Timing("bricksllm.proxy.get_azure_embeddings_handler.latency", dur, nil, 1)
 
 		bytes, err := io.ReadAll(res.Body)
