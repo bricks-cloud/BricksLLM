@@ -490,7 +490,7 @@ func getPassThroughHandler(r recorder, prod, private bool, client http.Client, l
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/assistants" && c.Request.Method == http.MethodGet {
-				logListAssistantFilesResponse(log, bytes, prod, cid)
+				logListAssistantsResponse(log, bytes, prod, private, cid)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files" && c.Request.Method == http.MethodPost {
