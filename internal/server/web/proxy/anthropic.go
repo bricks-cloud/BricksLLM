@@ -114,6 +114,8 @@ func getCompletionHandler(r recorder, prod, private bool, client http.Client, km
 				logError(log, "error when unmarshalling anthropic http completion response body", prod, cid, err)
 			}
 
+			logCompletionResponse(log, bytes, prod, private, cid)
+
 			c.Set("content", completionRes.Completion)
 
 			// if err == nil {
