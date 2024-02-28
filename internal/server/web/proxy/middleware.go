@@ -701,7 +701,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files/:file_id" && c.Request.Method == http.MethodDelete {
-			logRetrieveAssistantFileRequest(log, prod, cid, fid, aid)
+			logDeleteAssistantFileRequest(log, body, prod, cid, fid, aid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files" && c.Request.Method == http.MethodGet {
@@ -713,7 +713,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodGet {
-			logCreateThreadRequest(log, body, prod, private, cid)
+			logRetrieveThreadRequest(log, prod, cid, tid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodPost {
@@ -745,7 +745,7 @@ func getMiddleware(kms keyMemStorage, cpm CustomProvidersManager, rm routeManage
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files" && c.Request.Method == http.MethodGet {
-			logListAssistantFilesRequest(log, prod, cid, aid, qm)
+			logListMessageFilesRequest(log, body, prod, cid, tid, mid, qm)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs" && c.Request.Method == http.MethodPost {
