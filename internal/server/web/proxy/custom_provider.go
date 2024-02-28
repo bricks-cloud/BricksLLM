@@ -18,11 +18,6 @@ import (
 	"go.uber.org/zap"
 )
 
-func countTokensFromJson(bytes []byte, contentLoc string) (int, error) {
-	content := getContentFromJson(bytes, contentLoc)
-	return custom.Count(content)
-}
-
 func getContentFromJson(bytes []byte, contentLoc string) string {
 	result := gjson.Get(string(bytes), contentLoc)
 	content := ""
