@@ -35,7 +35,7 @@ func copyHttpHeaders(source *http.Request, dest *http.Request) {
 	dest.Header.Set("Accept-Encoding", "*")
 }
 
-func getCompletionHandler(r recorder, prod, private bool, client http.Client, kms keyMemStorage, log *zap.Logger, e anthropicEstimator, timeOut time.Duration) gin.HandlerFunc {
+func getCompletionHandler(prod, private bool, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.proxy.get_completion_handler.requests", nil, 1)
 

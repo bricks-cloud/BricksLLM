@@ -26,7 +26,7 @@ func logListModelsResponse(log *zap.Logger, data []byte, prod bool, cid string) 
 	}
 }
 
-func logRetrieveModelRequest(log *zap.Logger, data []byte, prod bool, cid, model string) {
+func logRetrieveModelRequest(log *zap.Logger, prod bool, cid, model string) {
 	if prod {
 		fields := []zapcore.Field{
 			zap.String(correlationId, cid),
@@ -58,7 +58,7 @@ func logRetrieveModelResponse(log *zap.Logger, data []byte, prod bool, cid strin
 	}
 }
 
-func logDeleteModelRequest(log *zap.Logger, data []byte, prod bool, cid, model string) {
+func logDeleteModelRequest(log *zap.Logger, prod bool, cid, model string) {
 	if prod {
 		fields := []zapcore.Field{
 			zap.String(correlationId, cid),

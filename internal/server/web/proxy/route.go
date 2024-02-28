@@ -27,7 +27,7 @@ type cache interface {
 	GetBytes(key string) ([]byte, error)
 }
 
-func getRouteHandler(prod, private bool, rm routeManager, ca cache, aoe azureEstimator, e estimator, r recorder, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
+func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, client http.Client, log *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		trueStart := time.Now()
 
@@ -144,7 +144,7 @@ func getRouteHandler(prod, private bool, rm routeManager, ca cache, aoe azureEst
 
 			}
 
-			err := parseResult(c, ca, kc, rc.ShouldRunEmbeddings(), bytes, e, aoe, r, runRes.Model, runRes.Provider)
+			err := parseResult(c, rc.ShouldRunEmbeddings(), bytes, e, aoe, runRes.Model, runRes.Provider)
 			if err != nil {
 				logError(log, "error when parsing run steps result", prod, cid, err)
 			}
@@ -173,7 +173,7 @@ func getRouteHandler(prod, private bool, rm routeManager, ca cache, aoe azureEst
 	}
 }
 
-func parseResult(c *gin.Context, ca cache, kc *key.ResponseKey, runEmbeddings bool, bytes []byte, e estimator, aoe azureEstimator, r recorder, model, provider string) error {
+func parseResult(c *gin.Context, runEmbeddings bool, bytes []byte, e estimator, aoe azureEstimator, model, provider string) error {
 	base64ChatRes := &EmbeddingResponseBase64{}
 	chatRes := &EmbeddingResponse{}
 

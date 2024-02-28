@@ -63,7 +63,7 @@ func logEditImageRequest(log *zap.Logger, prompt, model string, n int, size, res
 	}
 }
 
-func logImageVariationsRequest(log *zap.Logger, model string, n int, size, responseFormat, user string, prod, private bool, cid string) {
+func logImageVariationsRequest(log *zap.Logger, model string, n int, size, responseFormat, user string, prod bool, cid string) {
 	if prod {
 		fields := []zapcore.Field{
 			zap.String(correlationId, cid),

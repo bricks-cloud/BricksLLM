@@ -19,7 +19,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func getSpeechHandler(r recorder, prod, private bool, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
+func getSpeechHandler(prod bool, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.proxy.get_speech_handler.requests", nil, 1)
 
@@ -167,7 +167,7 @@ func getContentType(format string) string {
 	return "text/plain; charset=utf-8"
 }
 
-func getTranscriptionsHandler(r recorder, prod, private bool, client http.Client, log *zap.Logger, timeOut time.Duration, e estimator) gin.HandlerFunc {
+func getTranscriptionsHandler(prod bool, client http.Client, log *zap.Logger, timeOut time.Duration, e estimator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.proxy.get_transcriptions_handler.requests", nil, 1)
 
@@ -327,7 +327,7 @@ func getTranscriptionsHandler(r recorder, prod, private bool, client http.Client
 	}
 }
 
-func getTranslationsHandler(r recorder, prod, private bool, client http.Client, log *zap.Logger, timeOut time.Duration, e estimator) gin.HandlerFunc {
+func getTranslationsHandler(prod bool, client http.Client, log *zap.Logger, timeOut time.Duration, e estimator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.proxy.get_translations_handler.requests", nil, 1)
 
@@ -552,6 +552,7 @@ func logCreateTranslationRequest(log *zap.Logger, model, prompt, responseFormat 
 		fields := []zapcore.Field{
 			zap.String(correlationId, cid),
 			zap.String("model", model),
+			zap.Float64("temperature", temperature),
 		}
 
 		if !private && len(prompt) == 0 {

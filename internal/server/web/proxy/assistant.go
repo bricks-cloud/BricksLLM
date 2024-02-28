@@ -63,7 +63,7 @@ func logAssistantResponse(log *zap.Logger, data []byte, prod, private bool, cid 
 	}
 }
 
-func logRetrieveAssistantRequest(log *zap.Logger, data []byte, prod bool, cid, assistantId string) {
+func logRetrieveAssistantRequest(log *zap.Logger, prod bool, cid, assistantId string) {
 	if prod {
 		fields := []zapcore.Field{
 			zap.String(correlationId, cid),
@@ -102,7 +102,7 @@ func logModifyAssistantRequest(log *zap.Logger, data []byte, prod, private bool,
 	}
 }
 
-func logDeleteAssistantRequest(log *zap.Logger, data []byte, prod bool, cid, assistantId string) {
+func logDeleteAssistantRequest(log *zap.Logger, prod bool, cid, assistantId string) {
 	if prod {
 		fields := []zapcore.Field{
 			zap.String(correlationId, cid),
