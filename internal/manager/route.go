@@ -228,16 +228,16 @@ func (m *RouteManager) validateRoute(r *route.Route) error {
 		}
 
 		if !contains(step.Provider, supportedProviders) {
-			return errors.New(fmt.Sprintf("steps.[%d].provider is not supported. Only azure and openai are supported", index))
+			return fmt.Errorf("steps.[%d].provider is not supported. Only azure and openai are supported", index)
 		}
 
 		if step.Provider == "azure" {
-			apiVersion, _ := step.Params["apiVersion"]
+			apiVersion := step.Params["apiVersion"]
 			if len(apiVersion) == 0 {
 				fields = append(fields, fmt.Sprintf("steps.[%d].params.apiVersion", index))
 			}
 
-			deploymentId, _ := step.Params["deploymentId"]
+			deploymentId := step.Params["deploymentId"]
 			if len(deploymentId) == 0 {
 				fields = append(fields, fmt.Sprintf("steps.[%d].params.deploymentId", index))
 			}
@@ -248,11 +248,11 @@ func (m *RouteManager) validateRoute(r *route.Route) error {
 		}
 
 		if !contains(step.Model, supportedModels) {
-			return errors.New(fmt.Sprintf("steps.[%d].model is not supported. Only chat completion and embeddings model are supported.", index))
+			return fmt.Errorf("steps.[%d].model is not supported. Only chat completion and embeddings model are supported", index)
 		}
 
 		if !checkModelValidity(step.Provider, step.Model) {
-			return errors.New(fmt.Sprintf("model: %s is not supported for provider: %s.", step.Model, step.Provider))
+			return fmt.Errorf("model: %s is not supported for provider: %s", step.Model, step.Provider)
 		}
 
 		if !containAda && contains(step.Model, adaModels) {
@@ -262,11 +262,11 @@ func (m *RouteManager) validateRoute(r *route.Route) error {
 
 	for _, step := range r.Steps {
 		if containAda && !contains(step.Model, adaModels) {
-			return errors.New("steps must have congruent models. Chat completion and embedding models cannot be in the same route config.")
+			return errors.New("steps must have congruent models. Chat completion and embedding models cannot be in the same route config")
 		}
 
 		if !containAda && !contains(step.Model, chatCompletionModels) {
-			return errors.New("steps must have congruent models. Chat completion and embedding models cannot be in the same route config.")
+			return errors.New("steps must have congruent models. Chat completion and embedding models cannot be in the same route config")
 		}
 	}
 

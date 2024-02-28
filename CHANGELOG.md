@@ -1,3 +1,7 @@
+## 1.12.0 - 2024-02-28
+### Added
+- Added setting rotation feature to key
+
 ## 1.11.0 - 2024-02-28
 ### Added
 - Added cost tracking for OpenAI audio endpoints

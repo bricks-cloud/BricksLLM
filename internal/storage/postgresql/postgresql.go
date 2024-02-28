@@ -101,7 +101,7 @@ func (s *Store) AlterKeysTable() error {
 			END IF;
 		END
 		$$;
-		ALTER TABLE keys ADD COLUMN IF NOT EXISTS setting_id VARCHAR(255), ADD COLUMN IF NOT EXISTS allowed_paths JSONB, ADD COLUMN IF NOT EXISTS setting_ids VARCHAR(255)[] NOT NULL DEFAULT ARRAY[]::VARCHAR(255)[], ADD COLUMN IF NOT EXISTS should_log_request BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS should_log_response BOOLEAN NOT NULL DEFAULT FALSE;
+		ALTER TABLE keys ADD COLUMN IF NOT EXISTS setting_id VARCHAR(255), ADD COLUMN IF NOT EXISTS allowed_paths JSONB, ADD COLUMN IF NOT EXISTS setting_ids VARCHAR(255)[] NOT NULL DEFAULT ARRAY[]::VARCHAR(255)[], ADD COLUMN IF NOT EXISTS should_log_request BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS should_log_response BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS rotation_enabled BOOLEAN NOT NULL DEFAULT FALSE;
 	`
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -632,6 +632,7 @@ func (s *Store) GetKeys(tags, keyIds []string, provider string) ([]*key.Response
 			pq.Array(&k.SettingIds),
 			&k.ShouldLogRequest,
 			&k.ShouldLogResponse,
+			&k.RotationEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -690,6 +691,7 @@ func (s *Store) GetKey(keyId string) (*key.ResponseKey, error) {
 			pq.Array(&k.SettingIds),
 			&k.ShouldLogRequest,
 			&k.ShouldLogResponse,
+			&k.RotationEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -833,6 +835,7 @@ func (s *Store) GetAllKeys() ([]*key.ResponseKey, error) {
 			pq.Array(&k.SettingIds),
 			&k.ShouldLogRequest,
 			&k.ShouldLogResponse,
+			&k.RotationEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -929,6 +932,7 @@ func (s *Store) GetUpdatedKeys(updatedAt int64) ([]*key.ResponseKey, error) {
 			pq.Array(&k.SettingIds),
 			&k.ShouldLogRequest,
 			&k.ShouldLogResponse,
+			&k.RotationEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -1088,6 +1092,12 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 		counter++
 	}
 
+	if uk.RotationEnabled != nil {
+		values = append(values, *uk.RotationEnabled)
+		fields = append(fields, fmt.Sprintf("rotation_enabled = $%d", counter))
+		counter++
+	}
+
 	if uk.AllowedPaths != nil {
 		data, err := json.Marshal(uk.AllowedPaths)
 		if err != nil {
@@ -1126,6 +1136,7 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 		pq.Array(&k.SettingIds),
 		&k.ShouldLogRequest,
 		&k.ShouldLogResponse,
+		&k.RotationEnabled,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, internal_errors.NewNotFoundError(fmt.Sprintf("key not found for id: %s", id))
@@ -1265,8 +1276,8 @@ func (s *Store) CreateProviderSetting(setting *provider.Setting) (*provider.Sett
 
 func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 	query := `
-		INSERT INTO keys (name, created_at, updated_at, tags, revoked, key_id, key, revoked_reason, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl, setting_id, allowed_paths, setting_ids, should_log_request, should_log_response)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+		INSERT INTO keys (name, created_at, updated_at, tags, revoked, key_id, key, revoked_reason, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl, setting_id, allowed_paths, setting_ids, should_log_request, should_log_response, rotation_enabled)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 		RETURNING *;
 	`
 
@@ -1295,6 +1306,7 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		sliceToSqlStringArray(rk.SettingIds),
 		rk.ShouldLogRequest,
 		rk.ShouldLogResponse,
+		rk.RotationEnabled,
 	}
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -1324,6 +1336,7 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		pq.Array(&k.SettingIds),
 		&k.ShouldLogRequest,
 		&k.ShouldLogResponse,
+		&k.RotationEnabled,
 	); err != nil {
 		return nil, err
 	}
