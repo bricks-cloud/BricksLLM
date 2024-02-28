@@ -1,3 +1,8 @@
+## 1.11.0 - 2024-02-28
+### Added
+- Added cost tracking for OpenAI audio endpoints
+- Added inference cost tracking for OpenAI finetune models
+
 ## 1.10.0 - 2024-02-21
 ### Added
 - Added `userId` as a new filter option for get events API endpoint
