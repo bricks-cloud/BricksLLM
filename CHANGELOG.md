@@ -1,3 +1,8 @@
+## 1.12.1 - 2024-02-28
+### Added
+- Added querying keys by `keyIds`
+- Increased default postgres DB read timeout to `15s` and write timeout to `5s`
+
 ## 1.12.0 - 2024-02-28
 ### Added
 - Added setting rotation feature to key
