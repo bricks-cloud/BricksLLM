@@ -172,7 +172,8 @@ This endpoint is set up for retrieving key configurations using a query param ca
 > |--------|------------|----------------|------------------------------------------------------|
 > | `tag` |  optional   | `string`         | Identifier attached to a key configuration                  |
 > | `tags` |  optional  | `[]string`         | Identifiers attached to a key configuration                  |
-> | `provider` |  optional  | `string`         | Provider attached to a key provider configuration. Its value can only be `openai`.                 |
+> | `provider` |  optional  | `string`         | Provider attached to a key provider configuration. Its value can only be `openai`.
+> | `keyIds` |  optional  | `[]string`         | Unique identifiers for keys.
 
 ##### Error Response
 
@@ -213,6 +214,9 @@ Fields of KeyConfiguration
 > | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", "method": "POST"}]` | Allowed paths that can be accessed using the key. |
 > | settingId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This field is DEPERCATED. Use `settingIds` field instead.  |
 > | settingIds | `string` | `[98daa3ae-961d-4253-bf6a-322a32fdca3d]` | Setting ids associated with the key. |
+> | shouldLogRequest | `bool` | `false` | Should request be stored. |
+> | shouldLogResponse | `bool` | `true` | Should response be stored. |
+> | rotationEnabled | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
 
 </details>
 
@@ -247,6 +251,9 @@ PathConfig
 > | rateLimitUnit | optional | `enum` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
 > | ttl | optional | `string` | 2d | time to live. Available units are [`s`, `m`, `h`]. |
 > | allowedPaths | optional | `[]PathConfig` | 2d | Pathes allowed for access. |
+> | shouldLogRequest | optional | `bool` | `false` | Should request be stored. |
+> | shouldLogResponse | optional | `bool` | `true` | Should response be stored. |
+> | rotationEnabled | optional | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
 
 
 ##### Error Response
@@ -283,6 +290,9 @@ PathConfig
 > | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", method: "POST"}]` | Allowed paths that can be accessed using the key. |
 > | settingId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This field is DEPERCATED. Use `settingIds` field instead.  |
 > | settingIds | `string` | `[98daa3ae-961d-4253-bf6a-322a32fdca3d]` | Setting ids associated with the key. |
+> | shouldLogRequest | `bool` | `false` | Should request be stored. |
+> | shouldLogResponse | `bool` | `true` | Should response be stored. |
+> | rotationEnabled | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
 
 </details>
 
@@ -320,6 +330,9 @@ PathConfig
 > | rateLimitOverTime | optional | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | optional | `string` | `m`                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
 > | allowedPaths | optional | `[{ "path": "/api/providers/openai/v1/chat/completions", "method": "POST"}]` | `` | Pathes allowed for access. |
+> | shouldLogRequest | optional | `bool` | `false` | Should request be stored. |
+> | shouldLogResponse | optional | `bool` | `true` | Should response be stored. |
+> | rotationEnabled | optional | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
 
 ##### Error Response
 
@@ -354,6 +367,9 @@ PathConfig
 > | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", method: "POST"}]` | Allowed paths that can be accessed using the key. |
 > | settingId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This field is DEPERCATED. Use `settingIds` field instead.  |
 > | settingIds | `string` | `[98daa3ae-961d-4253-bf6a-322a32fdca3d]` | Setting ids associated with the key. |
+> | shouldLogRequest | `bool` | `false` | Should request be stored. |
+> | shouldLogResponse | `bool` | `true` | Should response be stored. |
+> | rotationEnabled | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
 
 </details>
 
@@ -596,6 +612,8 @@ Event
 > | latency_in_ms | `int` | `160` | Provider setting name. |
 > | path | `string` | `/api/v1/chat/completion` | Provider setting name. |
 > | method | `string` | `POST` | Http method for the assoicated proxu request. |
+> | custom_id | `string` | `YOUR_CUSTOM_ID` | Custom Id passed by the user in the headers of proxy requests. |
+> | request | `[]byte` | `{}` | Custom Id passed by the user in the headers of proxy requests. |
 > | custom_id | `string` | `YOUR_CUSTOM_ID` | Custom Id passed by the user in the headers of proxy requests. |
 </details>
 

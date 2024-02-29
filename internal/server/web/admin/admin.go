@@ -149,11 +149,11 @@ func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc
 
 		tag := c.Query("tag")
 		tags := c.QueryArray("tags")
+		keyIds := c.QueryArray("keyIds")
 		provider := c.Query("provider")
 
 		path := "/api/key-management/keys"
-
-		if len(tags) == 0 && len(tag) == 0 && len(provider) == 0 {
+		if len(tags) == 0 && len(tag) == 0 && len(provider) == 0 && len(keyIds) == 0 {
 			c.JSON(http.StatusBadRequest, &ErrorResponse{
 				Type:     "/errors/missing-filteres",
 				Title:    "filters are not found",
@@ -177,7 +177,7 @@ func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc
 		}
 
 		cid := c.GetString(correlationId)
-		keys, err := m.GetKeys(selected, nil, provider)
+		keys, err := m.GetKeys(selected, keyIds, provider)
 		if err != nil {
 			stats.Incr("bricksllm.admin.get_get_keys_handler.get_keys_by_tag_err", nil, 1)
 
