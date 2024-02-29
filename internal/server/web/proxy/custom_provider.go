@@ -18,11 +18,6 @@ import (
 	"go.uber.org/zap"
 )
 
-func countTokensFromJson(bytes []byte, contentLoc string) (int, error) {
-	content := getContentFromJson(bytes, contentLoc)
-	return custom.Count(content)
-}
-
 func getContentFromJson(bytes []byte, contentLoc string) string {
 	result := gjson.Get(string(bytes), contentLoc)
 	content := ""
@@ -51,7 +46,7 @@ type ErrorResponse struct {
 	Error *Error `json:"error"`
 }
 
-func getCustomProviderHandler(prod, private bool, psm ProviderSettingsManager, cpm CustomProvidersManager, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
+func getCustomProviderHandler(prod bool, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tags := []string{
 			fmt.Sprintf("path:%s", c.FullPath()),
@@ -110,7 +105,7 @@ func getCustomProviderHandler(prod, private bool, psm ProviderSettingsManager, c
 		defer res.Body.Close()
 
 		if res.StatusCode == http.StatusOK && !isStreaming {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.proxy.get_custom_provider_handler.latency", dur, tags, 1)
 
 			bytes, err := io.ReadAll(res.Body)
@@ -133,7 +128,7 @@ func getCustomProviderHandler(prod, private bool, psm ProviderSettingsManager, c
 		}
 
 		if res.StatusCode != http.StatusOK {
-			stats.Timing("bricksllm.proxy.get_custom_provider_handler.error_latency", time.Now().Sub(start), nil, 1)
+			stats.Timing("bricksllm.proxy.get_custom_provider_handler.error_latency", time.Since(start), nil, 1)
 			stats.Incr("bricksllm.proxy.get_custom_provider_handler.error_response", nil, 1)
 
 			bytes, err := io.ReadAll(res.Body)
@@ -217,6 +212,6 @@ func getCustomProviderHandler(prod, private bool, psm ProviderSettingsManager, c
 			return true
 		})
 
-		stats.Timing("bricksllm.proxy.get_custom_provider_handler.streaming_latency", time.Now().Sub(start), nil, 1)
+		stats.Timing("bricksllm.proxy.get_custom_provider_handler.streaming_latency", time.Since(start), nil, 1)
 	}
 }

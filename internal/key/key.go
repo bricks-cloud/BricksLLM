@@ -27,6 +27,7 @@ type UpdateKey struct {
 	AllowedPaths           *[]PathConfig `json:"allowedPaths,omitempty"`
 	ShouldLogRequest       *bool         `json:"shouldLogRequest"`
 	ShouldLogResponse      *bool         `json:"shouldLogResponse"`
+	RotationEnabled        *bool         `json:"rotationEnabled"`
 }
 
 func (uk *UpdateKey) Validate() error {
@@ -131,6 +132,7 @@ type RequestKey struct {
 	SettingIds             []string     `json:"settingIds"`
 	ShouldLogRequest       bool         `json:"shouldLogRequest"`
 	ShouldLogResponse      bool         `json:"shouldLogResponse"`
+	RotationEnabled        bool         `json:"rotationEnabled"`
 }
 
 func (rk *RequestKey) Validate() error {
@@ -277,6 +279,7 @@ type ResponseKey struct {
 	SettingIds             []string     `json:"settingIds"`
 	ShouldLogRequest       bool         `json:"shouldLogRequest"`
 	ShouldLogResponse      bool         `json:"shouldLogResponse"`
+	RotationEnabled        bool         `json:"rotationEnabled"`
 }
 
 func (rk *ResponseKey) GetSettingIds() []string {

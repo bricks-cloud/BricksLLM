@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strings"
 
@@ -196,8 +197,12 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 	}
 
 	if len(selected) != 0 {
-		err := rewriteHttpAuthHeader(req, selected[0])
+		used := selected[0]
+		if key.RotationEnabled {
+			used = selected[rand.Intn(len(selected))]
+		}
 
+		err := rewriteHttpAuthHeader(req, used)
 		if err != nil {
 			return nil, nil, err
 		}

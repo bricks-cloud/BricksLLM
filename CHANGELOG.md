@@ -1,3 +1,17 @@
+## 1.12.1 - 2024-02-28
+### Added
+- Added querying keys by `keyIds`
+- Increased default postgres DB read timeout to `15s` and write timeout to `5s`
+
+## 1.12.0 - 2024-02-28
+### Added
+- Added setting rotation feature to key
+
+## 1.11.0 - 2024-02-28
+### Added
+- Added cost tracking for OpenAI audio endpoints
+- Added inference cost tracking for OpenAI finetune models
+
 ## 1.10.0 - 2024-02-21
 ### Added
 - Added `userId` as a new filter option for get events API endpoint

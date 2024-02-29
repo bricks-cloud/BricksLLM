@@ -60,7 +60,7 @@ func logRetrieveAssistantFileRequest(log *zap.Logger, prod bool, cid, fid, aid s
 	}
 }
 
-func logDeleteAssistantFileRequest(log *zap.Logger, data []byte, prod bool, cid, fid, aid string) {
+func logDeleteAssistantFileRequest(log *zap.Logger, prod bool, cid, fid, aid string) {
 	if prod {
 		fields := []zapcore.Field{
 			zap.String(correlationId, cid),

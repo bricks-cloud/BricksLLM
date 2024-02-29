@@ -4,80 +4,115 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 
 	goopenai "github.com/sashabaranov/go-openai"
 )
 
+func useFinetuneModel(model string) string {
+	if isFinetuneModel(model) {
+		return parseFinetuneModel(model)
+	}
+
+	return model
+}
+
+func isFinetuneModel(model string) bool {
+	return strings.HasPrefix(model, "ft:")
+}
+
+func parseFinetuneModel(model string) string {
+	parts := strings.Split(model, ":")
+	if len(parts) > 2 {
+		return "finetune-" + parts[1]
+	}
+
+	return model
+}
+
 var OpenAiPerThousandTokenCost = map[string]map[string]float64{
 	"prompt": {
-		"gpt-4-1106-preview":        0.01,
-		"gpt-4-turbo-preview":       0.01,
-		"gpt-4-0125-preview":        0.01,
-		"gpt-4-1106-vision-preview": 0.01,
-		"gpt-4-vision-preview":      0.01,
-		"gpt-4":                     0.03,
-		"gpt-4-0314":                0.03,
-		"gpt-4-0613":                0.03,
-		"gpt-4-32k":                 0.06,
-		"gpt-4-32k-0613":            0.06,
-		"gpt-4-32k-0314":            0.06,
-		"gpt-3.5-turbo":             0.0015,
-		"gpt-3.5-turbo-1106":        0.001,
-		"gpt-3.5-turbo-0125":        0.0005,
-		"gpt-3.5-turbo-0301":        0.0015,
-		"gpt-3.5-turbo-instruct":    0.0015,
-		"gpt-3.5-turbo-0613":        0.0015,
-		"gpt-3.5-turbo-16k":         0.0015,
-		"gpt-3.5-turbo-16k-0613":    0.0015,
-		"text-davinci-003":          0.12,
-		"text-davinci-002":          0.12,
-		"code-davinci-002":          0.12,
-		"text-curie-001":            0.012,
-		"text-babbage-001":          0.0024,
-		"text-ada-001":              0.0016,
-		"davinci":                   0.12,
-		"curie":                     0.012,
-		"babbage":                   0.0024,
-		"ada":                       0.0016,
+		"gpt-4-1106-preview":          0.01,
+		"gpt-4-turbo-preview":         0.01,
+		"gpt-4-0125-preview":          0.01,
+		"gpt-4-1106-vision-preview":   0.01,
+		"gpt-4-vision-preview":        0.01,
+		"gpt-4":                       0.03,
+		"gpt-4-0314":                  0.03,
+		"gpt-4-0613":                  0.03,
+		"gpt-4-32k":                   0.06,
+		"gpt-4-32k-0613":              0.06,
+		"gpt-4-32k-0314":              0.06,
+		"gpt-3.5-turbo":               0.0015,
+		"gpt-3.5-turbo-1106":          0.001,
+		"gpt-3.5-turbo-0125":          0.0005,
+		"gpt-3.5-turbo-0301":          0.0015,
+		"gpt-3.5-turbo-instruct":      0.0015,
+		"gpt-3.5-turbo-0613":          0.0015,
+		"gpt-3.5-turbo-16k":           0.0015,
+		"gpt-3.5-turbo-16k-0613":      0.0015,
+		"text-davinci-003":            0.12,
+		"text-davinci-002":            0.12,
+		"code-davinci-002":            0.12,
+		"text-curie-001":              0.012,
+		"text-babbage-001":            0.0024,
+		"text-ada-001":                0.0016,
+		"davinci":                     0.12,
+		"curie":                       0.012,
+		"babbage":                     0.0024,
+		"ada":                         0.0016,
+		"finetune-gpt-4-0613":         0.045,
+		"finetune-gpt-3.5-turbo-0125": 0.003,
+		"finetune-gpt-3.5-turbo-1106": 0.003,
+		"finetune-gpt-3.5-turbo-0613": 0.003,
+		"finetune-babbage-002":        0.0016,
+		"finetune-davinci-002":        0.012,
 	},
-	"fine_tune": {
-		"text-davinci-003": 0.03,
-		"text-davinci-002": 0.03,
-		"code-davinci-002": 0.03,
-		"text-curie-001":   0.03,
-		"text-babbage-001": 0.0006,
-		"text-ada-001":     0.0004,
-		"davinci":          0.03,
-		"curie":            0.03,
-		"babbage":          0.0006,
-		"ada":              0.0004,
+	"finetune": {
+		"gpt-4-0613":         0.09,
+		"gpt-3.5-turbo-0125": 0.008,
+		"gpt-3.5-turbo-1106": 0.008,
+		"gpt-3.5-turbo-0613": 0.008,
+		"babbage-002":        0.0004,
+		"davinci-002":        0.006,
 	},
 	"embeddings": {
 		"text-embedding-ada-002": 0.0001,
 		"text-embedding-3-small": 0.00002,
 		"text-embedding-3-large": 0.00013,
 	},
+	"audio": {
+		"whisper-1": 0.006,
+		"tts-1":     0.015,
+		"tts-1-hd":  0.03,
+	},
 	"completion": {
-		"gpt-3.5-turbo-1106":        0.002,
-		"gpt-4-turbo-preview":       0.03,
-		"gpt-4-1106-preview":        0.03,
-		"gpt-4-0125-preview":        0.03,
-		"gpt-4-1106-vision-preview": 0.03,
-		"gpt-4-vision-preview":      0.03,
-		"gpt-4":                     0.06,
-		"gpt-4-0314":                0.06,
-		"gpt-4-0613":                0.06,
-		"gpt-4-32k":                 0.12,
-		"gpt-4-32k-0613":            0.12,
-		"gpt-4-32k-0314":            0.12,
-		"gpt-3.5-turbo":             0.002,
-		"gpt-3.5-turbo-0125":        0.0015,
-		"gpt-3.5-turbo-0301":        0.002,
-		"gpt-3.5-turbo-0613":        0.002,
-		"gpt-3.5-turbo-instruct":    0.002,
-		"gpt-3.5-turbo-16k":         0.004,
-		"gpt-3.5-turbo-16k-0613":    0.004,
+		"gpt-3.5-turbo-1106":          0.002,
+		"gpt-4-turbo-preview":         0.03,
+		"gpt-4-1106-preview":          0.03,
+		"gpt-4-0125-preview":          0.03,
+		"gpt-4-1106-vision-preview":   0.03,
+		"gpt-4-vision-preview":        0.03,
+		"gpt-4":                       0.06,
+		"gpt-4-0314":                  0.06,
+		"gpt-4-0613":                  0.06,
+		"gpt-4-32k":                   0.12,
+		"gpt-4-32k-0613":              0.12,
+		"gpt-4-32k-0314":              0.12,
+		"gpt-3.5-turbo":               0.002,
+		"gpt-3.5-turbo-0125":          0.0015,
+		"gpt-3.5-turbo-0301":          0.002,
+		"gpt-3.5-turbo-0613":          0.002,
+		"gpt-3.5-turbo-instruct":      0.002,
+		"gpt-3.5-turbo-16k":           0.004,
+		"gpt-3.5-turbo-16k-0613":      0.004,
+		"finetune-gpt-4-0613":         0.09,
+		"finetune-gpt-3.5-turbo-0125": 0.006,
+		"finetune-gpt-3.5-turbo-1106": 0.006,
+		"finetune-gpt-3.5-turbo-0613": 0.006,
+		"finetune-babbage-002":        0.0016,
+		"finetune-davinci-002":        0.012,
 	},
 }
 
@@ -118,7 +153,7 @@ func (ce *CostEstimator) EstimatePromptCost(model string, tks int) (float64, err
 
 	}
 
-	cost, ok := costMap[model]
+	cost, ok := costMap[useFinetuneModel(model)]
 	if !ok {
 		return 0, fmt.Errorf("%s is not present in the cost map provided", model)
 	}
@@ -149,7 +184,7 @@ func (ce *CostEstimator) EstimateCompletionCost(model string, tks int) (float64,
 		return 0, errors.New("prompt token cost is not provided")
 	}
 
-	cost, ok := costMap[model]
+	cost, ok := costMap[useFinetuneModel(model)]
 	if !ok {
 		return 0, errors.New("model is not present in the cost map provided")
 	}
@@ -201,6 +236,48 @@ func (ce *CostEstimator) EstimateChatCompletionStreamCostWithTokenCounts(model s
 	}
 
 	return tks, cost, nil
+}
+
+func (ce *CostEstimator) EstimateTranscriptionCost(secs float64, model string) (float64, error) {
+	costMap, ok := ce.tokenCostMap["audio"]
+	if !ok {
+		return 0, errors.New("audio cost map is not provided")
+	}
+
+	cost, ok := costMap[model]
+	if !ok {
+		return 0, errors.New("model is not present in the audio cost map")
+	}
+
+	return math.Trunc(secs) / 60 * cost, nil
+}
+
+func (ce *CostEstimator) EstimateSpeechCost(input string, model string) (float64, error) {
+	costMap, ok := ce.tokenCostMap["audio"]
+	if !ok {
+		return 0, errors.New("audio cost map is not provided")
+	}
+
+	cost, ok := costMap[model]
+	if !ok {
+		return 0, errors.New("model is not present in the audio cost map")
+	}
+
+	return float64(len(input)) / 1000 * cost, nil
+}
+
+func (ce *CostEstimator) EstimateFinetuningCost(num int, model string) (float64, error) {
+	costMap, ok := ce.tokenCostMap["finetune"]
+	if !ok {
+		return 0, errors.New("audio cost map is not provided")
+	}
+
+	cost, ok := costMap[model]
+	if !ok {
+		return 0, errors.New("model is not present in the audio cost map")
+	}
+
+	return cost * float64(num), nil
 }
 
 func (ce *CostEstimator) EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (float64, error) {

@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func logCreateRunRequest(log *zap.Logger, data []byte, prod bool, cid string) {
+func logCreateRunRequest(log *zap.Logger, data []byte, prod, private bool, cid string) {
 	rr := &goopenai.RunRequest{}
 	err := json.Unmarshal(data, rr)
 	if err != nil {
@@ -20,10 +20,13 @@ func logCreateRunRequest(log *zap.Logger, data []byte, prod bool, cid string) {
 		fields := []zapcore.Field{
 			zap.String(correlationId, cid),
 			zap.String("assistant_id", rr.AssistantID),
-			zap.Stringp("instruction", rr.Instructions),
-			zap.Stringp("model", rr.Model),
+			zap.String("model", rr.Model),
 			zap.Any("tools", rr.Tools),
 			zap.Any("metadata", rr.Metadata),
+		}
+
+		if !private {
+			fields = append(fields, zap.String("instruction", rr.Instructions))
 		}
 
 		log.Info("openai create run request", fields...)
@@ -68,7 +71,7 @@ func logRunResponse(log *zap.Logger, data []byte, prod, private bool, cid string
 	}
 }
 
-func logRetrieveRunRequest(log *zap.Logger, data []byte, prod bool, cid, tid, rid string) {
+func logRetrieveRunRequest(log *zap.Logger, prod bool, cid, tid, rid string) {
 	if prod {
 		fields := []zapcore.Field{
 			zap.String(correlationId, cid),
@@ -100,7 +103,7 @@ func logModifyRunRequest(log *zap.Logger, data []byte, prod bool, cid, tid, rid 
 	}
 }
 
-func logListRunsRequest(log *zap.Logger, data []byte, prod bool, cid, tid string, params map[string]string) {
+func logListRunsRequest(log *zap.Logger, prod bool, cid, tid string, params map[string]string) {
 	if prod {
 		fields := []zapcore.Field{
 			zap.String(correlationId, cid),
@@ -171,7 +174,7 @@ func logSubmitToolOutputsRequest(log *zap.Logger, data []byte, prod bool, cid, t
 	}
 }
 
-func logCancelARunRequest(log *zap.Logger, data []byte, prod bool, cid, tid, rid string) {
+func logCancelARunRequest(log *zap.Logger, prod bool, cid, tid, rid string) {
 	if prod {
 		fields := []zapcore.Field{
 			zap.String(correlationId, cid),
@@ -183,7 +186,7 @@ func logCancelARunRequest(log *zap.Logger, data []byte, prod bool, cid, tid, rid
 	}
 }
 
-func logCreateThreadAndRunRequest(log *zap.Logger, data []byte, prod, private bool, cid, tid, rid string) {
+func logCreateThreadAndRunRequest(log *zap.Logger, data []byte, prod, private bool, cid string) {
 	r := &goopenai.CreateThreadAndRunRequest{}
 	err := json.Unmarshal(data, r)
 	if err != nil {
@@ -196,20 +199,20 @@ func logCreateThreadAndRunRequest(log *zap.Logger, data []byte, prod, private bo
 			zap.String(correlationId, cid),
 			zap.String("assistant_id", r.AssistantID),
 			zap.Any("thread", r.Thread),
-			zap.Stringp("model", r.Model),
+			zap.String("model", r.Model),
 			zap.Any("tools", r.Tools),
 			zap.Any("metadata", r.Metadata),
 		}
 
 		if !private {
-			fields = append(fields, zap.Stringp("instructions", r.Instructions))
+			fields = append(fields, zap.String("instructions", r.Instructions))
 		}
 
 		log.Info("openai create thread and run request", fields...)
 	}
 }
 
-func logRetrieveRunStepRequest(log *zap.Logger, data []byte, prod bool, cid, tid, rid, sid string) {
+func logRetrieveRunStepRequest(log *zap.Logger, prod bool, cid, tid, rid, sid string) {
 	if prod {
 		fields := []zapcore.Field{
 			zap.String(correlationId, cid),
@@ -254,7 +257,7 @@ func logRetrieveRunStepResponse(log *zap.Logger, data []byte, prod bool, cid str
 	}
 }
 
-func logListRunStepsRequest(log *zap.Logger, data []byte, prod bool, cid, tid, rid string, params map[string]string) {
+func logListRunStepsRequest(log *zap.Logger, prod bool, cid, tid, rid string, params map[string]string) {
 	if prod {
 		fields := []zapcore.Field{
 			zap.String(correlationId, cid),

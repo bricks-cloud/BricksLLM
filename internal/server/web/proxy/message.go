@@ -100,7 +100,7 @@ func logModifyMessageRequest(log *zap.Logger, data []byte, prod, private bool, c
 	}
 }
 
-func logListMessagesRequest(log *zap.Logger, data []byte, prod bool, cid, tid string) {
+func logListMessagesRequest(log *zap.Logger, prod bool, cid, tid string) {
 	if prod {
 		fields := []zapcore.Field{
 			zap.String(correlationId, cid),

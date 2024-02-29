@@ -18,11 +18,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-const (
-	anthropicPromptMagicNum     int = 1
-	anthropicCompletionMagicNum int = 4
-)
-
 type anthropicEstimator interface {
 	EstimateTotalCost(model string, promptTks, completionTks int) (float64, error)
 	EstimateCompletionCost(model string, tks int) (float64, error)
@@ -40,7 +35,7 @@ func copyHttpHeaders(source *http.Request, dest *http.Request) {
 	dest.Header.Set("Accept-Encoding", "*")
 }
 
-func getCompletionHandler(r recorder, prod, private bool, client http.Client, kms keyMemStorage, log *zap.Logger, e anthropicEstimator, timeOut time.Duration) gin.HandlerFunc {
+func getCompletionHandler(prod, private bool, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.proxy.get_completion_handler.requests", nil, 1)
 
@@ -98,7 +93,7 @@ func getCompletionHandler(r recorder, prod, private bool, client http.Client, km
 		// model := c.GetString("model")
 
 		if !isStreaming && res.StatusCode == http.StatusOK {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.proxy.get_completion_handler.latency", dur, nil, 1)
 
 			bytes, err := io.ReadAll(res.Body)
@@ -118,6 +113,8 @@ func getCompletionHandler(r recorder, prod, private bool, client http.Client, km
 			if err != nil {
 				logError(log, "error when unmarshalling anthropic http completion response body", prod, cid, err)
 			}
+
+			logCompletionResponse(log, bytes, prod, private, cid)
 
 			c.Set("content", completionRes.Completion)
 
@@ -148,7 +145,7 @@ func getCompletionHandler(r recorder, prod, private bool, client http.Client, km
 		}
 
 		if res.StatusCode != http.StatusOK {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.proxy.get_completion_handler.error_latency", dur, nil, 1)
 			stats.Incr("bricksllm.proxy.get_completion_handler.error_response", nil, 1)
 			bytes, err := io.ReadAll(res.Body)
@@ -258,7 +255,7 @@ func getCompletionHandler(r recorder, prod, private bool, client http.Client, km
 			return true
 		})
 
-		stats.Timing("bricksllm.proxy.get_completion_handler.streaming_latency", time.Now().Sub(start), nil, 1)
+		stats.Timing("bricksllm.proxy.get_completion_handler.streaming_latency", time.Since(start), nil, 1)
 	}
 }
 

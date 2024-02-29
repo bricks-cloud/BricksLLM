@@ -2,6 +2,7 @@ package message
 
 import (
 	"errors"
+	"net/http"
 	"strings"
 	"time"
 
@@ -24,6 +25,7 @@ type anthropicEstimator interface {
 }
 
 type estimator interface {
+	EstimateSpeechCost(input string, model string) (float64, error)
 	EstimateChatCompletionPromptCostWithTokenCounts(r *goopenai.ChatCompletionRequest) (int, float64, error)
 	EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (float64, error)
 	EstimateChatCompletionStreamCostWithTokenCounts(model, content string) (int, float64, error)
@@ -103,7 +105,7 @@ func (h *Handler) HandleEvent(m Message) error {
 		return err
 	}
 
-	stats.Timing("bricksllm.message.handler.handle_event.record_event_latency", time.Now().Sub(start), nil, 1)
+	stats.Timing("bricksllm.message.handler.handle_event.record_event_latency", time.Since(start), nil, 1)
 	stats.Incr("bricksllm.message.handler.handle_event.success", nil, 1)
 
 	return nil
@@ -253,7 +255,7 @@ func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 		return err
 	}
 
-	stats.Timing("bricksllm.message.handler.handle_event_with_request_and_response.latency", time.Now().Sub(start), nil, 1)
+	stats.Timing("bricksllm.message.handler.handle_event_with_request_and_response.latency", time.Since(start), nil, 1)
 	stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.success", nil, 1)
 
 	return nil
@@ -269,7 +271,27 @@ func (h *Handler) decorateEvent(m Message) error {
 		return errors.New("message data cannot be parsed as event with request and response")
 	}
 
-	if e.Event.Provider == "anthropic" && e.Event.Path == "/api/providers/anthropic/v1/complete" {
+	if e.Event.Path == "/api/providers/openai/v1/audio/speech" {
+		csr, ok := e.Request.(*goopenai.CreateSpeechRequest)
+		if !ok {
+			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
+			h.log.Debug("event contains request that cannot be converted to anthropic completion request", zap.Any("data", m.Data))
+			return errors.New("event request data cannot be parsed as anthropic completon request")
+		}
+
+		if e.Event.Status == http.StatusOK {
+			cost, err := h.e.EstimateSpeechCost(csr.Input, string(csr.Model))
+			if err != nil {
+				stats.Incr("bricksllm.message.handler.decorate_event.estimate_prompt_cost", nil, 1)
+				h.log.Debug("event contains request that cannot be converted to anthropic completion request", zap.Error(err))
+				return err
+			}
+
+			e.Event.CostInUsd = cost
+		}
+	}
+
+	if e.Event.Path == "/api/providers/anthropic/v1/complete" {
 		cr, ok := e.Request.(*anthropic.CompletionRequest)
 		if !ok {
 			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
@@ -298,11 +320,12 @@ func (h *Handler) decorateEvent(m Message) error {
 		}
 
 		e.Event.PromptTokenCount = tks
+
 		e.Event.CompletionTokenCount = completiontks
 		e.Event.CostInUsd = completionCost + cost
 	}
 
-	if e.Event.Provider == "azure" && e.Event.Path == "/api/providers/azure/openai/deployments/:deployment_id/chat/completions" {
+	if e.Event.Path == "/api/providers/azure/openai/deployments/:deployment_id/chat/completions" {
 		ccr, ok := e.Request.(*goopenai.ChatCompletionRequest)
 		if !ok {
 			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
@@ -335,7 +358,7 @@ func (h *Handler) decorateEvent(m Message) error {
 		}
 	}
 
-	if e.Event.Provider == "openai" && e.Event.Path == "/api/providers/openai/v1/chat/completions" {
+	if e.Event.Path == "/api/providers/openai/v1/chat/completions" {
 		ccr, ok := e.Request.(*goopenai.ChatCompletionRequest)
 		if !ok {
 			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)

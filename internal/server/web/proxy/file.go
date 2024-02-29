@@ -108,7 +108,7 @@ func logDeleteFileResponse(log *zap.Logger, data []byte, prod bool, cid string) 
 	}
 }
 
-func logRetrieveFileContentRequest(log *zap.Logger, data []byte, prod bool, cid, fid string) {
+func logRetrieveFileContentRequest(log *zap.Logger, prod bool, cid, fid string) {
 	if prod {
 		fields := []zapcore.Field{
 			zap.String(correlationId, cid),
@@ -119,7 +119,7 @@ func logRetrieveFileContentRequest(log *zap.Logger, data []byte, prod bool, cid,
 	}
 }
 
-func logRetrieveFileContentResponse(log *zap.Logger, data []byte, prod bool, cid string) {
+func logRetrieveFileContentResponse(log *zap.Logger, prod bool, cid string) {
 	if prod {
 		fields := []zapcore.Field{
 			zap.String(correlationId, cid),
