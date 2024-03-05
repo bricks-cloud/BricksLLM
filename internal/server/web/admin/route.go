@@ -24,7 +24,7 @@ func getCreateRouteHandler(m RouteManager, log *zap.Logger, prod bool) gin.Handl
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_create_route_handler.latency", dur, nil, 1)
 		}()
 
@@ -112,7 +112,7 @@ func getGetRouteHandler(m RouteManager, log *zap.Logger, prod bool) gin.HandlerF
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_get_route_handler.latency", dur, nil, 1)
 		}()
 
@@ -174,7 +174,7 @@ func getGetRoutesHandler(m RouteManager, log *zap.Logger, prod bool) gin.Handler
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_get_routes_handler.latency", dur, nil, 1)
 		}()
 

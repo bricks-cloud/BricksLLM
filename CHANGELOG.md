@@ -1,3 +1,73 @@
+## 1.12.1 - 2024-02-28
+### Added
+- Added querying keys by `keyIds`
+- Increased default postgres DB read timeout to `15s` and write timeout to `5s`
+
+## 1.12.0 - 2024-02-28
+### Added
+- Added setting rotation feature to key
+
+## 1.11.0 - 2024-02-28
+### Added
+- Added cost tracking for OpenAI audio endpoints
+- Added inference cost tracking for OpenAI finetune models
+
+## 1.10.0 - 2024-02-21
+### Added
+- Added `userId` as a new filter option for get events API endpoint
+- Added option to store request and response using keys
+
+## 1.9.6 - 2024-02-18
+### Added
+- Added support for updating key cost limit and rate limit
+
+### Changed
+- Removed validation to updating revoked key field
+
+## 1.9.5 - 2024-02-18
+### Added
+- Added new model "gpt-4-turbo-preview" and "gpt-4-vision-preview" to the cost map
+
+## 1.9.4 - 2024-02-16
+### Added
+- Added support for calculating cost for the cheaper 3.5 turbo model 
+- Added validation to updating revoked key field
+
+## 1.9.3 - 2024-02-13
+### Added
+- Added CORS support in the proxy
+
+## 1.9.2 - 2024-02-06
+### Fixed
+- Fixed custom route tokens recording issue incurred by the new architecture
+
+## 1.9.1 - 2024-02-06
+### Fixed
+- Fixed OpenAI chat completion endpoint being slow
+
+## 1.9.0 - 2024-02-06
+### Changed
+- Drastically improved performance through event driven architecture
+
+### Fixed
+- Fixed API calls that exceeds cost limit not being blocked bug
+
+## 1.8.2 - 2024-01-31
+### Added
+- Added support for new chat completion models
+- Added new querying options for metrics and events API
+
+## 1.8.1 - 2024-01-31
+### Changed
+- Extended default proxy request timeout to 10m
+
+### Fixed
+- Fixed streaming response stuck at context deadline exceeded error
+
+## 1.8.0 - 2024-01-26
+### Added
+- Added key authentication for admin endpoints
+  
 ## 1.7.6 - 2024-01-17
 ### Fixed
 - Changed code to string in OpenAI error response

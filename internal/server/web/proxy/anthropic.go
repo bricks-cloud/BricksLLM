@@ -5,22 +5,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-)
-
-const (
-	anthropicPromptMagicNum     int = 1
-	anthropicCompletionMagicNum int = 4
 )
 
 type anthropicEstimator interface {
@@ -40,7 +35,7 @@ func copyHttpHeaders(source *http.Request, dest *http.Request) {
 	dest.Header.Set("Accept-Encoding", "*")
 }
 
-func getCompletionHandler(r recorder, prod, private bool, client http.Client, kms keyMemStorage, log *zap.Logger, e anthropicEstimator, timeOut time.Duration) gin.HandlerFunc {
+func getCompletionHandler(prod, private bool, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.proxy.get_completion_handler.requests", nil, 1)
 
@@ -60,13 +55,13 @@ func getCompletionHandler(r recorder, prod, private bool, client http.Client, km
 			return
 		}
 
-		raw, exists := c.Get("key")
-		kc, ok := raw.(*key.ResponseKey)
-		if !exists || !ok {
-			stats.Incr("bricksllm.proxy.get_completion_handler.api_key_not_registered", nil, 1)
-			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
-			return
-		}
+		// raw, exists := c.Get("key")
+		// kc, ok := raw.(*key.ResponseKey)
+		// if !exists || !ok {
+		// 	stats.Incr("bricksllm.proxy.get_completion_handler.api_key_not_registered", nil, 1)
+		// 	JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
+		// 	return
+		// }
 
 		copyHttpHeaders(c.Request, req)
 
@@ -95,10 +90,10 @@ func getCompletionHandler(r recorder, prod, private bool, client http.Client, km
 			}
 		}
 
-		model := c.GetString("model")
+		// model := c.GetString("model")
 
 		if !isStreaming && res.StatusCode == http.StatusOK {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.proxy.get_completion_handler.latency", dur, nil, 1)
 
 			bytes, err := io.ReadAll(res.Body)
@@ -108,8 +103,8 @@ func getCompletionHandler(r recorder, prod, private bool, client http.Client, km
 				return
 			}
 
-			var cost float64 = 0
-			completionTokens := 0
+			// var cost float64 = 0
+			// completionTokens := 0
 			completionRes := &anthropic.CompletionResponse{}
 			stats.Incr("bricksllm.proxy.get_completion_handler.success", nil, 1)
 			stats.Timing("bricksllm.proxy.get_completion_handler.success_latency", dur, nil, 1)
@@ -119,34 +114,38 @@ func getCompletionHandler(r recorder, prod, private bool, client http.Client, km
 				logError(log, "error when unmarshalling anthropic http completion response body", prod, cid, err)
 			}
 
-			if err == nil {
-				logCompletionResponse(log, bytes, prod, private, cid)
-				completionTokens = e.Count(completionRes.Completion)
-				completionTokens += anthropicCompletionMagicNum
-				promptTokens := c.GetInt("promptTokenCount")
-				cost, err = e.EstimateTotalCost(model, promptTokens, completionTokens)
-				if err != nil {
-					stats.Incr("bricksllm.proxy.get_completion_handler.estimate_total_cost_error", nil, 1)
-					logError(log, "error when estimating anthropic cost", prod, cid, err)
-				}
+			logCompletionResponse(log, bytes, prod, private, cid)
 
-				micros := int64(cost * 1000000)
-				err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
-				if err != nil {
-					stats.Incr("bricksllm.proxy.get_completion_handler.record_key_spend_error", nil, 1)
-					logError(log, "error when recording anthropic spend", prod, cid, err)
-				}
-			}
+			c.Set("content", completionRes.Completion)
 
-			c.Set("costInUsd", cost)
-			c.Set("completionTokenCount", completionTokens)
+			// if err == nil {
+			// 	logCompletionResponse(log, bytes, prod, private, cid)
+			// 	completionTokens = e.Count(completionRes.Completion)
+			// 	completionTokens += anthropicCompletionMagicNum
+			// 	promptTokens := c.GetInt("promptTokenCount")
+			// 	cost, err = e.EstimateTotalCost(model, promptTokens, completionTokens)
+			// 	if err != nil {
+			// 		stats.Incr("bricksllm.proxy.get_completion_handler.estimate_total_cost_error", nil, 1)
+			// 		logError(log, "error when estimating anthropic cost", prod, cid, err)
+			// 	}
+
+			// 	micros := int64(cost * 1000000)
+			// 	err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
+			// 	if err != nil {
+			// 		stats.Incr("bricksllm.proxy.get_completion_handler.record_key_spend_error", nil, 1)
+			// 		logError(log, "error when recording anthropic spend", prod, cid, err)
+			// 	}
+			// }
+
+			// c.Set("costInUsd", cost)
+			// c.Set("completionTokenCount", completionTokens)
 
 			c.Data(res.StatusCode, "application/json", bytes)
 			return
 		}
 
 		if res.StatusCode != http.StatusOK {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.proxy.get_completion_handler.error_latency", dur, nil, 1)
 			stats.Incr("bricksllm.proxy.get_completion_handler.error_response", nil, 1)
 			bytes, err := io.ReadAll(res.Body)
@@ -162,24 +161,24 @@ func getCompletionHandler(r recorder, prod, private bool, client http.Client, km
 		}
 
 		buffer := bufio.NewReader(res.Body)
-		var totalCost float64 = 0
+		// var totalCost float64 = 0
 
 		content := ""
-		defer func() {
-			tks := e.Count(content)
-			model := c.GetString("model")
-			cost, err := e.EstimateCompletionCost(model, tks)
-			if err != nil {
-				stats.Incr("bricksllm.proxy.get_completion_handler.estimate_completion_cost_error", nil, 1)
-				logError(log, "error when estimating anthropic completion stream cost", prod, cid, err)
-			}
+		// defer func() {
+		// 	tks := e.Count(content)
+		// 	model := c.GetString("model")
+		// 	cost, err := e.EstimateCompletionCost(model, tks)
+		// 	if err != nil {
+		// 		stats.Incr("bricksllm.proxy.get_completion_handler.estimate_completion_cost_error", nil, 1)
+		// 		logError(log, "error when estimating anthropic completion stream cost", prod, cid, err)
+		// 	}
 
-			estimatedPromptCost := c.GetFloat64("estimatedPromptCostInUsd")
-			totalCost = cost + estimatedPromptCost
+		// 	estimatedPromptCost := c.GetFloat64("estimatedPromptCostInUsd")
+		// 	totalCost = cost + estimatedPromptCost
 
-			c.Set("costInUsd", totalCost)
-			c.Set("completionTokenCount", tks+anthropicCompletionMagicNum)
-		}()
+		// 	c.Set("costInUsd", totalCost)
+		// 	c.Set("completionTokenCount", tks+anthropicCompletionMagicNum)
+		// }()
 
 		stats.Incr("bricksllm.proxy.get_completion_handler.streaming_requests", nil, 1)
 
@@ -188,6 +187,13 @@ func getCompletionHandler(r recorder, prod, private bool, client http.Client, km
 			raw, err := buffer.ReadBytes('\n')
 			if err != nil {
 				if err == io.EOF {
+					return false
+				}
+
+				if errors.Is(err, context.DeadlineExceeded) {
+					stats.Incr("bricksllm.proxy.get_completion_handler.context_deadline_exceeded_error", nil, 1)
+					logError(log, "context deadline exceeded when reading bytes from anthropic completion response", prod, cid, err)
+
 					return false
 				}
 
@@ -249,7 +255,7 @@ func getCompletionHandler(r recorder, prod, private bool, client http.Client, km
 			return true
 		})
 
-		stats.Timing("bricksllm.proxy.get_completion_handler.streaming_latency", time.Now().Sub(start), nil, 1)
+		stats.Timing("bricksllm.proxy.get_completion_handler.streaming_latency", time.Since(start), nil, 1)
 	}
 }
 

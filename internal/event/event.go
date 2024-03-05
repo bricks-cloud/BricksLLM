@@ -15,4 +15,7 @@ type Event struct {
 	Path                 string   `json:"path"`
 	Method               string   `json:"method"`
 	CustomId             string   `json:"custom_id"`
+	Request              []byte   `json:"request"`
+	Response             []byte   `json:"response"`
+	UserId               string   `json:"userId"`
 }

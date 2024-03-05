@@ -11,6 +11,9 @@
    <a href="https://github.com/bricks-cloud/bricks/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-red" alt="License"></a>
 </p>
 
+> [!TIP]
+> A [managed version of BricksLLM](https://www.trybricks.ai?utm_source=github&utm_medium=repo&utm_campaign=bricksllm) is also available! It is production ready, and comes with a dashboard to make interacting with BricksLLM easier. Try us out for free today!
+
 **BricksLLM** is a cloud native AI gateway written in Go. Currently, it provide native support for OpenAI, Anthropic and Azure OpenAI. We let you create API keys that have rate limits, cost limits and TTLs. The API keys can be used in both development and production to achieve fine-grained access control that is not provided by any of the foundational model providers. The proxy is designed to be 100% compatible with existing SDKs.
 
 ## Features
@@ -145,10 +148,18 @@ docker pull luyuanxin1995/bricksllm:1.4.0
 > | `REDIS_WRITE_TIME_OUT`         | optional | Timeout for Redis write operations | `500ms`
 > | `IN_MEMORY_DB_UPDATE_INTERVAL`         | optional | The interval BricksLLM API gateway polls Postgresql DB for latest key configurations | `1s`
 > | `STATS_PROVIDER`         | optional | This value can only be datadog. Required for integration with Datadog.  |
-> | `PROXY_TIMEOUT`         | optional | This value can only be datadog. Required for integration with Datadog.  |
+> | `PROXY_TIMEOUT`         | optional | Timeout for proxy HTTP requests. |
+> | `ADMIN_PASS`         | optional | Simple password authentication for admin endpoints.  |
 
 ## Configuration Endpoints
 The configuration server runs on Port `8001`.
+
+##### Headers
+> | name   |  type      | data type      | description                                          |
+> |--------|------------|----------------|------------------------------------------------------|
+> | `X-API-KEY` |  optional  | `string`         | Key authentication header.
+
+
 <details>
   <summary>Get keys: <code>GET</code> <code><b>/api/key-management/keys</b></code></summary>
 
@@ -161,7 +172,8 @@ This endpoint is set up for retrieving key configurations using a query param ca
 > |--------|------------|----------------|------------------------------------------------------|
 > | `tag` |  optional   | `string`         | Identifier attached to a key configuration                  |
 > | `tags` |  optional  | `[]string`         | Identifiers attached to a key configuration                  |
-> | `provider` |  optional  | `string`         | Provider attached to a key provider configuration. Its value can only be `openai`.                 |
+> | `provider` |  optional  | `string`         | Provider attached to a key provider configuration. Its value can only be `openai`.
+> | `keyIds` |  optional  | `[]string`         | Unique identifiers for keys.
 
 ##### Error Response
 
@@ -202,6 +214,9 @@ Fields of KeyConfiguration
 > | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", "method": "POST"}]` | Allowed paths that can be accessed using the key. |
 > | settingId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This field is DEPERCATED. Use `settingIds` field instead.  |
 > | settingIds | `string` | `[98daa3ae-961d-4253-bf6a-322a32fdca3d]` | Setting ids associated with the key. |
+> | shouldLogRequest | `bool` | `false` | Should request be stored. |
+> | shouldLogResponse | `bool` | `true` | Should response be stored. |
+> | rotationEnabled | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
 
 </details>
 
@@ -236,6 +251,9 @@ PathConfig
 > | rateLimitUnit | optional | `enum` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
 > | ttl | optional | `string` | 2d | time to live. Available units are [`s`, `m`, `h`]. |
 > | allowedPaths | optional | `[]PathConfig` | 2d | Pathes allowed for access. |
+> | shouldLogRequest | optional | `bool` | `false` | Should request be stored. |
+> | shouldLogResponse | optional | `bool` | `true` | Should response be stored. |
+> | rotationEnabled | optional | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
 
 
 ##### Error Response
@@ -272,6 +290,9 @@ PathConfig
 > | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", method: "POST"}]` | Allowed paths that can be accessed using the key. |
 > | settingId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This field is DEPERCATED. Use `settingIds` field instead.  |
 > | settingIds | `string` | `[98daa3ae-961d-4253-bf6a-322a32fdca3d]` | Setting ids associated with the key. |
+> | shouldLogRequest | `bool` | `false` | Should request be stored. |
+> | shouldLogResponse | `bool` | `true` | Should response be stored. |
+> | rotationEnabled | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
 
 </details>
 
@@ -302,8 +323,16 @@ PathConfig
 > | name | optional | `string` | spike's developer key | Name of the API key. |
 > | tags | optional | `[]string` | `["org-tag-12345"]`             | Identifiers associated with the key. |
 > | revoked | optional |  `boolean` | `true` | Indicator for whether the key is revoked.  |
-> | revokedReason| optional | `string` | The key has expired | Reason for why the key is revoked.  |
-> | allowedPaths | optional | `[]PathConfig` | 2d | Pathes allowed for access. |
+> | revokedReason | optional | `string` | The key has expired | Reason for why the key is revoked.  |
+> | costLimitInUsd | optional | `float64` | `5.5` | Total spend limit of the API key.
+> | costLimitInUsdOverTime | optional | `float64` | `2` | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
+> | costLimitInUsdUnit | optional | `enum` | `d`                       | Time unit for costLimitInUsdOverTime. Possible values are [`m`, `h`, `d`, `mo`].      |
+> | rateLimitOverTime | optional | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitUnit | optional | `string` | `m`                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+> | allowedPaths | optional | `[{ "path": "/api/providers/openai/v1/chat/completions", "method": "POST"}]` | `` | Pathes allowed for access. |
+> | shouldLogRequest | optional | `bool` | `false` | Should request be stored. |
+> | shouldLogResponse | optional | `bool` | `true` | Should response be stored. |
+> | rotationEnabled | optional | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
 
 ##### Error Response
 
@@ -338,6 +367,9 @@ PathConfig
 > | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", method: "POST"}]` | Allowed paths that can be accessed using the key. |
 > | settingId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This field is DEPERCATED. Use `settingIds` field instead.  |
 > | settingIds | `string` | `[98daa3ae-961d-4253-bf6a-322a32fdca3d]` | Setting ids associated with the key. |
+> | shouldLogRequest | `bool` | `false` | Should request be stored. |
+> | shouldLogResponse | `bool` | `true` | Should response be stored. |
+> | rotationEnabled | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
 
 </details>
 
@@ -489,7 +521,9 @@ This endpoint is retrieving aggregated metrics given an array of key ids and tag
 > | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | keyIds | required | `[]string` | `["key-1", "key-2", "key-3" ]` | Array of ids that specicify the keys that you want to aggregate stats from. |
-> | tags | required | `[]string` | `["tag-1", "tag-2"]`           | Array of tags that specicify the keys that you want to aggregate stats from. |
+> | tags | required | `[]string` | `["tag-1", "tag-2"]`           | Array of tags that specicify the key tags that you want to aggregate stats from. |
+> | customIds | required | `[]string` | `["customId-1", "customId-2"]` | A list of custom IDs that you want to aggregate stats from. |
+> | filters | required | `[]string` | `["model", "keyId"]` | Group by data points through different filters(`model`,`keyId` or `customId`). |
 > | start | required | `int64` | `1699933571` | Start timestamp for the requested timeseries data. |
 > | end | required | `int64` | `1699933571` | End timestamp for the requested timeseries data. |
 > | increment | required | `int` | `60` | This field is the increment in seconds for the requested timeseries data. |
@@ -526,6 +560,7 @@ Datapoint
 > | successCount | `int` | `555` | Aggregated number of successful http requests over the given time increment. |
 > | keyId | `int` | `555.7` | key Id associated with the event. |
 > | model | `string` | `gpt-3.5-turbo` | model associated with the event. |
+> | customId | `string` | `customId` | customId associated with the event. |
 
 </details>
 
@@ -538,7 +573,10 @@ This endpoint is for getting events.
 ##### Query Parameters
 > | name   |  type      | data type      | description                                          |
 > |--------|------------|----------------|------------------------------------------------------|
-> | `customId` |  optional   | string         | Custom identifier attached to an event                  |
+> | `customId` |  optional   | `string`         | Custom identifier attached to an event.                  |
+> | `keyIds` |  optional   | `[]string`         | A list of key IDs.                 |
+> | `start` |  required if `keyIds` is specified   | `int64`         | Start timestamp.                |
+> | `end` |  required if `keyIds` is specified   | `int64`         | End timestamp.                |
 
 ##### Error Response
 > | http code     | content-type                      |
@@ -574,6 +612,8 @@ Event
 > | latency_in_ms | `int` | `160` | Provider setting name. |
 > | path | `string` | `/api/v1/chat/completion` | Provider setting name. |
 > | method | `string` | `POST` | Http method for the assoicated proxu request. |
+> | custom_id | `string` | `YOUR_CUSTOM_ID` | Custom Id passed by the user in the headers of proxy requests. |
+> | request | `[]byte` | `{}` | Custom Id passed by the user in the headers of proxy requests. |
 > | custom_id | `string` | `YOUR_CUSTOM_ID` | Custom Id passed by the user in the headers of proxy requests. |
 </details>
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
@@ -37,7 +38,7 @@ type KeyManager interface {
 
 type KeyReportingManager interface {
 	GetKeyReporting(keyId string) (*key.KeyReporting, error)
-	GetEvent(customId string) (*event.Event, error)
+	GetEvents(userId, customId string, keyIds []string, start int64, end int64) ([]*event.Event, error)
 	GetEventReporting(e *event.ReportingRequest) (*event.ReportingResponse, error)
 }
 
@@ -55,11 +56,11 @@ type AdminServer struct {
 	m      KeyManager
 }
 
-func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReportingManager, psm ProviderSettingsManager, cpm CustomProvidersManager, rm RouteManager) (*AdminServer, error) {
+func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReportingManager, psm ProviderSettingsManager, cpm CustomProvidersManager, rm RouteManager, adminPass string) (*AdminServer, error) {
 	router := gin.New()
 
 	prod := mode == "production"
-	router.Use(getAdminLoggerMiddleware(log, "admin", prod))
+	router.Use(getAdminLoggerMiddleware(log, "admin", prod, adminPass))
 
 	router.GET("/api/health", getGetHealthCheckHandler())
 
@@ -142,17 +143,17 @@ func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_get_keys_handler.latency", dur, nil, 1)
 		}()
 
 		tag := c.Query("tag")
 		tags := c.QueryArray("tags")
+		keyIds := c.QueryArray("keyIds")
 		provider := c.Query("provider")
 
 		path := "/api/key-management/keys"
-
-		if len(tags) == 0 && len(tag) == 0 && len(provider) == 0 {
+		if len(tags) == 0 && len(tag) == 0 && len(provider) == 0 && len(keyIds) == 0 {
 			c.JSON(http.StatusBadRequest, &ErrorResponse{
 				Type:     "/errors/missing-filteres",
 				Title:    "filters are not found",
@@ -176,7 +177,7 @@ func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc
 		}
 
 		cid := c.GetString(correlationId)
-		keys, err := m.GetKeys(selected, nil, provider)
+		keys, err := m.GetKeys(selected, keyIds, provider)
 		if err != nil {
 			stats.Incr("bricksllm.admin.get_get_keys_handler.get_keys_by_tag_err", nil, 1)
 
@@ -207,7 +208,7 @@ func getGetProviderSettingsHandler(m ProviderSettingsManager, log *zap.Logger, p
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_get_provider_settings.latency", dur, nil, 1)
 		}()
 
@@ -257,7 +258,7 @@ func getCreateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_create_provider_setting_handler.latency", dur, nil, 1)
 		}()
 
@@ -347,7 +348,7 @@ func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_create_key_handler.latency", dur, nil, 1)
 		}()
 
@@ -437,7 +438,7 @@ func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_update_provider_setting_handler.latency", dur, nil, 1)
 		}()
 
@@ -539,7 +540,7 @@ func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_update_key_handler.latency", dur, nil, 1)
 		}()
 
@@ -714,7 +715,7 @@ func getGetEventMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bool
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_get_event_metrics.latency", dur, nil, 1)
 		}()
 
@@ -801,7 +802,7 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_get_events_handler.latency", dur, nil, 1)
 		}()
 
@@ -819,27 +820,90 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 		}
 
 		cid := c.GetString(correlationId)
-		customId, ok := c.GetQuery("customId")
-		if !ok {
+		customId, ciok := c.GetQuery("customId")
+		userId, uiok := c.GetQuery("userId")
+		keyIds, kiok := c.GetQueryArray("keyIds")
+		if !ciok && !kiok && !uiok {
 			c.JSON(http.StatusBadRequest, &ErrorResponse{
-				Type:     "/errors/custom-id-empty",
-				Title:    "custom id is empty",
+				Type:     "/errors/no-filters-empty",
+				Title:    "none of customId, keyIds and userId is specified",
 				Status:   http.StatusBadRequest,
-				Detail:   "query param customId is empty. it is required for retrieving an event.",
+				Detail:   "customId, userId and keyIds are empty. one of them is required for retrieving events.",
 				Instance: path,
 			})
 
 			return
 		}
 
-		ev, err := m.GetEvent(customId)
-		if err != nil {
-			stats.Incr("bricksllm.admin.get_get_events_handler.get_event_error", nil, 1)
+		var qstart int64 = 0
+		var qend int64 = 0
 
-			logError(log, "error when getting an event", prod, cid, err)
+		if kiok {
+			startstr, sok := c.GetQuery("start")
+			if !sok {
+				c.JSON(http.StatusBadRequest, &ErrorResponse{
+					Type:     "/errors/query-param-start-missing",
+					Title:    "query param start is missing",
+					Status:   http.StatusBadRequest,
+					Detail:   "start query param is not provided",
+					Instance: path,
+				})
+
+				return
+			}
+
+			parsedStart, err := strconv.ParseInt(startstr, 10, 64)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, &ErrorResponse{
+					Type:     "/errors/bad-start-query-param",
+					Title:    "start query cannot be parsed",
+					Status:   http.StatusBadRequest,
+					Detail:   "start query param must be int64",
+					Instance: path,
+				})
+
+				return
+			}
+
+			qstart = parsedStart
+
+			endstr, eoi := c.GetQuery("end")
+			if !eoi {
+				c.JSON(http.StatusBadRequest, &ErrorResponse{
+					Type:     "/errors/query-param-end-missing",
+					Title:    "query param end is missing",
+					Status:   http.StatusBadRequest,
+					Detail:   "end query param is not provided",
+					Instance: path,
+				})
+
+				return
+			}
+
+			parsedEnd, err := strconv.ParseInt(endstr, 10, 64)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, &ErrorResponse{
+					Type:     "/errors/bad-end-query-param",
+					Title:    "end query cannot be parsed",
+					Status:   http.StatusBadRequest,
+					Detail:   "end query param must be int64",
+					Instance: path,
+				})
+
+				return
+			}
+
+			qend = parsedEnd
+		}
+
+		evs, err := m.GetEvents(userId, customId, keyIds, qstart, qend)
+		if err != nil {
+			stats.Incr("bricksllm.admin.get_get_events_handler.get_events_error", nil, 1)
+
+			logError(log, "error when getting events", prod, cid, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/event-manager",
-				Title:    "getting an event error",
+				Title:    "getting events error",
 				Status:   http.StatusInternalServerError,
 				Detail:   err.Error(),
 				Instance: path,
@@ -849,7 +913,7 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 
 		stats.Incr("bricksllm.admin.get_get_events_handler.success", nil, 1)
 
-		c.JSON(http.StatusOK, []*event.Event{ev})
+		c.JSON(http.StatusOK, evs)
 	}
 }
 
@@ -859,7 +923,7 @@ func getGetKeyReportingHandler(m KeyReportingManager, log *zap.Logger, prod bool
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_get_key_reporting_hanlder.latency", dur, nil, 1)
 		}()
 
@@ -944,7 +1008,7 @@ func getCreateCustomProviderHandler(m CustomProvidersManager, log *zap.Logger, p
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_create_custom_provider_handler.latency", dur, nil, 1)
 		}()
 
@@ -1032,7 +1096,7 @@ func getGetCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, pro
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_get_custom_providers_handler.latency", dur, nil, 1)
 		}()
 
@@ -1080,7 +1144,7 @@ func getUpdateCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, 
 
 		start := time.Now()
 		defer func() {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			stats.Timing("bricksllm.admin.get_update_custom_providers_handler.latency", dur, nil, 1)
 		}()
 

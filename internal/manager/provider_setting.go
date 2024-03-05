@@ -44,7 +44,7 @@ func findMissingAuthParams(providerName string, params map[string]string) string
 	missingFields := []string{}
 
 	if providerName == "openai" || providerName == "anthropic" {
-		val, _ := params["apikey"]
+		val := params["apikey"]
 		if len(val) == 0 {
 			missingFields = append(missingFields, "apikey")
 		}
@@ -53,12 +53,12 @@ func findMissingAuthParams(providerName string, params map[string]string) string
 	}
 
 	if providerName == "azure" {
-		val, _ := params["resourceName"]
+		val := params["resourceName"]
 		if len(val) == 0 {
 			missingFields = append(missingFields, "resourceName")
 		}
 
-		val, _ = params["apikey"]
+		val = params["apikey"]
 		if len(val) == 0 {
 			missingFields = append(missingFields, "apikey")
 		}
@@ -76,7 +76,7 @@ func (m *ProviderSettingsManager) validateSettings(providerName string, setting 
 		}
 
 		if len(provider.AuthenticationParam) != 0 {
-			val, _ := setting[provider.AuthenticationParam]
+			val := setting[provider.AuthenticationParam]
 			if len(val) == 0 {
 				return internal_errors.NewValidationError(fmt.Sprintf("provider %s is missing value for field %s", providerName, provider.AuthenticationParam))
 			}

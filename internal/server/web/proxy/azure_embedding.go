@@ -7,14 +7,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/gin-gonic/gin"
 	goopenai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 )
 
-func getAzureEmbeddingsHandler(r recorder, prod, private bool, psm ProviderSettingsManager, client http.Client, kms keyMemStorage, log *zap.Logger, aoe azureEstimator, timeOut time.Duration) gin.HandlerFunc {
+func getAzureEmbeddingsHandler(prod, private bool, client http.Client, log *zap.Logger, aoe azureEstimator, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.requests", nil, 1)
 		if c == nil || c.Request == nil {
@@ -23,13 +22,13 @@ func getAzureEmbeddingsHandler(r recorder, prod, private bool, psm ProviderSetti
 		}
 
 		cid := c.GetString(correlationId)
-		raw, exists := c.Get("key")
-		kc, ok := raw.(*key.ResponseKey)
-		if !exists || !ok {
-			stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.api_key_not_registered", nil, 1)
-			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
-			return
-		}
+		// raw, exists := c.Get("key")
+		// kc, ok := raw.(*key.ResponseKey)
+		// if !exists || !ok {
+		// 	stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.api_key_not_registered", nil, 1)
+		// 	JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
+		// 	return
+		// }
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
@@ -55,7 +54,7 @@ func getAzureEmbeddingsHandler(r recorder, prod, private bool, psm ProviderSetti
 		}
 		defer res.Body.Close()
 
-		dur := time.Now().Sub(start)
+		dur := time.Since(start)
 		stats.Timing("bricksllm.proxy.get_azure_embeddings_handler.latency", dur, nil, 1)
 
 		bytes, err := io.ReadAll(res.Body)
@@ -111,12 +110,12 @@ func getAzureEmbeddingsHandler(r recorder, prod, private bool, psm ProviderSetti
 					logError(log, "error when estimating azure openai cost for embedding", prod, cid, err)
 				}
 
-				micros := int64(cost * 1000000)
-				err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
-				if err != nil {
-					stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.record_key_spend_error", nil, 1)
-					logError(log, "error when recording azure openai spend for embedding", prod, cid, err)
-				}
+				// micros := int64(cost * 1000000)
+				// err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
+				// if err != nil {
+				// 	stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.record_key_spend_error", nil, 1)
+				// 	logError(log, "error when recording azure openai spend for embedding", prod, cid, err)
+				// }
 			}
 		}
 

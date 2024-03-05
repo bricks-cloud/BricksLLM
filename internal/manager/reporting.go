@@ -1,9 +1,6 @@
 package manager
 
 import (
-	"errors"
-	"fmt"
-
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
@@ -18,8 +15,8 @@ type keyStorage interface {
 }
 
 type eventStorage interface {
-	GetEvents(customId string) ([]*event.Event, error)
-	GetEventDataPoints(start, end, increment int64, tags, keyIds []string, filters []string) ([]*event.DataPoint, error)
+	GetEvents(userId, customId string, keyIds []string, start, end int64) ([]*event.Event, error)
+	GetEventDataPoints(start, end, increment int64, tags, keyIds, customIds, userIds []string, filters []string) ([]*event.DataPoint, error)
 	GetLatencyPercentiles(start, end int64, tags, keyIds []string) ([]float64, error)
 }
 
@@ -38,7 +35,7 @@ func NewReportingManager(cs costStorage, ks keyStorage, es eventStorage) *Report
 }
 
 func (rm *ReportingManager) GetEventReporting(e *event.ReportingRequest) (*event.ReportingResponse, error) {
-	dataPoints, err := rm.es.GetEventDataPoints(e.Start, e.End, e.Increment, e.Tags, e.KeyIds, e.Filters)
+	dataPoints, err := rm.es.GetEventDataPoints(e.Start, e.End, e.Increment, e.Tags, e.KeyIds, e.CustomIds, e.UserIds, e.Filters)
 	if err != nil {
 		return nil, err
 	}
@@ -80,25 +77,8 @@ func (rm *ReportingManager) GetKeyReporting(keyId string) (*key.KeyReporting, er
 	}, err
 }
 
-func (rm *ReportingManager) GetEvent(customId string) (*event.Event, error) {
-	if len(customId) == 0 {
-		return nil, errors.New("customId cannot be empty")
-	}
-
-	events, err := rm.es.GetEvents(customId)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(events) >= 1 {
-		return events[0], nil
-	}
-
-	return nil, internal_errors.NewNotFoundError(fmt.Sprintf("event is not found for customId: %s", customId))
-}
-
-func (rm *ReportingManager) GetEvents(customId string) ([]*event.Event, error) {
-	events, err := rm.es.GetEvents(customId)
+func (rm *ReportingManager) GetEvents(userId, customId string, keyIds []string, start, end int64) ([]*event.Event, error) {
+	events, err := rm.es.GetEvents(userId, customId, keyIds, start, end)
 	if err != nil {
 		return nil, err
 	}

@@ -10,6 +10,8 @@ type DataPoint struct {
 	SuccessCount         int     `json:"successCount"`
 	Model                string  `json:"model"`
 	KeyId                string  `json:"keyId"`
+	CustomId             string  `json:"customId"`
+	UserId               string  `json:"userId"`
 }
 
 type ReportingResponse struct {
@@ -21,6 +23,8 @@ type ReportingResponse struct {
 type ReportingRequest struct {
 	KeyIds    []string `json:"keyIds"`
 	Tags      []string `json:"tags"`
+	CustomIds []string `json:"customIds"`
+	UserIds   []string `json:"userIds"`
 	Start     int64    `json:"start"`
 	End       int64    `json:"end"`
 	Increment int64    `json:"increment"`

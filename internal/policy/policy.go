@@ -131,7 +131,7 @@ func (p *Policy) Filter(client http.Client, input any) error {
 
 		updatedContents, err := p.inspect(client, contents)
 		if err != nil {
-			return nil
+			return err
 		}
 
 		if len(updatedContents) != len(converted.Messages) {

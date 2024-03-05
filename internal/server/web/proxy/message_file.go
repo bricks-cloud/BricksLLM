@@ -42,7 +42,7 @@ func logRetrieveMessageFileResponse(log *zap.Logger, data []byte, prod bool, cid
 	}
 }
 
-func logListMessageFilesRequest(log *zap.Logger, data []byte, prod bool, cid, tid, mid string, params map[string]string) {
+func logListMessageFilesRequest(log *zap.Logger, prod bool, cid, tid, mid string, params map[string]string) {
 	if prod {
 		fields := []zapcore.Field{
 			zap.String(correlationId, cid),

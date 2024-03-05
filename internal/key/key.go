@@ -9,15 +9,25 @@ import (
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
 )
 
+const RevokedReasonExpired string = "expired"
+
 type UpdateKey struct {
-	Name          string        `json:"name"`
-	UpdatedAt     int64         `json:"updatedAt"`
-	Tags          []string      `json:"tags"`
-	Revoked       *bool         `json:"revoked"`
-	RevokedReason string        `json:"revokedReason"`
-	SettingId     string        `json:"settingId"`
-	SettingIds    []string      `json:"settingIds"`
-	AllowedPaths  *[]PathConfig `json:"allowedPaths,omitempty"`
+	Name                   string        `json:"name"`
+	UpdatedAt              int64         `json:"updatedAt"`
+	Tags                   []string      `json:"tags"`
+	Revoked                *bool         `json:"revoked"`
+	RevokedReason          string        `json:"revokedReason"`
+	SettingId              string        `json:"settingId"`
+	SettingIds             []string      `json:"settingIds"`
+	CostLimitInUsd         float64       `json:"costLimitInUsd"`
+	CostLimitInUsdOverTime float64       `json:"costLimitInUsdOverTime"`
+	CostLimitInUsdUnit     TimeUnit      `json:"costLimitInUsdUnit"`
+	RateLimitOverTime      int           `json:"rateLimitOverTime"`
+	RateLimitUnit          TimeUnit      `json:"rateLimitUnit"`
+	AllowedPaths           *[]PathConfig `json:"allowedPaths,omitempty"`
+	ShouldLogRequest       *bool         `json:"shouldLogRequest"`
+	ShouldLogResponse      *bool         `json:"shouldLogResponse"`
+	RotationEnabled        *bool         `json:"rotationEnabled"`
 }
 
 func (uk *UpdateKey) Validate() error {
@@ -32,6 +42,10 @@ func (uk *UpdateKey) Validate() error {
 			invalid = append(invalid, "tags")
 			break
 		}
+	}
+
+	if uk.CostLimitInUsd < 0 {
+		invalid = append(invalid, "costLimitInUsd")
 	}
 
 	if uk.UpdatedAt <= 0 {
@@ -64,6 +78,34 @@ func (uk *UpdateKey) Validate() error {
 		return internal_errors.NewValidationError(fmt.Sprintf("fields [%s] are invalid", strings.Join(invalid, ", ")))
 	}
 
+	if len(uk.RateLimitUnit) != 0 && uk.RateLimitOverTime == 0 {
+		return internal_errors.NewValidationError("rate limit over time can not be empty if rate limit unit is specified")
+	}
+
+	if len(uk.CostLimitInUsdUnit) != 0 && uk.CostLimitInUsdOverTime == 0 {
+		return internal_errors.NewValidationError("cost limit over time can not be empty if cost limit unit is specified")
+	}
+
+	if uk.RateLimitOverTime != 0 {
+		if len(uk.RateLimitUnit) == 0 {
+			return internal_errors.NewValidationError("rate limit unit can not be empty if rate limit over time is specified")
+		}
+
+		if uk.RateLimitUnit != HourTimeUnit && uk.RateLimitUnit != MinuteTimeUnit && uk.RateLimitUnit != SecondTimeUnit && uk.RateLimitUnit != DayTimeUnit {
+			return internal_errors.NewValidationError("rate limit unit can not be identified")
+		}
+	}
+
+	if uk.CostLimitInUsdOverTime != 0 {
+		if len(uk.CostLimitInUsdUnit) == 0 {
+			return internal_errors.NewValidationError("cost limit unit can not be empty if cost limit over time is specified")
+		}
+
+		if uk.CostLimitInUsdUnit != DayTimeUnit && uk.CostLimitInUsdUnit != HourTimeUnit && uk.CostLimitInUsdUnit != MonthTimeUnit && uk.CostLimitInUsdUnit != MinuteTimeUnit {
+			return internal_errors.NewValidationError("cost limit unit can not be identified")
+		}
+	}
+
 	return nil
 }
 
@@ -88,6 +130,9 @@ type RequestKey struct {
 	SettingId              string       `json:"settingId"`
 	AllowedPaths           []PathConfig `json:"allowedPaths"`
 	SettingIds             []string     `json:"settingIds"`
+	ShouldLogRequest       bool         `json:"shouldLogRequest"`
+	ShouldLogResponse      bool         `json:"shouldLogResponse"`
+	RotationEnabled        bool         `json:"rotationEnabled"`
 }
 
 func (rk *RequestKey) Validate() error {
@@ -232,6 +277,9 @@ type ResponseKey struct {
 	SettingId              string       `json:"settingId"`
 	AllowedPaths           []PathConfig `json:"allowedPaths"`
 	SettingIds             []string     `json:"settingIds"`
+	ShouldLogRequest       bool         `json:"shouldLogRequest"`
+	ShouldLogResponse      bool         `json:"shouldLogResponse"`
+	RotationEnabled        bool         `json:"rotationEnabled"`
 }
 
 func (rk *ResponseKey) GetSettingIds() []string {

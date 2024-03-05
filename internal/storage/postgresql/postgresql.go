@@ -101,7 +101,7 @@ func (s *Store) AlterKeysTable() error {
 			END IF;
 		END
 		$$;
-		ALTER TABLE keys ADD COLUMN IF NOT EXISTS setting_id VARCHAR(255), ADD COLUMN IF NOT EXISTS allowed_paths JSONB, ADD COLUMN IF NOT EXISTS setting_ids VARCHAR(255)[] NOT NULL DEFAULT ARRAY[]::VARCHAR(255)[];
+		ALTER TABLE keys ADD COLUMN IF NOT EXISTS setting_id VARCHAR(255), ADD COLUMN IF NOT EXISTS allowed_paths JSONB, ADD COLUMN IF NOT EXISTS setting_ids VARCHAR(255)[] NOT NULL DEFAULT ARRAY[]::VARCHAR(255)[], ADD COLUMN IF NOT EXISTS should_log_request BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS should_log_response BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS rotation_enabled BOOLEAN NOT NULL DEFAULT FALSE;
 	`
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -142,7 +142,7 @@ func (s *Store) CreateEventsTable() error {
 
 func (s *Store) AlterEventsTable() error {
 	alterTableQuery := `
-		ALTER TABLE events ADD COLUMN IF NOT EXISTS path VARCHAR(255), ADD COLUMN IF NOT EXISTS method VARCHAR(255), ADD COLUMN IF NOT EXISTS custom_id VARCHAR(255)
+		ALTER TABLE events ADD COLUMN IF NOT EXISTS path VARCHAR(255), ADD COLUMN IF NOT EXISTS method VARCHAR(255), ADD COLUMN IF NOT EXISTS custom_id VARCHAR(255), ADD COLUMN IF NOT EXISTS request JSONB, ADD COLUMN IF NOT EXISTS response JSONB, ADD COLUMN IF NOT EXISTS user_id VARCHAR(255) NOT NULL DEFAULT '';
 	`
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -211,8 +211,8 @@ func (s *Store) DropKeysTable() error {
 
 func (s *Store) InsertEvent(e *event.Event) error {
 	query := `
-		INSERT INTO events (event_id, created_at, tags, key_id, cost_in_usd, provider, model, status_code, prompt_token_count, completion_token_count, latency_in_ms, path, method, custom_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		INSERT INTO events (event_id, created_at, tags, key_id, cost_in_usd, provider, model, status_code, prompt_token_count, completion_token_count, latency_in_ms, path, method, custom_id, request, response, user_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 	`
 
 	values := []any{
@@ -230,6 +230,9 @@ func (s *Store) InsertEvent(e *event.Event) error {
 		e.Path,
 		e.Method,
 		e.CustomId,
+		e.Request,
+		e.Response,
+		e.UserId,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -241,16 +244,62 @@ func (s *Store) InsertEvent(e *event.Event) error {
 	return nil
 }
 
-func (s *Store) GetEvents(customId string) ([]*event.Event, error) {
+func shouldAddAnd(userId, customId string, keyIds []string) bool {
+	num := 0
+
+	if len(userId) == 0 {
+		num++
+	}
+
+	if len(customId) == 0 {
+		num++
+	}
+
+	if len(keyIds) == 0 {
+		num++
+	}
+
+	return num >= 2
+}
+
+func (s *Store) GetEvents(userId string, customId string, keyIds []string, start int64, end int64) ([]*event.Event, error) {
+	if len(customId) == 0 && len(keyIds) == 0 && len(userId) == 0 {
+		return nil, errors.New("none of customId, keyIds and userId is specified")
+	}
+
+	if len(keyIds) != 0 && (start == 0 || end == 0) {
+		return nil, errors.New("keyIds are provided but either start or end is not specified")
+	}
+
 	query := `
-		SELECT * FROM events WHERE $1 = custom_id
+		SELECT * FROM events WHERE
 	`
+
+	if len(customId) != 0 {
+		query += fmt.Sprintf(" custom_id = '%s'", customId)
+	}
+
+	if len(customId) > 0 && len(userId) > 0 {
+		query += " AND"
+	}
+
+	if len(userId) != 0 {
+		query += fmt.Sprintf(" user_id = '%s'", userId)
+	}
+
+	if (len(customId) > 0 || len(userId) > 0) && len(keyIds) > 0 {
+		query += " AND"
+	}
+
+	if len(keyIds) != 0 {
+		query += fmt.Sprintf(" key_id = ANY('%s') AND created_at >= %d AND created_at <= %d", sliceToSqlStringArray(keyIds), start, end)
+	}
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
 	events := []*event.Event{}
-	rows, err := s.db.QueryContext(ctxTimeout, query, customId)
+	rows, err := s.db.QueryContext(ctxTimeout, query)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return events, nil
@@ -280,6 +329,9 @@ func (s *Store) GetEvents(customId string) ([]*event.Event, error) {
 			&path,
 			&method,
 			&customId,
+			&e.Request,
+			&e.Response,
+			&e.UserId,
 		); err != nil {
 			return nil, err
 		}
@@ -356,7 +408,7 @@ func (s *Store) GetLatencyPercentiles(start, end int64, tags, keyIds []string) (
 	return data, nil
 }
 
-func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []string, filters []string) ([]*event.DataPoint, error) {
+func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds, customIds, userIds []string, filters []string) ([]*event.DataPoint, error) {
 	groupByQuery := "GROUP BY time_series_table.series"
 	selectQuery := "SELECT series AS time_stamp, COALESCE(COUNT(events_table.event_id),0) AS num_of_requests, COALESCE(SUM(events_table.cost_in_usd),0) AS cost_in_usd, COALESCE(SUM(events_table.latency_in_ms),0) AS latency_in_ms, COALESCE(SUM(events_table.prompt_token_count),0) AS prompt_token_count, COALESCE(SUM(events_table.completion_token_count),0) AS completion_token_count, COALESCE(SUM(CASE WHEN status_code = 200 THEN 1 END),0) AS success_count"
 
@@ -370,6 +422,16 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 			if filter == "keyId" {
 				groupByQuery += ",events_table.key_id"
 				selectQuery += ",events_table.key_id as keyId"
+			}
+
+			if filter == "customId" {
+				groupByQuery += ",events_table.custom_id"
+				selectQuery += ",events_table.custom_id as customId"
+			}
+
+			if filter == "userId" {
+				groupByQuery += ",events_table.user_id"
+				selectQuery += ",events_table.user_id as userId"
 			}
 		}
 	}
@@ -406,6 +468,14 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 		conditionBlock += fmt.Sprintf("AND key_id = ANY('%s')", sliceToSqlStringArray(keyIds))
 	}
 
+	if len(customIds) != 0 {
+		conditionBlock += fmt.Sprintf("AND custom_id = ANY('%s')", sliceToSqlStringArray(customIds))
+	}
+
+	if len(userIds) != 0 {
+		conditionBlock += fmt.Sprintf("AND user_id = ANY('%s')", sliceToSqlStringArray(userIds))
+	}
+
 	eventSelectionBlock += conditionBlock
 	eventSelectionBlock += ")"
 
@@ -425,6 +495,8 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 		var e event.DataPoint
 		var model sql.NullString
 		var keyId sql.NullString
+		var customId sql.NullString
+		var userId sql.NullString
 
 		additional := []any{
 			&e.TimeStamp,
@@ -445,6 +517,14 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 				if filter == "keyId" {
 					additional = append(additional, &keyId)
 				}
+
+				if filter == "customId" {
+					additional = append(additional, &customId)
+				}
+
+				if filter == "userId" {
+					additional = append(additional, &userId)
+				}
 			}
 		}
 
@@ -457,6 +537,8 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds []s
 		pe := &e
 		pe.Model = model.String
 		pe.KeyId = keyId.String
+		pe.CustomId = customId.String
+		pe.UserId = userId.String
 
 		data = append(data, pe)
 	}
@@ -548,6 +630,9 @@ func (s *Store) GetKeys(tags, keyIds []string, provider string) ([]*key.Response
 			&settingId,
 			&data,
 			pq.Array(&k.SettingIds),
+			&k.ShouldLogRequest,
+			&k.ShouldLogResponse,
+			&k.RotationEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -604,6 +689,9 @@ func (s *Store) GetKey(keyId string) (*key.ResponseKey, error) {
 			&settingId,
 			&data,
 			pq.Array(&k.SettingIds),
+			&k.ShouldLogRequest,
+			&k.ShouldLogResponse,
+			&k.RotationEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -745,6 +833,9 @@ func (s *Store) GetAllKeys() ([]*key.ResponseKey, error) {
 			&settingId,
 			&data,
 			pq.Array(&k.SettingIds),
+			&k.ShouldLogRequest,
+			&k.ShouldLogResponse,
+			&k.RotationEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -839,6 +930,9 @@ func (s *Store) GetUpdatedKeys(updatedAt int64) ([]*key.ResponseKey, error) {
 			&settingId,
 			&data,
 			pq.Array(&k.SettingIds),
+			&k.ShouldLogRequest,
+			&k.ShouldLogResponse,
+			&k.RotationEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -927,14 +1021,50 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 	}
 
 	if uk.Revoked != nil {
+		if *uk.Revoked && len(uk.RevokedReason) != 0 {
+			values = append(values, uk.RevokedReason)
+			fields = append(fields, fmt.Sprintf("revoked_reason = $%d", counter))
+			counter++
+		}
+
+		if !*uk.Revoked {
+			values = append(values, "")
+			fields = append(fields, fmt.Sprintf("revoked_reason = $%d", counter))
+			counter++
+		}
+
 		values = append(values, uk.Revoked)
 		fields = append(fields, fmt.Sprintf("revoked = $%d", counter))
 		counter++
 	}
 
-	if len(uk.RevokedReason) != 0 {
-		values = append(values, uk.RevokedReason)
-		fields = append(fields, fmt.Sprintf("revoked_reason = $%d", counter))
+	if uk.CostLimitInUsd != 0 {
+		values = append(values, uk.CostLimitInUsd)
+		fields = append(fields, fmt.Sprintf("cost_limit_in_usd = $%d", counter))
+		counter++
+	}
+
+	if uk.CostLimitInUsdOverTime != 0 {
+		values = append(values, uk.CostLimitInUsdOverTime)
+		fields = append(fields, fmt.Sprintf("cost_limit_in_usd_over_time = $%d", counter))
+		counter++
+	}
+
+	if len(uk.CostLimitInUsdUnit) != 0 {
+		values = append(values, uk.CostLimitInUsdUnit)
+		fields = append(fields, fmt.Sprintf("cost_limit_in_usd_unit = $%d", counter))
+		counter++
+	}
+
+	if uk.RateLimitOverTime != 0 {
+		values = append(values, uk.RateLimitOverTime)
+		fields = append(fields, fmt.Sprintf("rate_limit_over_time = $%d", counter))
+		counter++
+	}
+
+	if len(uk.RateLimitUnit) != 0 {
+		values = append(values, uk.RateLimitUnit)
+		fields = append(fields, fmt.Sprintf("rate_limit_unit = $%d", counter))
 		counter++
 	}
 
@@ -947,6 +1077,24 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 	if len(uk.SettingIds) != 0 {
 		values = append(values, sliceToSqlStringArray(uk.SettingIds))
 		fields = append(fields, fmt.Sprintf("setting_ids = $%d", counter))
+		counter++
+	}
+
+	if uk.ShouldLogRequest != nil {
+		values = append(values, *uk.ShouldLogRequest)
+		fields = append(fields, fmt.Sprintf("should_log_request = $%d", counter))
+		counter++
+	}
+
+	if uk.ShouldLogResponse != nil {
+		values = append(values, *uk.ShouldLogResponse)
+		fields = append(fields, fmt.Sprintf("should_log_response = $%d", counter))
+		counter++
+	}
+
+	if uk.RotationEnabled != nil {
+		values = append(values, *uk.RotationEnabled)
+		fields = append(fields, fmt.Sprintf("rotation_enabled = $%d", counter))
 		counter++
 	}
 
@@ -986,6 +1134,9 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 		&settingId,
 		&data,
 		pq.Array(&k.SettingIds),
+		&k.ShouldLogRequest,
+		&k.ShouldLogResponse,
+		&k.RotationEnabled,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, internal_errors.NewNotFoundError(fmt.Sprintf("key not found for id: %s", id))
@@ -1125,8 +1276,8 @@ func (s *Store) CreateProviderSetting(setting *provider.Setting) (*provider.Sett
 
 func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 	query := `
-		INSERT INTO keys (name, created_at, updated_at, tags, revoked, key_id, key, revoked_reason, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl, setting_id, allowed_paths, setting_ids)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+		INSERT INTO keys (name, created_at, updated_at, tags, revoked, key_id, key, revoked_reason, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl, setting_id, allowed_paths, setting_ids, should_log_request, should_log_response, rotation_enabled)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 		RETURNING *;
 	`
 
@@ -1153,6 +1304,9 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		rk.SettingId,
 		rdata,
 		sliceToSqlStringArray(rk.SettingIds),
+		rk.ShouldLogRequest,
+		rk.ShouldLogResponse,
+		rk.RotationEnabled,
 	}
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -1180,6 +1334,9 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		&settingId,
 		&data,
 		pq.Array(&k.SettingIds),
+		&k.ShouldLogRequest,
+		&k.ShouldLogResponse,
+		&k.RotationEnabled,
 	); err != nil {
 		return nil, err
 	}

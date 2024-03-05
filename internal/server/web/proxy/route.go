@@ -27,7 +27,7 @@ type cache interface {
 	GetBytes(key string) ([]byte, error)
 }
 
-func getRouteHandler(prod, private bool, rm routeManager, ca cache, aoe azureEstimator, e estimator, r recorder, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
+func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, client http.Client, log *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		trueStart := time.Now()
 
@@ -64,7 +64,7 @@ func getRouteHandler(prod, private bool, rm routeManager, ca cache, aoe azureEst
 			bytes, err := ca.GetBytes(cacheKey)
 			if err == nil && len(bytes) != 0 {
 				stats.Incr("bricksllm.proxy.get_route_handeler.success", nil, 1)
-				stats.Timing("bricksllm.proxy.get_route_handeler.success_latency", time.Now().Sub(trueStart), nil, 1)
+				stats.Timing("bricksllm.proxy.get_route_handeler.success_latency", time.Since(trueStart), nil, 1)
 
 				c.Set("provider", "cached")
 				c.Data(http.StatusOK, "application/json", bytes)
@@ -115,7 +115,7 @@ func getRouteHandler(prod, private bool, rm routeManager, ca cache, aoe azureEst
 		res := runRes.Response
 		defer res.Body.Close()
 
-		dur := time.Now().Sub(start)
+		dur := time.Since(start)
 		stats.Timing("bricksllm.proxy.get_route_handeler.latency", dur, nil, 1)
 
 		bytes, err := io.ReadAll(res.Body)
@@ -144,7 +144,7 @@ func getRouteHandler(prod, private bool, rm routeManager, ca cache, aoe azureEst
 
 			}
 
-			err := parseResult(c, ca, kc, rc.ShouldRunEmbeddings(), bytes, e, aoe, r, runRes.Model, runRes.Provider)
+			err := parseResult(c, rc.ShouldRunEmbeddings(), bytes, e, aoe, runRes.Model, runRes.Provider)
 			if err != nil {
 				logError(log, "error when parsing run steps result", prod, cid, err)
 			}
@@ -173,7 +173,7 @@ func getRouteHandler(prod, private bool, rm routeManager, ca cache, aoe azureEst
 	}
 }
 
-func parseResult(c *gin.Context, ca cache, kc *key.ResponseKey, runEmbeddings bool, bytes []byte, e estimator, aoe azureEstimator, r recorder, model, provider string) error {
+func parseResult(c *gin.Context, runEmbeddings bool, bytes []byte, e estimator, aoe azureEstimator, model, provider string) error {
 	base64ChatRes := &EmbeddingResponseBase64{}
 	chatRes := &EmbeddingResponse{}
 
@@ -231,12 +231,12 @@ func parseResult(c *gin.Context, ca cache, kc *key.ResponseKey, runEmbeddings bo
 			cost = ecost
 		}
 
-		micros := int64(cost * 1000000)
+		// micros := int64(cost * 1000000)
 
-		err := r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
-		if err != nil {
-			return err
-		}
+		// err := r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
+		// if err != nil {
+		// 	return err
+		// }
 	}
 
 	if !runEmbeddings {
@@ -262,11 +262,11 @@ func parseResult(c *gin.Context, ca cache, kc *key.ResponseKey, runEmbeddings bo
 			}
 		}
 
-		micros := int64(cost * 1000000)
-		err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
-		if err != nil {
-			return err
-		}
+		// micros := int64(cost * 1000000)
+		// err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
+		// if err != nil {
+		// 	return err
+		// }
 	}
 
 	return nil
