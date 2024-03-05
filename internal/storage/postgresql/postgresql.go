@@ -244,24 +244,6 @@ func (s *Store) InsertEvent(e *event.Event) error {
 	return nil
 }
 
-func shouldAddAnd(userId, customId string, keyIds []string) bool {
-	num := 0
-
-	if len(userId) == 0 {
-		num++
-	}
-
-	if len(customId) == 0 {
-		num++
-	}
-
-	if len(keyIds) == 0 {
-		num++
-	}
-
-	return num >= 2
-}
-
 func (s *Store) GetEvents(userId string, customId string, keyIds []string, start int64, end int64) ([]*event.Event, error) {
 	if len(customId) == 0 && len(keyIds) == 0 && len(userId) == 0 {
 		return nil, errors.New("none of customId, keyIds and userId is specified")
@@ -402,7 +384,6 @@ func (s *Store) GetLatencyPercentiles(start, end int64, tags, keyIds []string) (
 			median,
 			top,
 		}
-		break
 	}
 
 	return data, nil
@@ -1038,32 +1019,32 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 		counter++
 	}
 
-	if uk.CostLimitInUsd != 0 {
-		values = append(values, uk.CostLimitInUsd)
+	if uk.CostLimitInUsd != nil {
+		values = append(values, *uk.CostLimitInUsd)
 		fields = append(fields, fmt.Sprintf("cost_limit_in_usd = $%d", counter))
 		counter++
 	}
 
-	if uk.CostLimitInUsdOverTime != 0 {
-		values = append(values, uk.CostLimitInUsdOverTime)
+	if uk.CostLimitInUsdOverTime != nil {
+		values = append(values, *uk.CostLimitInUsdOverTime)
 		fields = append(fields, fmt.Sprintf("cost_limit_in_usd_over_time = $%d", counter))
 		counter++
 	}
 
-	if len(uk.CostLimitInUsdUnit) != 0 {
-		values = append(values, uk.CostLimitInUsdUnit)
+	if uk.CostLimitInUsdUnit != nil {
+		values = append(values, *uk.CostLimitInUsdUnit)
 		fields = append(fields, fmt.Sprintf("cost_limit_in_usd_unit = $%d", counter))
 		counter++
 	}
 
-	if uk.RateLimitOverTime != 0 {
-		values = append(values, uk.RateLimitOverTime)
+	if uk.RateLimitOverTime != nil {
+		values = append(values, *uk.RateLimitOverTime)
 		fields = append(fields, fmt.Sprintf("rate_limit_over_time = $%d", counter))
 		counter++
 	}
 
-	if len(uk.RateLimitUnit) != 0 {
-		values = append(values, uk.RateLimitUnit)
+	if uk.RateLimitUnit != nil {
+		values = append(values, *uk.RateLimitUnit)
 		fields = append(fields, fmt.Sprintf("rate_limit_unit = $%d", counter))
 		counter++
 	}

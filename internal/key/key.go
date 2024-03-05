@@ -19,11 +19,11 @@ type UpdateKey struct {
 	RevokedReason          string        `json:"revokedReason"`
 	SettingId              string        `json:"settingId"`
 	SettingIds             []string      `json:"settingIds"`
-	CostLimitInUsd         float64       `json:"costLimitInUsd"`
-	CostLimitInUsdOverTime float64       `json:"costLimitInUsdOverTime"`
-	CostLimitInUsdUnit     TimeUnit      `json:"costLimitInUsdUnit"`
-	RateLimitOverTime      int           `json:"rateLimitOverTime"`
-	RateLimitUnit          TimeUnit      `json:"rateLimitUnit"`
+	CostLimitInUsd         *float64      `json:"costLimitInUsd"`
+	CostLimitInUsdOverTime *float64      `json:"costLimitInUsdOverTime"`
+	CostLimitInUsdUnit     *TimeUnit     `json:"costLimitInUsdUnit"`
+	RateLimitOverTime      *int          `json:"rateLimitOverTime"`
+	RateLimitUnit          *TimeUnit     `json:"rateLimitUnit"`
 	AllowedPaths           *[]PathConfig `json:"allowedPaths,omitempty"`
 	ShouldLogRequest       *bool         `json:"shouldLogRequest"`
 	ShouldLogResponse      *bool         `json:"shouldLogResponse"`
@@ -44,7 +44,7 @@ func (uk *UpdateKey) Validate() error {
 		}
 	}
 
-	if uk.CostLimitInUsd < 0 {
+	if uk.CostLimitInUsd != nil && *uk.CostLimitInUsd < 0 {
 		invalid = append(invalid, "costLimitInUsd")
 	}
 
@@ -78,30 +78,58 @@ func (uk *UpdateKey) Validate() error {
 		return internal_errors.NewValidationError(fmt.Sprintf("fields [%s] are invalid", strings.Join(invalid, ", ")))
 	}
 
-	if len(uk.RateLimitUnit) != 0 && uk.RateLimitOverTime == 0 {
-		return internal_errors.NewValidationError("rate limit over time can not be empty if rate limit unit is specified")
+	if uk.RateLimitUnit != nil {
+		if uk.RateLimitOverTime == nil {
+			return internal_errors.NewValidationError("rate limit over time can not be empty if rate limit unit is specified")
+		}
+
+		if len(*uk.RateLimitUnit) == 0 && *uk.RateLimitOverTime != 0 {
+			return internal_errors.NewValidationError("rate limit over time must be 0 if rate limit unit is empty")
+		}
 	}
 
-	if len(uk.CostLimitInUsdUnit) != 0 && uk.CostLimitInUsdOverTime == 0 {
-		return internal_errors.NewValidationError("cost limit over time can not be empty if cost limit unit is specified")
+	if uk.CostLimitInUsdUnit != nil {
+		if uk.CostLimitInUsdOverTime == nil {
+			return internal_errors.NewValidationError("cost limit over time can not be empty if cost limit unit is specified")
+		}
+
+		if len(*uk.CostLimitInUsdUnit) == 0 && *uk.CostLimitInUsdOverTime != 0 {
+			return internal_errors.NewValidationError("cost limit over time must be 0 if cost limit unit is empty")
+		}
 	}
 
-	if uk.RateLimitOverTime != 0 {
-		if len(uk.RateLimitUnit) == 0 {
+	if uk.RateLimitOverTime != nil {
+		if uk.RateLimitUnit == nil {
 			return internal_errors.NewValidationError("rate limit unit can not be empty if rate limit over time is specified")
 		}
 
-		if uk.RateLimitUnit != HourTimeUnit && uk.RateLimitUnit != MinuteTimeUnit && uk.RateLimitUnit != SecondTimeUnit && uk.RateLimitUnit != DayTimeUnit {
+		if *uk.RateLimitOverTime == 0 && len(*uk.RateLimitUnit) != 0 {
+			return internal_errors.NewValidationError("rate limit unit has to be empty if rate limit over time is 0")
+		}
+
+		if *uk.RateLimitOverTime != 0 && len(*uk.RateLimitUnit) == 0 {
+			return internal_errors.NewValidationError("rate limit unit can not be empty if rate limit over time is specified")
+		}
+
+		if *uk.RateLimitOverTime != 0 && *uk.RateLimitUnit != HourTimeUnit && *uk.RateLimitUnit != MinuteTimeUnit && *uk.RateLimitUnit != SecondTimeUnit && *uk.RateLimitUnit != DayTimeUnit {
 			return internal_errors.NewValidationError("rate limit unit can not be identified")
 		}
 	}
 
-	if uk.CostLimitInUsdOverTime != 0 {
-		if len(uk.CostLimitInUsdUnit) == 0 {
+	if uk.CostLimitInUsdOverTime != nil {
+		if uk.CostLimitInUsdUnit == nil {
 			return internal_errors.NewValidationError("cost limit unit can not be empty if cost limit over time is specified")
 		}
 
-		if uk.CostLimitInUsdUnit != DayTimeUnit && uk.CostLimitInUsdUnit != HourTimeUnit && uk.CostLimitInUsdUnit != MonthTimeUnit && uk.CostLimitInUsdUnit != MinuteTimeUnit {
+		if *uk.CostLimitInUsdOverTime == 0 && len(*uk.CostLimitInUsdUnit) != 0 {
+			return internal_errors.NewValidationError("cost limit unit has to be empty if cost limit over time is 0")
+		}
+
+		if *uk.CostLimitInUsdOverTime != 0 && len(*uk.CostLimitInUsdUnit) == 0 {
+			return internal_errors.NewValidationError("cost limit unit can not be empty if cost limit over time is specified")
+		}
+
+		if *uk.CostLimitInUsdOverTime != 0 && *uk.CostLimitInUsdUnit != DayTimeUnit && *uk.CostLimitInUsdUnit != HourTimeUnit && *uk.CostLimitInUsdUnit != MonthTimeUnit && *uk.CostLimitInUsdUnit != MinuteTimeUnit {
 			return internal_errors.NewValidationError("cost limit unit can not be identified")
 		}
 	}
