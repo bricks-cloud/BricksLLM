@@ -1,3 +1,7 @@
+## 1.12.2 - 2024-02-28
+### Added
+- Updated update key API to support setting `costLimitInUsdOverTime`, `costLimitInUsd` and `rateLimitOverTime` to 0
+
 ## 1.12.1 - 2024-02-28
 ### Added
 - Added querying keys by `keyIds`
