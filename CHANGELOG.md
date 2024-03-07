@@ -1,4 +1,4 @@
-## 1.12.3 - 2024-03-05
+## 1.12.3 - 2024-03-07
 ### Added
 - Started supporting storing streaming responses in bytes as part of event
 
