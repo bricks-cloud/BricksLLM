@@ -164,6 +164,12 @@ func getCompletionHandler(prod, private bool, client http.Client, log *zap.Logge
 		// var totalCost float64 = 0
 
 		content := ""
+		streamingResponse := [][]byte{}
+		defer func() {
+			c.Set("content", content)
+			c.Set("streaming_response", bytes.Join(streamingResponse, []byte{'\n'}))
+		}()
+
 		// defer func() {
 		// 	tks := e.Count(content)
 		// 	model := c.GetString("model")
@@ -217,6 +223,8 @@ func getCompletionHandler(prod, private bool, client http.Client, log *zap.Logge
 				c.SSEvent(" error", string(bytes))
 				return true
 			}
+
+			streamingResponse = append(streamingResponse, raw)
 
 			noSpaceLine := bytes.TrimSpace(raw)
 			if len(noSpaceLine) == 0 {
