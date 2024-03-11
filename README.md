@@ -613,8 +613,10 @@ Event
 > | path | `string` | `/api/v1/chat/completion` | Provider setting name. |
 > | method | `string` | `POST` | Http method for the assoicated proxu request. |
 > | custom_id | `string` | `YOUR_CUSTOM_ID` | Custom Id passed by the user in the headers of proxy requests. |
-> | request | `[]byte` | `{}` | Custom Id passed by the user in the headers of proxy requests. |
+> | request | `[]byte` | `{}` | Request in bytes to providers. |
 > | custom_id | `string` | `YOUR_CUSTOM_ID` | Custom Id passed by the user in the headers of proxy requests. |
+> | response | `[]byte` | `{}` | Response in bytes from providers. |
+
 </details>
 
 <details>
