@@ -1,10 +1,9 @@
 ## 1.12.3 - 2024-03-07
 ### Added
-- Started supporting storing streaming responses in bytes as part of event
+- Started supporting storing streaming responses in bytes as part of `event`
 
 ### Fixed
 - Fixed issue with event not being recorded if `shouldLogResponse` is set to `true` for streaming responses
-
 
 ## 1.12.2 - 2024-03-05
 ### Added
