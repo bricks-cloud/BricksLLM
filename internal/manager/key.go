@@ -110,21 +110,21 @@ func (m *Manager) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, err
 		}
 	}
 
-	if len(uk.CostLimitInUsdUnit) != 0 {
+	if uk.CostLimitInUsdUnit != nil {
 		err := m.clc.Delete(id)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if len(uk.RateLimitUnit) != 0 {
+	if uk.RateLimitUnit != nil {
 		err := m.rlc.Delete(id)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if len(uk.CostLimitInUsdUnit) != 0 || len(uk.RateLimitUnit) != 0 {
+	if uk.CostLimitInUsdUnit != nil || uk.RateLimitUnit != nil {
 		err := m.ac.Delete(id)
 		if err != nil {
 			return nil, err

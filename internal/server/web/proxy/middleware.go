@@ -937,9 +937,40 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, a authenticator,
 		c.Next()
 
 		if kc.ShouldLogResponse {
-			responseBytes = blw.body.Bytes()
+			if c.GetBool("stream") {
+				streamingResponse, ok := c.Get("streaming_response")
+
+				if ok {
+					bs, _ := streamingResponse.([]byte)
+					if len(bs) != 0 {
+						streamingData := &StreamingData{
+							Data: bs,
+						}
+
+						jbs, err := json.Marshal(streamingData)
+						if err != nil {
+							stats.Incr("bricksllm.proxy.get_middleware.streaming_data_json_marshal_error", nil, 1)
+							logError(log, "error when marshalling streaming data into json", prod, cid, err)
+						}
+
+						responseBytes = jbs
+					}
+				}
+			}
+
+			if !c.GetBool("stream") {
+				responseData := blw.body.Bytes()
+
+				if len(responseData) != 0 {
+					responseBytes = responseData
+				}
+			}
 		}
 	}
+}
+
+type StreamingData struct {
+	Data []byte `json:"data"`
 }
 
 func contains(arr []string, target string) bool {

@@ -145,8 +145,10 @@ func getCustomProviderHandler(prod bool, client http.Client, log *zap.Logger, ti
 
 		buffer := bufio.NewReader(res.Body)
 		aggregated := ""
+		streamingResponse := [][]byte{}
 		defer func() {
 			c.Set("content", aggregated)
+			c.Set("streaming_response", bytes.Join(streamingResponse, []byte{'\n'}))
 
 			// tks, err := custom.Count(aggregated)
 			// if err != nil {
@@ -193,6 +195,8 @@ func getCustomProviderHandler(prod bool, client http.Client, log *zap.Logger, ti
 				c.SSEvent("", string(bytes))
 				return true
 			}
+
+			streamingResponse = append(streamingResponse, raw)
 
 			noSpaceLine := bytes.TrimSpace(raw)
 			if !bytes.HasPrefix(noSpaceLine, headerData) {

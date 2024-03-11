@@ -1117,8 +1117,10 @@ func getChatCompletionHandler(prod, private bool, client http.Client, log *zap.L
 		// var totalCost float64 = 0
 		// var totalTokens int = 0
 		content := ""
+		streamingResponse := [][]byte{}
 		defer func() {
 			c.Set("content", content)
+			c.Set("streaming_response", bytes.Join(streamingResponse, []byte{'\n'}))
 
 			// tks, cost, err := e.EstimateChatCompletionStreamCostWithTokenCounts(model, content)
 			// if err != nil {
@@ -1170,6 +1172,8 @@ func getChatCompletionHandler(prod, private bool, client http.Client, log *zap.L
 				c.SSEvent("", string(bytes))
 				return true
 			}
+
+			streamingResponse = append(streamingResponse, raw)
 
 			noSpaceLine := bytes.TrimSpace(raw)
 			if !bytes.HasPrefix(noSpaceLine, headerData) {
