@@ -24,7 +24,14 @@ const (
 	Allow          Action = "allow"
 )
 
-type Type string
+type Rule string
+
+const (
+	Name    Action = "name"
+	Address Action = "address"
+	Email   Action = "email"
+	Ssn     Action = "ssn"
+)
 
 type CustomRule struct {
 	Definition string `json:"definition"`
@@ -36,7 +43,25 @@ type RegularExpressionRule struct {
 	Action     Action `json:"action"`
 }
 
+type Config struct {
+	Rules []map[Rule]Action `json:"rules"`
+}
+
+type RegexConfig struct {
+	RegularExpressionRules []*RegularExpressionRule `json:"regularExpressionRules"`
+}
+
+type CustomConfig struct {
+	RegularExpressionRules []*CustomRule `json:"regularExpressionRules"`
+}
+
 type Policy struct {
+	Id                     string                   `json:"id"`
+	CreatedAt              int64                    `json:"createdAt"`
+	UpdatedAt              int64                    `json:"updatedAt"`
+	Config                 *Config                  `json:"config"`
+	RegexConfig            *RegexConfig             `json:"regexConfig"`
+	CustomConfig           *CustomConfig            `json:"customConfig"`
 	NameRule               Action                   `json:"nameRule"`
 	AddressRule            Action                   `json:"addressRule"`
 	EmailRule              Action                   `json:"emailRule"`
