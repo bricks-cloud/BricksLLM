@@ -1,7 +1,10 @@
 package manager
 
 import (
+	"time"
+
 	"github.com/bricks-cloud/bricksllm/internal/policy"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 )
 
 type PoliciesStorage interface {
@@ -22,10 +25,16 @@ func NewPolicyManager(s PoliciesStorage) *PolicyManager {
 }
 
 func (m *PolicyManager) CreatePolicy(p *policy.Policy) (*policy.Policy, error) {
+	p.CreatedAt = time.Now().Unix()
+	p.UpdatedAt = time.Now().Unix()
+	p.Id = util.NewUuid()
+
 	return m.Storage.CreatePolicy(p)
 }
 
 func (m *PolicyManager) UpdatePolicy(id string, p *policy.Policy) (*policy.Policy, error) {
+	p.UpdatedAt = time.Now().Unix()
+
 	return m.Storage.UpdatePolicy(id, p)
 }
 
