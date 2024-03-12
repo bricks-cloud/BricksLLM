@@ -46,7 +46,7 @@ func (s *Store) CreatePolicy(p *policy.Policy) (*policy.Policy, error) {
 		p.Id,
 		p.CreatedAt,
 		p.UpdatedAt,
-		p.Tags,
+		pq.Array(p.Tags),
 	}
 
 	vidxs := []string{
@@ -108,10 +108,10 @@ func (s *Store) CreatePolicy(p *policy.Policy) (*policy.Policy, error) {
 		&created.Id,
 		&created.CreatedAt,
 		&created.UpdatedAt,
-		&created.Tags,
+		pq.Array(&created.Tags),
 		&createdcd,
-		&createdcusd,
 		&createdregexd,
+		&createdcusd,
 	); err != nil {
 
 		return nil, err
@@ -124,7 +124,7 @@ func (s *Store) CreatePolicy(p *policy.Policy) (*policy.Policy, error) {
 	}
 
 	if len(createdregexd) != 0 {
-		if err := json.Unmarshal(createdregexd, &created.RegularExpressionRules); err != nil {
+		if err := json.Unmarshal(createdregexd, &created.RegexConfig); err != nil {
 			return nil, err
 		}
 	}
@@ -147,6 +147,12 @@ func (s *Store) UpdatePolicy(id string, p *policy.Policy) (*policy.Policy, error
 	fields := []string{"updated_at = $2"}
 
 	d := 3
+
+	if len(p.Tags) != 0 {
+		values = append(values, pq.Array(p.Tags))
+		fields = append(fields, fmt.Sprintf("tags = $%d", d))
+		d++
+	}
 
 	if p.Config != nil {
 		data, err := json.Marshal(p.Config)
@@ -193,7 +199,7 @@ func (s *Store) UpdatePolicy(id string, p *policy.Policy) (*policy.Policy, error
 		&updated.Id,
 		&updated.CreatedAt,
 		&updated.UpdatedAt,
-		&updated.Tags,
+		pq.Array(&updated.Tags),
 		&cd,
 		&regexd,
 		&cusd,
@@ -212,7 +218,7 @@ func (s *Store) UpdatePolicy(id string, p *policy.Policy) (*policy.Policy, error
 	}
 
 	if len(regexd) != 0 {
-		if err := json.Unmarshal(regexd, &updated.RegularExpressionRules); err != nil {
+		if err := json.Unmarshal(regexd, &updated.RegexConfig); err != nil {
 			return nil, err
 		}
 	}
@@ -241,7 +247,7 @@ func (s *Store) GetPolicyById(id string) (*policy.Policy, error) {
 		&p.Id,
 		&p.CreatedAt,
 		&p.UpdatedAt,
-		&p.Tags,
+		pq.Array(&p.Tags),
 		&cd,
 		&regexd,
 		&cusd,
@@ -256,7 +262,7 @@ func (s *Store) GetPolicyById(id string) (*policy.Policy, error) {
 	}
 
 	if len(regexd) != 0 {
-		if err := json.Unmarshal(regexd, &p.RegularExpressionRules); err != nil {
+		if err := json.Unmarshal(regexd, &p.RegexConfig); err != nil {
 			return nil, err
 		}
 	}
@@ -297,7 +303,7 @@ func (s *Store) GetPoliciesByTags(tags []string) ([]*policy.Policy, error) {
 			&p.Id,
 			&p.CreatedAt,
 			&p.UpdatedAt,
-			&p.Tags,
+			pq.Array(&p.Tags),
 			&cd,
 			&regexd,
 			&cusd,
@@ -312,7 +318,7 @@ func (s *Store) GetPoliciesByTags(tags []string) ([]*policy.Policy, error) {
 		}
 
 		if len(regexd) != 0 {
-			if err := json.Unmarshal(cd, &p.RegularExpressionRules); err != nil {
+			if err := json.Unmarshal(cd, &p.RegexConfig); err != nil {
 				return nil, err
 			}
 		}

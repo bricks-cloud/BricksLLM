@@ -44,7 +44,7 @@ type RegularExpressionRule struct {
 }
 
 type Config struct {
-	Rules []map[Rule]Action `json:"rules"`
+	Rules map[Rule]Action `json:"rules"`
 }
 
 type RegexConfig struct {

@@ -106,6 +106,11 @@ func main() {
 		log.Sugar().Fatalf("error altering provider settings table: %v", err)
 	}
 
+	err = store.CreatePolicyTable()
+	if err != nil {
+		log.Sugar().Fatalf("error creating policies table: %v", err)
+	}
+
 	memStore, err := memdb.NewMemDb(store, log, cfg.InMemoryDbUpdateInterval)
 	if err != nil {
 		log.Sugar().Fatalf("cannot initialize memdb: %v", err)
