@@ -48,11 +48,11 @@ type Config struct {
 }
 
 type RegexConfig struct {
-	RegularExpressionRules []*RegularExpressionRule `json:"regularExpressionRules"`
+	RegularExpressionRules []*RegularExpressionRule `json:"rules"`
 }
 
 type CustomConfig struct {
-	RegularExpressionRules []*CustomRule `json:"regularExpressionRules"`
+	CustomRules []*CustomRule `json:"rules"`
 }
 
 type Policy struct {
