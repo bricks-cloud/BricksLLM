@@ -59,6 +59,7 @@ type Policy struct {
 	Id                     string                   `json:"id"`
 	CreatedAt              int64                    `json:"createdAt"`
 	UpdatedAt              int64                    `json:"updatedAt"`
+	Tags                   []string                 `json:"tags"`
 	Config                 *Config                  `json:"config"`
 	RegexConfig            *RegexConfig             `json:"regexConfig"`
 	CustomConfig           *CustomConfig            `json:"customConfig"`
