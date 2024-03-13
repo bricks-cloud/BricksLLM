@@ -9,7 +9,7 @@ import (
 
 type PoliciesStorage interface {
 	CreatePolicy(p *policy.Policy) (*policy.Policy, error)
-	UpdatePolicy(id string, p *policy.Policy) (*policy.Policy, error)
+	UpdatePolicy(id string, p *policy.UpdatePolicy) (*policy.Policy, error)
 	GetPolicyById(id string) (*policy.Policy, error)
 	GetPoliciesByTags(tags []string) ([]*policy.Policy, error)
 }
@@ -32,7 +32,7 @@ func (m *PolicyManager) CreatePolicy(p *policy.Policy) (*policy.Policy, error) {
 	return m.Storage.CreatePolicy(p)
 }
 
-func (m *PolicyManager) UpdatePolicy(id string, p *policy.Policy) (*policy.Policy, error) {
+func (m *PolicyManager) UpdatePolicy(id string, p *policy.UpdatePolicy) (*policy.Policy, error) {
 	p.UpdatedAt = time.Now().Unix()
 
 	return m.Storage.UpdatePolicy(id, p)

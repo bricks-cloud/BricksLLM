@@ -57,6 +57,7 @@ type CustomConfig struct {
 
 type Policy struct {
 	Id                     string                   `json:"id"`
+	Name                   string                   `json:"name"`
 	CreatedAt              int64                    `json:"createdAt"`
 	UpdatedAt              int64                    `json:"updatedAt"`
 	Tags                   []string                 `json:"tags"`
@@ -70,6 +71,15 @@ type Policy struct {
 	PasswordRule           Action                   `json:"passwordRule"`
 	RegularExpressionRules []*RegularExpressionRule `json:"regularExpressionRules"`
 	CustomRules            []*CustomRule            `json:"customRules"`
+}
+
+type UpdatePolicy struct {
+	Name         string        `json:"name"`
+	UpdatedAt    int64         `json:"updatedAt"`
+	Tags         []string      `json:"tags"`
+	Config       *Config       `json:"config"`
+	RegexConfig  *RegexConfig  `json:"regexConfig"`
+	CustomConfig *CustomConfig `json:"customConfig"`
 }
 
 type Request struct {

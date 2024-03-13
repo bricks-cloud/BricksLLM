@@ -132,7 +132,7 @@ func getUpdatePolicyHandler(pm PoliciesManager, log *zap.Logger, prod bool) gin.
 			return
 		}
 
-		p := &policy.Policy{}
+		p := &policy.UpdatePolicy{}
 		err = json.Unmarshal(data, p)
 		if err != nil {
 			logError(log, "error when unmarshalling policy creation request body", prod, cid, err)

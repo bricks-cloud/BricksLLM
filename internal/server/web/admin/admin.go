@@ -45,7 +45,7 @@ type KeyReportingManager interface {
 
 type PoliciesManager interface {
 	CreatePolicy(p *policy.Policy) (*policy.Policy, error)
-	UpdatePolicy(id string, p *policy.Policy) (*policy.Policy, error)
+	UpdatePolicy(id string, p *policy.UpdatePolicy) (*policy.Policy, error)
 	GetPolicyById(id string) (*policy.Policy, error)
 	GetPoliciesByTags(tags []string) ([]*policy.Policy, error)
 }

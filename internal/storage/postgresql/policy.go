@@ -18,6 +18,7 @@ func (s *Store) CreatePolicyTable() error {
 		id VARCHAR(255) PRIMARY KEY,
 		created_at BIGINT NOT NULL,
 		updated_at BIGINT NOT NULL,
+		name VARCHAR(255) NOT NULL,
 		tags VARCHAR(255)[],
 		config JSONB NOT NULL,
 		regex_config JSONB NOT NULL,
@@ -40,6 +41,7 @@ func (s *Store) CreatePolicy(p *policy.Policy) (*policy.Policy, error) {
 		"created_at",
 		"updated_at",
 		"tags",
+		"name",
 	}
 
 	values := []any{
@@ -47,10 +49,11 @@ func (s *Store) CreatePolicy(p *policy.Policy) (*policy.Policy, error) {
 		p.CreatedAt,
 		p.UpdatedAt,
 		pq.Array(p.Tags),
+		p.Name,
 	}
 
 	vidxs := []string{
-		"$1", "$2", "$3", "$4",
+		"$1", "$2", "$3", "$4", "$5",
 	}
 	idx := 5
 
@@ -109,6 +112,7 @@ func (s *Store) CreatePolicy(p *policy.Policy) (*policy.Policy, error) {
 		&created.CreatedAt,
 		&created.UpdatedAt,
 		pq.Array(&created.Tags),
+		&created.Name,
 		&createdcd,
 		&createdregexd,
 		&createdcusd,
@@ -138,7 +142,7 @@ func (s *Store) CreatePolicy(p *policy.Policy) (*policy.Policy, error) {
 	return created, nil
 }
 
-func (s *Store) UpdatePolicy(id string, p *policy.Policy) (*policy.Policy, error) {
+func (s *Store) UpdatePolicy(id string, p *policy.UpdatePolicy) (*policy.Policy, error) {
 	values := []any{
 		id,
 		p.UpdatedAt,
@@ -147,6 +151,12 @@ func (s *Store) UpdatePolicy(id string, p *policy.Policy) (*policy.Policy, error
 	fields := []string{"updated_at = $2"}
 
 	d := 3
+
+	if len(p.Name) != 0 {
+		values = append(values, p.Name)
+		fields = append(fields, fmt.Sprintf("name = $%d", d))
+		d++
+	}
 
 	if len(p.Tags) != 0 {
 		values = append(values, pq.Array(p.Tags))
@@ -200,6 +210,7 @@ func (s *Store) UpdatePolicy(id string, p *policy.Policy) (*policy.Policy, error
 		&updated.CreatedAt,
 		&updated.UpdatedAt,
 		pq.Array(&updated.Tags),
+		&updated.Name,
 		&cd,
 		&regexd,
 		&cusd,
@@ -254,6 +265,7 @@ func (s *Store) GetAllPolicies() ([]*policy.Policy, error) {
 			&p.CreatedAt,
 			&p.UpdatedAt,
 			pq.Array(&p.Tags),
+			&p.Name,
 			&cd,
 			&regexd,
 			&cusd,
@@ -301,6 +313,7 @@ func (s *Store) GetPolicyById(id string) (*policy.Policy, error) {
 		&p.CreatedAt,
 		&p.UpdatedAt,
 		pq.Array(&p.Tags),
+		&p.Name,
 		&cd,
 		&regexd,
 		&cusd,
@@ -357,6 +370,7 @@ func (s *Store) GetPoliciesByTags(tags []string) ([]*policy.Policy, error) {
 			&p.CreatedAt,
 			&p.UpdatedAt,
 			pq.Array(&p.Tags),
+			&p.Name,
 			&cd,
 			&regexd,
 			&cusd,
@@ -411,6 +425,7 @@ func (s *Store) GetUpdatedPolicies(updatedAt int64) ([]*policy.Policy, error) {
 			&p.CreatedAt,
 			&p.UpdatedAt,
 			pq.Array(&p.Tags),
+			&p.Name,
 			&cd,
 			&regexd,
 			&cusd,
