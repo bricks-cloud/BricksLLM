@@ -17,7 +17,7 @@ type Storage interface {
 	CreateKey(key *key.RequestKey) (*key.ResponseKey, error)
 	DeleteKey(id string) error
 	GetProviderSetting(id string) (*provider.Setting, error)
-	GetPoliciesByIds(ids []string) ([]*policy.Policy, error)
+	GetPolicyById(id string) (*policy.Policy, error)
 	GetProviderSettings(withSecret bool, ids []string) ([]*provider.Setting, error)
 	GetKey(keyId string) (*key.ResponseKey, error)
 }
@@ -85,14 +85,10 @@ func (m *Manager) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		}
 	}
 
-	if len(rk.PolicyIds) != 0 {
-		existing, err := m.s.GetPoliciesByIds(rk.PolicyIds)
+	if len(rk.PolicyId) != 0 {
+		_, err := m.s.GetPolicyById(rk.PolicyId)
 		if err != nil {
 			return nil, err
-		}
-
-		if len(existing) != len(rk.PolicyIds) {
-			return nil, errors.New("not all policies are found")
 		}
 	}
 
@@ -144,14 +140,12 @@ func (m *Manager) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, err
 		}
 	}
 
-	if uk.PolicyIds == nil {
-		existing, err := m.s.GetPoliciesByIds(*uk.PolicyIds)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(existing) != len(*uk.PolicyIds) {
-			return nil, errors.New("not all policies are found")
+	if uk.PolicyId != nil {
+		if len(*uk.PolicyId) != 0 {
+			_, err := m.s.GetPolicyById(*uk.PolicyId)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

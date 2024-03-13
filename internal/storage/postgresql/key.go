@@ -55,7 +55,7 @@ func (s *Store) AlterKeysTable() error {
 			END IF;
 		END
 		$$;
-		ALTER TABLE keys ADD COLUMN IF NOT EXISTS setting_id VARCHAR(255), ADD COLUMN IF NOT EXISTS allowed_paths JSONB, ADD COLUMN IF NOT EXISTS setting_ids VARCHAR(255)[] NOT NULL DEFAULT ARRAY[]::VARCHAR(255)[], ADD COLUMN IF NOT EXISTS should_log_request BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS should_log_response BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS rotation_enabled BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS policy_ids VARCHAR(255)[] NOT NULL DEFAULT ARRAY[]::VARCHAR(255)[];
+		ALTER TABLE keys ADD COLUMN IF NOT EXISTS setting_id VARCHAR(255), ADD COLUMN IF NOT EXISTS allowed_paths JSONB, ADD COLUMN IF NOT EXISTS setting_ids VARCHAR(255)[] NOT NULL DEFAULT ARRAY[]::VARCHAR(255)[], ADD COLUMN IF NOT EXISTS should_log_request BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS should_log_response BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS rotation_enabled BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS policy_id VARCHAR(255) NOT NULL DEFAULT '';
 	`
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -155,7 +155,7 @@ func (s *Store) GetKeys(tags, keyIds []string, provider string) ([]*key.Response
 			&k.ShouldLogRequest,
 			&k.ShouldLogResponse,
 			&k.RotationEnabled,
-			pq.Array(&k.PolicyIds),
+			&k.PolicyId,
 		); err != nil {
 			return nil, err
 		}
@@ -215,7 +215,7 @@ func (s *Store) GetKey(keyId string) (*key.ResponseKey, error) {
 			&k.ShouldLogRequest,
 			&k.ShouldLogResponse,
 			&k.RotationEnabled,
-			pq.Array(&k.PolicyIds),
+			&k.PolicyId,
 		); err != nil {
 			return nil, err
 		}
@@ -278,7 +278,7 @@ func (s *Store) GetAllKeys() ([]*key.ResponseKey, error) {
 			&k.ShouldLogRequest,
 			&k.ShouldLogResponse,
 			&k.RotationEnabled,
-			pq.Array(&k.PolicyIds),
+			&k.PolicyId,
 		); err != nil {
 			return nil, err
 		}
@@ -336,7 +336,7 @@ func (s *Store) GetUpdatedKeys(updatedAt int64) ([]*key.ResponseKey, error) {
 			&k.ShouldLogRequest,
 			&k.ShouldLogResponse,
 			&k.RotationEnabled,
-			pq.Array(&k.PolicyIds),
+			&k.PolicyId,
 		); err != nil {
 			return nil, err
 		}
@@ -471,9 +471,9 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 		fields = append(fields, fmt.Sprintf("allowed_paths = $%d", counter))
 	}
 
-	if uk.PolicyIds != nil {
-		values = append(values, sliceToSqlStringArray(*uk.PolicyIds))
-		fields = append(fields, fmt.Sprintf("policy_ids = $%d", counter))
+	if uk.PolicyId != nil {
+		values = append(values, *uk.PolicyId)
+		fields = append(fields, fmt.Sprintf("policy_id = $%d", counter))
 		counter++
 	}
 
@@ -506,7 +506,7 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 		&k.ShouldLogRequest,
 		&k.ShouldLogResponse,
 		&k.RotationEnabled,
-		pq.Array(&k.PolicyIds),
+		&k.PolicyId,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, internal_errors.NewNotFoundError(fmt.Sprintf("key not found for id: %s", id))
@@ -531,7 +531,7 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 
 func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 	query := `
-		INSERT INTO keys (name, created_at, updated_at, tags, revoked, key_id, key, revoked_reason, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl, setting_id, allowed_paths, setting_ids, should_log_request, should_log_response, rotation_enabled, policy_ids)
+		INSERT INTO keys (name, created_at, updated_at, tags, revoked, key_id, key, revoked_reason, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl, setting_id, allowed_paths, setting_ids, should_log_request, should_log_response, rotation_enabled, policy_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
 		RETURNING *;
 	`
@@ -562,7 +562,7 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		rk.ShouldLogRequest,
 		rk.ShouldLogResponse,
 		rk.RotationEnabled,
-		rk.PolicyIds,
+		rk.PolicyId,
 	}
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -593,7 +593,7 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		&k.ShouldLogRequest,
 		&k.ShouldLogResponse,
 		&k.RotationEnabled,
-		pq.Array(&k.PolicyIds),
+		&k.PolicyId,
 	); err != nil {
 		return nil, err
 	}

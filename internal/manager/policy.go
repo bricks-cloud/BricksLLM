@@ -14,13 +14,19 @@ type PoliciesStorage interface {
 	GetPoliciesByTags(tags []string) ([]*policy.Policy, error)
 }
 
-type PolicyManager struct {
-	Storage PoliciesStorage
+type PoliciesMemStorage interface {
+	GetPolicy(id string) *policy.Policy
 }
 
-func NewPolicyManager(s PoliciesStorage) *PolicyManager {
+type PolicyManager struct {
+	Storage PoliciesStorage
+	Memdb   PoliciesMemStorage
+}
+
+func NewPolicyManager(s PoliciesStorage, memdb PoliciesMemStorage) *PolicyManager {
 	return &PolicyManager{
 		Storage: s,
+		Memdb:   memdb,
 	}
 }
 
@@ -42,6 +48,6 @@ func (m *PolicyManager) GetPoliciesByTags(tags []string) ([]*policy.Policy, erro
 	return m.Storage.GetPoliciesByTags(tags)
 }
 
-func (m *PolicyManager) GetPolicyById(id string) (*policy.Policy, error) {
-	return m.Storage.GetPolicyById(id)
+func (m *PolicyManager) GetPolicyByIdFromMemdb(id string) *policy.Policy {
+	return m.Memdb.GetPolicy(id)
 }

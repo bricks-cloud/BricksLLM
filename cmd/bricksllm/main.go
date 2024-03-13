@@ -206,7 +206,7 @@ func main() {
 	cpm := manager.NewCustomProvidersManager(store, cpMemStore)
 	rm := manager.NewRouteManager(store, store, rMemStore, psMemStore)
 
-	pm := manager.NewPolicyManager(store)
+	pm := manager.NewPolicyManager(store, rMemStore)
 
 	as, err := admin.NewAdminServer(log, *modePtr, m, krm, psm, cpm, rm, pm, cfg.AdminPass)
 	if err != nil {

@@ -28,7 +28,7 @@ type UpdateKey struct {
 	ShouldLogRequest       *bool         `json:"shouldLogRequest"`
 	ShouldLogResponse      *bool         `json:"shouldLogResponse"`
 	RotationEnabled        *bool         `json:"rotationEnabled"`
-	PolicyIds              *[]string     `json:"policyIds"`
+	PolicyId               *string       `json:"policyId"`
 }
 
 func (uk *UpdateKey) Validate() error {
@@ -75,11 +75,9 @@ func (uk *UpdateKey) Validate() error {
 		}
 	}
 
-	if uk.PolicyIds != nil {
-		for index, pid := range *uk.PolicyIds {
-			if len(pid) == 0 {
-				invalid = append(invalid, fmt.Sprintf("policyIds[%d]", index))
-			}
+	if uk.PolicyId != nil {
+		if len(*uk.PolicyId) == 0 {
+			invalid = append(invalid, "policyId")
 		}
 	}
 
@@ -170,7 +168,7 @@ type RequestKey struct {
 	ShouldLogRequest       bool         `json:"shouldLogRequest"`
 	ShouldLogResponse      bool         `json:"shouldLogResponse"`
 	RotationEnabled        bool         `json:"rotationEnabled"`
-	PolicyIds              []string     `json:"policyIds"`
+	PolicyId               string       `json:"policyId"`
 }
 
 func (rk *RequestKey) Validate() error {
@@ -252,12 +250,6 @@ func (rk *RequestKey) Validate() error {
 		}
 	}
 
-	for index, pid := range rk.PolicyIds {
-		if len(pid) == 0 {
-			invalid = append(invalid, fmt.Sprintf("policyIds[%d]", index))
-		}
-	}
-
 	if len(invalid) > 0 {
 		return internal_errors.NewValidationError(fmt.Sprintf("fields [%s] are invalid", strings.Join(invalid, ", ")))
 	}
@@ -324,7 +316,7 @@ type ResponseKey struct {
 	ShouldLogRequest       bool         `json:"shouldLogRequest"`
 	ShouldLogResponse      bool         `json:"shouldLogResponse"`
 	RotationEnabled        bool         `json:"rotationEnabled"`
-	PolicyIds              []string     `json:"policyIds"`
+	PolicyId               string       `json:"policyId"`
 }
 
 func (rk *ResponseKey) GetSettingIds() []string {
