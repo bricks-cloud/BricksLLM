@@ -28,6 +28,7 @@ type UpdateKey struct {
 	ShouldLogRequest       *bool         `json:"shouldLogRequest"`
 	ShouldLogResponse      *bool         `json:"shouldLogResponse"`
 	RotationEnabled        *bool         `json:"rotationEnabled"`
+	PolicyIds              *[]string     `json:"policyIds"`
 }
 
 func (uk *UpdateKey) Validate() error {
@@ -55,7 +56,7 @@ func (uk *UpdateKey) Validate() error {
 	if len(uk.SettingIds) != 0 {
 		for index, id := range uk.SettingIds {
 			if len(id) == 0 {
-				invalid = append(invalid, fmt.Sprintf("settingIds.[%d]", index))
+				invalid = append(invalid, fmt.Sprintf("settingIds[%d]", index))
 			}
 		}
 	}
@@ -70,6 +71,14 @@ func (uk *UpdateKey) Validate() error {
 			if len(p.Method) == 0 {
 				invalid = append(invalid, fmt.Sprintf("allowedPaths.%d.method", index))
 				break
+			}
+		}
+	}
+
+	if uk.PolicyIds != nil {
+		for index, pid := range *uk.PolicyIds {
+			if len(pid) == 0 {
+				invalid = append(invalid, fmt.Sprintf("policyIds[%d]", index))
 			}
 		}
 	}
@@ -161,6 +170,7 @@ type RequestKey struct {
 	ShouldLogRequest       bool         `json:"shouldLogRequest"`
 	ShouldLogResponse      bool         `json:"shouldLogResponse"`
 	RotationEnabled        bool         `json:"rotationEnabled"`
+	PolicyIds              []string     `json:"policyIds"`
 }
 
 func (rk *RequestKey) Validate() error {
@@ -204,7 +214,7 @@ func (rk *RequestKey) Validate() error {
 	if len(rk.SettingIds) != 0 {
 		for index, id := range rk.SettingIds {
 			if len(id) == 0 {
-				invalid = append(invalid, fmt.Sprintf("settingIds.[%d]", index))
+				invalid = append(invalid, fmt.Sprintf("settingIds[%d]", index))
 			}
 		}
 	}
@@ -239,6 +249,12 @@ func (rk *RequestKey) Validate() error {
 				invalid = append(invalid, fmt.Sprintf("allowedPaths.%d.method", index))
 				break
 			}
+		}
+	}
+
+	for index, pid := range rk.PolicyIds {
+		if len(pid) == 0 {
+			invalid = append(invalid, fmt.Sprintf("policyIds[%d]", index))
 		}
 	}
 
@@ -308,6 +324,7 @@ type ResponseKey struct {
 	ShouldLogRequest       bool         `json:"shouldLogRequest"`
 	ShouldLogResponse      bool         `json:"shouldLogResponse"`
 	RotationEnabled        bool         `json:"rotationEnabled"`
+	PolicyIds              []string     `json:"policyIds"`
 }
 
 func (rk *ResponseKey) GetSettingIds() []string {
