@@ -318,13 +318,13 @@ func (s *Store) GetPoliciesByTags(tags []string) ([]*policy.Policy, error) {
 		}
 
 		if len(regexd) != 0 {
-			if err := json.Unmarshal(cd, &p.RegexConfig); err != nil {
+			if err := json.Unmarshal(regexd, &p.RegexConfig); err != nil {
 				return nil, err
 			}
 		}
 
 		if len(cusd) != 0 {
-			if err := json.Unmarshal(cd, &p.CustomConfig); err != nil {
+			if err := json.Unmarshal(cusd, &p.CustomConfig); err != nil {
 				return nil, err
 			}
 		}
