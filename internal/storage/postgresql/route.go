@@ -48,19 +48,6 @@ func (s *Store) AlterRoutesTable() error {
 	return nil
 }
 
-func (s *Store) DropRoutesTable() error {
-	dropTableQuery := `DROP TABLE routes`
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
-	defer cancel()
-
-	_, err := s.db.ExecContext(ctxTimeout, dropTableQuery)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (s *Store) CreateRoute(r *route.Route) (*route.Route, error) {
 	sbytes, err := json.Marshal(r.Steps)
 	if err != nil {

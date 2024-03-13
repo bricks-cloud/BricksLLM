@@ -80,7 +80,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	private := privacyMode == "strict"
 
 	router.Use(CorsMiddleware())
-	router.Use(getMiddleware(cpm, rm, a, prod, private, log, pub, "proxy", ac))
+	router.Use(getMiddleware(cpm, rm, a, prod, private, log, pub, "proxy", ac, http.Client{}))
 
 	client := http.Client{}
 

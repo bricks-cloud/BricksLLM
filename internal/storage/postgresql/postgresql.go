@@ -170,45 +170,6 @@ func (s *Store) AlterProviderSettingsTable() error {
 	return nil
 }
 
-func (s *Store) DropProviderSettingsTable() error {
-	dropTableQuery := `DROP TABLE provider_settings`
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
-	defer cancel()
-
-	_, err := s.db.ExecContext(ctxTimeout, dropTableQuery)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *Store) DropEventsTable() error {
-	dropTableQuery := `DROP TABLE events`
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
-	defer cancel()
-
-	_, err := s.db.ExecContext(ctxTimeout, dropTableQuery)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *Store) DropKeysTable() error {
-	dropTableQuery := `DROP TABLE keys`
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
-	defer cancel()
-
-	_, err := s.db.ExecContext(ctxTimeout, dropTableQuery)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (s *Store) InsertEvent(e *event.Event) error {
 	query := `
 		INSERT INTO events (event_id, created_at, tags, key_id, cost_in_usd, provider, model, status_code, prompt_token_count, completion_token_count, latency_in_ms, path, method, custom_id, request, response, user_id)

@@ -32,19 +32,6 @@ func (s *Store) CreateCustomProvidersTable() error {
 	return nil
 }
 
-func (s *Store) DropCustomProvidersTable() error {
-	dropTableQuery := `DROP TABLE custom_providers`
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
-	defer cancel()
-
-	_, err := s.db.ExecContext(ctxTimeout, dropTableQuery)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (s *Store) CreateCustomProvider(provider *custom.Provider) (*custom.Provider, error) {
 	query := `
 		INSERT INTO custom_providers (id, created_at, updated_at, provider, route_configs, authentication_param)

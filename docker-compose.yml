@@ -18,22 +18,22 @@ services:
       - '5432:5432'
     volumes: 
       - postgresql:/var/lib/postgresql/data
-  bricksllm:
-    depends_on: 
-      - redis
-      - postgresql
-    image: luyuanxin1995/bricksllm
-    environment:
-      - POSTGRESQL_USERNAME=postgres
-      - POSTGRESQL_PASSWORD=postgres
-      - REDIS_PASSWORD=eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
-      - POSTGRESQL_HOSTS=postgresql
-      - REDIS_HOSTS=redis
-    ports:
-      - '8001:8001'
-      - '8002:8002'
-    command:
-      - '-m=dev'
+  # bricksllm:
+  #   depends_on: 
+  #     - redis
+  #     - postgresql
+  #   image: luyuanxin1995/bricksllm
+  #   environment:
+  #     - POSTGRESQL_USERNAME=postgres
+  #     - POSTGRESQL_PASSWORD=postgres
+  #     - REDIS_PASSWORD=eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+  #     - POSTGRESQL_HOSTS=postgresql
+  #     - REDIS_HOSTS=redis
+  #   ports:
+  #     - '8001:8001'
+  #     - '8002:8002'
+  #   command:
+  #     - '-m=dev'
 volumes:
   redis:
     driver: local

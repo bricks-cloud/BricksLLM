@@ -106,6 +106,11 @@ func main() {
 		log.Sugar().Fatalf("error altering provider settings table: %v", err)
 	}
 
+	err = store.CreatePolicyTable()
+	if err != nil {
+		log.Sugar().Fatalf("error creating policies table: %v", err)
+	}
+
 	memStore, err := memdb.NewMemDb(store, log, cfg.InMemoryDbUpdateInterval)
 	if err != nil {
 		log.Sugar().Fatalf("cannot initialize memdb: %v", err)
@@ -201,7 +206,9 @@ func main() {
 	cpm := manager.NewCustomProvidersManager(store, cpMemStore)
 	rm := manager.NewRouteManager(store, store, rMemStore, psMemStore)
 
-	as, err := admin.NewAdminServer(log, *modePtr, m, krm, psm, cpm, rm, cfg.AdminPass)
+	pm := manager.NewPolicyManager(store)
+
+	as, err := admin.NewAdminServer(log, *modePtr, m, krm, psm, cpm, rm, pm, cfg.AdminPass)
 	if err != nil {
 		log.Sugar().Fatalf("error creating admin http server: %v", err)
 	}
