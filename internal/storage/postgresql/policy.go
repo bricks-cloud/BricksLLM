@@ -342,6 +342,67 @@ func (s *Store) GetPolicyById(id string) (*policy.Policy, error) {
 	return p, nil
 }
 
+func (s *Store) GetPoliciesByIds(ids []string) ([]*policy.Policy, error) {
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM policies WHERE id = ANY($1)", pq.Array(ids))
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, internal_errors.NewNotFoundError("policy is not found for ids: " + strings.Join(ids, ","))
+		}
+
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	ps := []*policy.Policy{}
+	for rows.Next() {
+		var cd []byte
+		var cusd []byte
+		var regexd []byte
+
+		p := &policy.Policy{}
+
+		if err := rows.Scan(
+			&p.Id,
+			&p.CreatedAt,
+			&p.UpdatedAt,
+			pq.Array(&p.Tags),
+			&p.Name,
+			&cd,
+			&regexd,
+			&cusd,
+		); err != nil {
+			return nil, err
+		}
+
+		if len(cd) != 0 {
+			if err := json.Unmarshal(cd, &p.Config); err != nil {
+				return nil, err
+			}
+		}
+
+		if len(regexd) != 0 {
+			if err := json.Unmarshal(regexd, &p.RegexConfig); err != nil {
+				return nil, err
+			}
+		}
+
+		if len(cusd) != 0 {
+			if err := json.Unmarshal(cusd, &p.CustomConfig); err != nil {
+				return nil, err
+			}
+		}
+
+		ps = append(ps, p)
+
+	}
+
+	return ps, nil
+}
+
 func (s *Store) GetPoliciesByTags(tags []string) ([]*policy.Policy, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()
