@@ -129,7 +129,7 @@ func main() {
 	}
 	cpMemStore.Listen()
 
-	rMemStore, err := memdb.NewRoutesMemDb(store, log, cfg.InMemoryDbUpdateInterval)
+	rMemStore, err := memdb.NewRoutesMemDb(store, store, log, cfg.InMemoryDbUpdateInterval)
 	if err != nil {
 		log.Sugar().Fatalf("cannot initialize routes memdb: %v", err)
 	}

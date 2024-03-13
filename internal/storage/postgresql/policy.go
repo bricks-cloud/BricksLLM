@@ -232,6 +232,59 @@ func (s *Store) UpdatePolicy(id string, p *policy.Policy) (*policy.Policy, error
 	return updated, nil
 }
 
+func (s *Store) GetAllPolicies() ([]*policy.Policy, error) {
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM policies")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ps := []*policy.Policy{}
+	for rows.Next() {
+		var cd []byte
+		var cusd []byte
+		var regexd []byte
+
+		p := &policy.Policy{}
+		if err := rows.Scan(
+			&p.Id,
+			&p.CreatedAt,
+			&p.UpdatedAt,
+			pq.Array(&p.Tags),
+			&cd,
+			&regexd,
+			&cusd,
+		); err != nil {
+			return nil, err
+		}
+
+		if len(cd) != 0 {
+			if err := json.Unmarshal(cd, &p.Config); err != nil {
+				return nil, err
+			}
+		}
+
+		if len(regexd) != 0 {
+			if err := json.Unmarshal(regexd, &p.RegexConfig); err != nil {
+				return nil, err
+			}
+		}
+
+		if len(cusd) != 0 {
+			if err := json.Unmarshal(cusd, &p.CustomConfig); err != nil {
+				return nil, err
+			}
+		}
+
+		ps = append(ps, p)
+	}
+
+	return ps, nil
+}
+
 func (s *Store) GetPolicyById(id string) (*policy.Policy, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()
@@ -331,6 +384,59 @@ func (s *Store) GetPoliciesByTags(tags []string) ([]*policy.Policy, error) {
 
 		ps = append(ps, p)
 
+	}
+
+	return ps, nil
+}
+
+func (s *Store) GetUpdatedPolicies(updatedAt int64) ([]*policy.Policy, error) {
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(ctxTimeout, "SELECT * FROM policies WHERE updated_at >= $1", updatedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ps := []*policy.Policy{}
+	for rows.Next() {
+		var cd []byte
+		var cusd []byte
+		var regexd []byte
+
+		p := &policy.Policy{}
+		if err := rows.Scan(
+			&p.Id,
+			&p.CreatedAt,
+			&p.UpdatedAt,
+			pq.Array(&p.Tags),
+			&cd,
+			&regexd,
+			&cusd,
+		); err != nil {
+			return nil, err
+		}
+
+		if len(cd) != 0 {
+			if err := json.Unmarshal(cd, &p.Config); err != nil {
+				return nil, err
+			}
+		}
+
+		if len(regexd) != 0 {
+			if err := json.Unmarshal(regexd, &p.RegexConfig); err != nil {
+				return nil, err
+			}
+		}
+
+		if len(cusd) != 0 {
+			if err := json.Unmarshal(cusd, &p.CustomConfig); err != nil {
+				return nil, err
+			}
+		}
+
+		ps = append(ps, p)
 	}
 
 	return ps, nil

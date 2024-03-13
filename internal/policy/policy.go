@@ -27,10 +27,10 @@ const (
 type Rule string
 
 const (
-	Name    Action = "name"
-	Address Action = "address"
-	Email   Action = "email"
-	Ssn     Action = "ssn"
+	Name    Rule = "name"
+	Address Rule = "address"
+	Email   Rule = "email"
+	Ssn     Rule = "ssn"
 )
 
 type CustomRule struct {
