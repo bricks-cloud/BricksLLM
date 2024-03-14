@@ -35,6 +35,18 @@ func (m *PolicyManager) CreatePolicy(p *policy.Policy) (*policy.Policy, error) {
 	p.UpdatedAt = time.Now().Unix()
 	p.Id = util.NewUuid()
 
+	if p.Config == nil {
+		p.Config = &policy.Config{}
+	}
+
+	if p.RegexConfig == nil {
+		p.RegexConfig = &policy.RegexConfig{}
+	}
+
+	if p.CustomConfig == nil {
+		p.CustomConfig = &policy.CustomConfig{}
+	}
+
 	return m.Storage.CreatePolicy(p)
 }
 

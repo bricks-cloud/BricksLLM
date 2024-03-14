@@ -1,16 +1,12 @@
 package policy
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
 	"net/http"
-	"time"
+	"strings"
 
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
+	"github.com/bricks-cloud/bricksllm/internal/pii"
 
 	goopenai "github.com/sashabaranov/go-openai"
 )
@@ -27,10 +23,43 @@ const (
 type Rule string
 
 const (
-	Name    Rule = "name"
-	Address Rule = "address"
-	Email   Rule = "email"
-	Ssn     Rule = "ssn"
+	Address                             Rule = "address"
+	Age                                 Rule = "age"
+	All                                 Rule = "all"
+	AwsAccessKey                        Rule = "aws_access_key"
+	AwsSecretKey                        Rule = "aws_secret_key"
+	BankAccountNumber                   Rule = "bank_account_number"
+	BankRouting                         Rule = "bank_routing"
+	CaHealthNumber                      Rule = "ca_health_number"
+	CaSocialInsuranceNumber             Rule = "ca_social_insurance_number"
+	CreditDebitCvv                      Rule = "credit_debit_cvv"
+	CreditDebitExpiry                   Rule = "credit_debit_expiry"
+	CreditDebitNumber                   Rule = "credit_debit_number"
+	DateTime                            Rule = "date_time"
+	DriverId                            Rule = "driver_id"
+	Email                               Rule = "email"
+	InAadhaar                           Rule = "in_aadhaar"
+	InNrega                             Rule = "in_nrega"
+	InPermanentAccountNumber            Rule = "in_permanent_account_number"
+	InVoterNumber                       Rule = "in_voter_number"
+	InternationalBankAccountNumber      Rule = "international_bank_account_number"
+	IpAddress                           Rule = "ip_address"
+	LicensePlate                        Rule = "license_plate"
+	MacAddress                          Rule = "mac_address"
+	Name                                Rule = "name"
+	PassportNumber                      Rule = "passport_number"
+	Password                            Rule = "password"
+	Phone                               Rule = "phone"
+	Pin                                 Rule = "pin"
+	Ssn                                 Rule = "ssn"
+	SwiftCode                           Rule = "swift_code"
+	UkNationalHealthServiceNumber       Rule = "uk_national_health_service_number"
+	UkNationalInsuranceNumber           Rule = "uk_national_insurance_number"
+	UkUniqueTaxpayerReferenceNumber     Rule = "uk_unique_taxpayer_reference_number"
+	Url                                 Rule = "url"
+	UsIndividualTaxIdentificationNumber Rule = "us_individual_tax_identification_number"
+	Username                            Rule = "username"
+	VehicleIdentificationNumber         Rule = "vehicle_identification_number"
 )
 
 type CustomRule struct {
@@ -56,21 +85,14 @@ type CustomConfig struct {
 }
 
 type Policy struct {
-	Id                     string                   `json:"id"`
-	Name                   string                   `json:"name"`
-	CreatedAt              int64                    `json:"createdAt"`
-	UpdatedAt              int64                    `json:"updatedAt"`
-	Tags                   []string                 `json:"tags"`
-	Config                 *Config                  `json:"config"`
-	RegexConfig            *RegexConfig             `json:"regexConfig"`
-	CustomConfig           *CustomConfig            `json:"customConfig"`
-	NameRule               Action                   `json:"nameRule"`
-	AddressRule            Action                   `json:"addressRule"`
-	EmailRule              Action                   `json:"emailRule"`
-	SsnRule                Action                   `json:"ssnRule"`
-	PasswordRule           Action                   `json:"passwordRule"`
-	RegularExpressionRules []*RegularExpressionRule `json:"regularExpressionRules"`
-	CustomRules            []*CustomRule            `json:"customRules"`
+	Id           string        `json:"id"`
+	Name         string        `json:"name"`
+	CreatedAt    int64         `json:"createdAt"`
+	UpdatedAt    int64         `json:"updatedAt"`
+	Tags         []string      `json:"tags"`
+	Config       *Config       `json:"config"`
+	RegexConfig  *RegexConfig  `json:"regexConfig"`
+	CustomConfig *CustomConfig `json:"customConfig"`
 }
 
 type UpdatePolicy struct {
@@ -94,26 +116,33 @@ type Response struct {
 	BlockedReasons map[string]bool `json:"blockedReasons"`
 }
 
-func (p *Policy) Filter(client http.Client, input any) error {
-	if p == nil {
+func (p *Policy) Filter(client http.Client, input any, scanner Scanner) error {
+	if p == nil || scanner == nil {
 		return nil
 	}
 
 	shouldInspect := false
-
-	if p.NameRule != Allow || p.AddressRule != Allow || p.EmailRule != Allow || p.SsnRule != Allow || p.PasswordRule != Allow {
-		shouldInspect = true
-	}
-
-	for _, cr := range p.CustomRules {
-		if cr.Action != Allow {
-			shouldInspect = true
+	if p.Config != nil {
+		for _, action := range p.Config.Rules {
+			if action != Allow {
+				shouldInspect = true
+			}
 		}
 	}
 
-	for _, regexr := range p.RegularExpressionRules {
-		if regexr.Action != Allow {
-			shouldInspect = true
+	if p.RegexConfig != nil {
+		for _, regexr := range p.RegexConfig.RegularExpressionRules {
+			if regexr.Action != Allow {
+				shouldInspect = true
+			}
+		}
+	}
+
+	if p.CustomConfig != nil {
+		for _, cr := range p.CustomConfig.CustomRules {
+			if cr.Action != Allow {
+				shouldInspect = true
+			}
 		}
 	}
 
@@ -136,22 +165,38 @@ func (p *Policy) Filter(client http.Client, input any) error {
 				inputsToInspect = append(inputsToInspect, stringified)
 			}
 
-			updated, err := p.inspect(client, inputsToInspect)
+			result, err := p.scan(inputsToInspect, scanner)
 			if err != nil {
 				return err
 			}
 
-			converted.Input = updated
+			if result.Action == Block {
+				return internal_errors.NewBlockedError("request blocked due to detected entities: " + join(result.BlockedEntities))
+			}
 
+			if result.Action == AllowButWarn {
+				return internal_errors.NewBlockedError("request warned due to detected entities: " + join(result.WarnedEntities))
+			}
+
+			if len(result.Updated) == 1 {
+				converted.Input = result.Updated[0]
+			}
 		} else if input, ok := converted.Input.(string); ok {
-			updated, err := p.inspect(client, []string{input})
-
+			result, err := p.scan([]string{input}, scanner)
 			if err != nil {
 				return err
 			}
 
-			if len(updated) == 1 {
-				converted.Input = updated[0]
+			if result.Action == Block {
+				return internal_errors.NewBlockedError("request blocked due to detected entities: " + join(result.BlockedEntities))
+			}
+
+			if result.Action == AllowButWarn {
+				return internal_errors.NewBlockedError("request warned due to detected entities: " + join(result.WarnedEntities))
+			}
+
+			if len(result.Updated) == 1 {
+				converted.Input = result.Updated[0]
 			}
 		}
 
@@ -165,16 +210,25 @@ func (p *Policy) Filter(client http.Client, input any) error {
 			contents = append(contents, message.Content)
 		}
 
-		updatedContents, err := p.inspect(client, contents)
+		result, err := p.scan(contents, scanner)
+
 		if err != nil {
 			return err
 		}
 
-		if len(updatedContents) != len(converted.Messages) {
+		if result.Action == Block {
+			return internal_errors.NewBlockedError("request blocked due to detected entities: " + join(result.BlockedEntities))
+		}
+
+		if result.Action == AllowButWarn {
+			return internal_errors.NewBlockedError("request warned due to detected entities: " + join(result.WarnedEntities))
+		}
+
+		if len(result.Updated) != len(converted.Messages) {
 			return errors.New("updated contents length not consistent with existing content length")
 		}
 
-		for index, c := range updatedContents {
+		for index, c := range result.Updated {
 			newMessages = append(newMessages, goopenai.ChatCompletionMessage{
 				Content:      c,
 				Role:         converted.Messages[index].Role,
@@ -193,61 +247,197 @@ func (p *Policy) Filter(client http.Client, input any) error {
 	return nil
 }
 
-func (p *Policy) inspect(client http.Client, contents []string) ([]string, error) {
-	data, err := json.Marshal(&Request{
-		Contents: contents,
-		Policy:   p,
-	})
-
-	if err != nil {
-		return nil, err
+func join(entities []Rule) string {
+	strs := []string{}
+	for _, entity := range entities {
+		strs = append(strs, string(entity))
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://localhost:8080/inspect", io.NopCloser(bytes.NewReader(data)))
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", "application/json")
-
-	res, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	defer res.Body.Close()
-
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	parsed := &Response{}
-	err = json.Unmarshal(body, &parsed)
-	if err != nil {
-		return nil, err
-	}
-
-	blockedReasons := []string{}
-	for blocked := range parsed.BlockedReasons {
-		blockedReasons = append(blockedReasons, blocked)
-	}
-
-	warnings := []string{}
-	for message := range parsed.Warnings {
-		warnings = append(warnings, message)
-	}
-
-	if parsed.Action == Block {
-		return nil, internal_errors.NewBlockedError(fmt.Sprintf("request blocked: %s", blockedReasons))
-	}
-
-	if len(parsed.Warnings) != 0 {
-		return nil, internal_errors.NewWarningError(fmt.Sprintf("request warned: %s", warnings))
-	}
-
-	return parsed.Contents, nil
+	return strings.Join(strs, " ,")
 }
+
+type Scanner interface {
+	Scan(input []string) (*pii.Result, error)
+}
+
+var entityMap map[string]string = map[string]string{
+	"BANK_ACCOUNT_NUMBER":           "bank_account_number",
+	"BANK_ROUTING":                  "bank_routing",
+	"CREDIT_DEBIT_NUMBER":           "credit_debit_number",
+	"CREDIT_DEBIT_CVV":              "credit_debit_cvv",
+	"CREDIT_DEBIT_EXPIRY":           "credit_debit_expiry",
+	"PIN":                           "pin",
+	"EMAIL":                         "email",
+	"ADDRESS":                       "address",
+	"NAME":                          "name",
+	"PHONE":                         "phone",
+	"SSN":                           "ssn",
+	"DATE_TIME":                     "date_time",
+	"PASSPORT_NUMBER":               "passport_number",
+	"DRIVER_ID":                     "driver_id",
+	"URL":                           "url",
+	"AGE":                           "age",
+	"USERNAME":                      "username",
+	"PASSWORD":                      "password",
+	"AWS_ACCESS_KEY":                "aws_access_key",
+	"AWS_SECRET_KEY":                "aws_secret_key",
+	"IP_ADDRESS":                    "ip_address",
+	"MAC_ADDRESS":                   "mac_address",
+	"ALL":                           "all",
+	"LICENSE_PLATE":                 "license_plate",
+	"VEHICLE_IDENTIFICATION_NUMBER": "vehicle_identification_number",
+	"UK_NATIONAL_INSURANCE_NUMBER":  "uk_national_insurance_number",
+	"CA_SOCIAL_INSURANCE_NUMBER":    "ca_social_insurance_number",
+	"US_INDIVIDUAL_TAX_IDENTIFICATION_NUMBER": "us_individual_tax_identification_number",
+	"UK_UNIQUE_TAXPAYER_REFERENCE_NUMBER":     "uk_unique_taxpayer_reference_number",
+	"IN_PERMANENT_ACCOUNT_NUMBER":             "in_permanent_account_number",
+	"IN_NREGA":                                "in_nrega",
+	"INTERNATIONAL_BANK_ACCOUNT_NUMBER":       "international_bank_account_number",
+	"SWIFT_CODE":                              "swift_code",
+	"UK_NATIONAL_HEALTH_SERVICE_NUMBER":       "uk_national_health_service_number",
+	"CA_HEALTH_NUMBER":                        "ca_health_number",
+	"IN_AADHAAR":                              "in_aadhaar",
+	"IN_VOTER_NUMBER":                         "in_voter_number",
+}
+
+type ScanResult struct {
+	Action          Action
+	BlockedEntities []Rule
+	WarnedEntities  []Rule
+	Updated         []string
+}
+
+func (p *Policy) scan(input []string, scanner Scanner) (*ScanResult, error) {
+	r, err := scanner.Scan(input)
+	if err != nil {
+		return nil, err
+	}
+
+	found := map[string]bool{}
+	for _, detection := range r.Detections {
+		for _, entity := range detection.Entities {
+			converted, ok := entityMap[entity.Type]
+			if !ok {
+				continue
+			}
+
+			found[converted] = true
+		}
+	}
+
+	blockedEntities := []Rule{}
+	warnedEntities := []Rule{}
+	redactedEntities := map[Rule]bool{}
+
+	if p.Config != nil {
+		for rule, action := range p.Config.Rules {
+			_, ok := found[string(rule)]
+			if action == Block && ok {
+				blockedEntities = append(blockedEntities, rule)
+			} else if action == AllowButWarn && ok {
+				warnedEntities = append(warnedEntities, rule)
+			} else if action == AllowButRedact && ok {
+				redactedEntities[rule] = true
+			}
+		}
+	}
+
+	if len(blockedEntities) != 0 {
+		return &ScanResult{
+			Action:          Block,
+			BlockedEntities: blockedEntities,
+		}, nil
+	}
+
+	if len(warnedEntities) != 0 {
+		return &ScanResult{
+			Action:         AllowButWarn,
+			WarnedEntities: warnedEntities,
+		}, nil
+	}
+
+	sr := &ScanResult{
+		Action: Allow,
+	}
+
+	for _, detection := range r.Detections {
+		replaced := detection.Input
+
+		for _, entity := range detection.Entities {
+			converted, ok := entityMap[entity.Type]
+			if !ok {
+				continue
+			}
+
+			_, ok = redactedEntities[Rule(converted)]
+			if ok {
+				sr.Action = AllowButRedact
+				old := replaced[entity.BeginOffset:entity.EndOffset]
+				replaced = strings.ReplaceAll(replaced, old, "***")
+			}
+		}
+
+		sr.Updated = append(sr.Updated, replaced)
+	}
+
+	return sr, nil
+}
+
+// func (p *Policy) inspect(client http.Client, contents []string) ([]string, error) {
+// 	data, err := json.Marshal(&Request{
+// 		Contents: contents,
+// 		Policy:   p,
+// 	})
+
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+// 	defer cancel()
+
+// 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://localhost:8080/inspect", io.NopCloser(bytes.NewReader(data)))
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	req.Header.Add("Content-Type", "application/json")
+
+// 	res, err := client.Do(req)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	defer res.Body.Close()
+
+// 	body, err := io.ReadAll(res.Body)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	parsed := &Response{}
+// 	err = json.Unmarshal(body, &parsed)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	blockedReasons := []string{}
+// 	for blocked := range parsed.BlockedReasons {
+// 		blockedReasons = append(blockedReasons, blocked)
+// 	}
+
+// 	warnings := []string{}
+// 	for message := range parsed.Warnings {
+// 		warnings = append(warnings, message)
+// 	}
+
+// 	if parsed.Action == Block {
+// 		return nil, internal_errors.NewBlockedError(fmt.Sprintf("request blocked: %s", blockedReasons))
+// 	}
+
+// 	if len(parsed.Warnings) != 0 {
+// 		return nil, internal_errors.NewWarningError(fmt.Sprintf("request warned: %s", warnings))
+// 	}
+
+// 	return parsed.Contents, nil
+// }

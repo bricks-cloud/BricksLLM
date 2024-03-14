@@ -15,6 +15,8 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/logger/zap"
 	"github.com/bricks-cloud/bricksllm/internal/manager"
 	"github.com/bricks-cloud/bricksllm/internal/message"
+	"github.com/bricks-cloud/bricksllm/internal/pii"
+	"github.com/bricks-cloud/bricksllm/internal/pii/amazon"
 	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
 	"github.com/bricks-cloud/bricksllm/internal/provider/azure"
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
@@ -69,11 +71,6 @@ func main() {
 	err = store.CreateRoutesTable()
 	if err != nil {
 		log.Sugar().Fatalf("error creating routes table: %v", err)
-	}
-
-	err = store.AlterRoutesTable()
-	if err != nil {
-		log.Sugar().Fatalf("error altering routes table: %v", err)
 	}
 
 	err = store.CreateKeysTable()
@@ -244,7 +241,13 @@ func main() {
 	eventConsumer := message.NewConsumer(eventMessageChan, log, 4, handler.HandleEventWithRequestAndResponse)
 	eventConsumer.StartEventMessageConsumers()
 
-	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, c, m, rm, a, psm, cpm, store, memStore, ce, ace, aoe, v, rec, messageBus, rlm, cfg.ProxyTimeout, accessCache)
+	detector, err := amazon.NewClient(cfg.AmazonRequestTimeout, cfg.AmazonConnectionTimeout)
+	if err != nil {
+		log.Sugar().Infof("error when connecting to amazon: %v", err)
+	}
+
+	scanner := pii.NewScanner(detector)
+	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, c, m, rm, a, psm, cpm, store, memStore, ce, ace, aoe, v, rec, messageBus, rlm, cfg.ProxyTimeout, accessCache, pm, scanner)
 	if err != nil {
 		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}
