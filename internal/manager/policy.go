@@ -31,6 +31,11 @@ func NewPolicyManager(s PoliciesStorage, memdb PoliciesMemStorage) *PolicyManage
 }
 
 func (m *PolicyManager) CreatePolicy(p *policy.Policy) (*policy.Policy, error) {
+	err := p.Validate()
+	if err != nil {
+		return nil, err
+	}
+
 	p.CreatedAt = time.Now().Unix()
 	p.UpdatedAt = time.Now().Unix()
 	p.Id = util.NewUuid()
@@ -51,6 +56,11 @@ func (m *PolicyManager) CreatePolicy(p *policy.Policy) (*policy.Policy, error) {
 }
 
 func (m *PolicyManager) UpdatePolicy(id string, p *policy.UpdatePolicy) (*policy.Policy, error) {
+	err := p.Validate()
+	if err != nil {
+		return nil, err
+	}
+
 	p.UpdatedAt = time.Now().Unix()
 
 	return m.Storage.UpdatePolicy(id, p)

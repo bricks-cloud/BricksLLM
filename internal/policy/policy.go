@@ -2,6 +2,7 @@ package policy
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -106,6 +107,34 @@ type UpdatePolicy struct {
 	CustomConfig *CustomConfig `json:"customConfig"`
 }
 
+func (p *UpdatePolicy) Validate() error {
+	if p == nil {
+		return internal_errors.NewValidationError("regex rule at index [%d] cannot be nil")
+	}
+
+	msgs := []string{}
+
+	if p.RegexConfig != nil {
+		for idx, rule := range p.RegexConfig.RegularExpressionRules {
+			if rule == nil {
+				msgs = append(msgs, fmt.Sprintf("regex rule at index [%d] cannot be nil", idx))
+				continue
+			}
+
+			_, err := regexp.Compile(rule.Definition)
+			if err != nil {
+				msgs = append(msgs, fmt.Sprintf("regex rule at index [%d] cannot be compiled", idx))
+			}
+		}
+	}
+
+	if len(msgs) != 0 {
+		return internal_errors.NewValidationError("policy is not valid: " + strings.Join(msgs, " ,"))
+	}
+
+	return nil
+}
+
 type Request struct {
 	Contents []string `json:"contents"`
 	Policy   *Policy  `json:"policy"`
@@ -116,6 +145,34 @@ type Response struct {
 	Action         Action          `json:"action"`
 	Warnings       map[string]bool `json:"warnings"`
 	BlockedReasons map[string]bool `json:"blockedReasons"`
+}
+
+func (p *Policy) Validate() error {
+	if p == nil {
+		return internal_errors.NewValidationError("regex rule at index [%d] cannot be nil")
+	}
+
+	msgs := []string{}
+
+	if p.RegexConfig != nil {
+		for idx, rule := range p.RegexConfig.RegularExpressionRules {
+			if rule == nil {
+				msgs = append(msgs, fmt.Sprintf("regex rule at index [%d] cannot be nil", idx))
+				continue
+			}
+
+			_, err := regexp.Compile(rule.Definition)
+			if err != nil {
+				msgs = append(msgs, fmt.Sprintf("regex rule at index [%d] cannot be compiled", idx))
+			}
+		}
+	}
+
+	if len(msgs) != 0 {
+		return internal_errors.NewValidationError("policy is not valid: " + strings.Join(msgs, " ,"))
+	}
+
+	return nil
 }
 
 func (p *Policy) Filter(client http.Client, input any, scanner Scanner) error {
