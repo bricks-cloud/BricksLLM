@@ -3,10 +3,12 @@ package policy
 import (
 	"errors"
 	"net/http"
+	"regexp"
 	"strings"
 
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
 	"github.com/bricks-cloud/bricksllm/internal/pii"
+	"github.com/bricks-cloud/bricksllm/internal/stats"
 
 	goopenai "github.com/sashabaranov/go-openai"
 )
@@ -301,83 +303,158 @@ var entityMap map[string]string = map[string]string{
 }
 
 type ScanResult struct {
-	Action          Action
-	BlockedEntities []Rule
-	WarnedEntities  []Rule
-	Updated         []string
+	Action                  Action
+	BlockedEntities         []Rule
+	WarnedEntities          []Rule
+	BlockedRegexDefinitions []string
+	WarnedRegexDefinitions  []string
+	Updated                 []string
 }
 
 func (p *Policy) scan(input []string, scanner Scanner) (*ScanResult, error) {
-	r, err := scanner.Scan(input)
-	if err != nil {
-		return nil, err
-	}
-
-	found := map[string]bool{}
-	for _, detection := range r.Detections {
-		for _, entity := range detection.Entities {
-			converted, ok := entityMap[entity.Type]
-			if !ok {
-				continue
-			}
-
-			found[converted] = true
-		}
-	}
-
-	blockedEntities := []Rule{}
-	warnedEntities := []Rule{}
-	redactedEntities := map[Rule]bool{}
-
-	if p.Config != nil {
-		for rule, action := range p.Config.Rules {
-			_, ok := found[string(rule)]
-			if action == Block && ok {
-				blockedEntities = append(blockedEntities, rule)
-			} else if action == AllowButWarn && ok {
-				warnedEntities = append(warnedEntities, rule)
-			} else if action == AllowButRedact && ok {
-				redactedEntities[rule] = true
-			}
-		}
-	}
-
-	if len(blockedEntities) != 0 {
-		return &ScanResult{
-			Action:          Block,
-			BlockedEntities: blockedEntities,
-		}, nil
-	}
-
-	if len(warnedEntities) != 0 {
-		return &ScanResult{
-			Action:         AllowButWarn,
-			WarnedEntities: warnedEntities,
-		}, nil
-	}
-
 	sr := &ScanResult{
 		Action: Allow,
 	}
 
-	for _, detection := range r.Detections {
-		replaced := detection.Input
+	if p.Config != nil {
+		r, err := scanner.Scan(input)
+		if err != nil {
+			return nil, err
+		}
 
-		for _, entity := range detection.Entities {
-			converted, ok := entityMap[entity.Type]
-			if !ok {
-				continue
-			}
+		found := map[string]bool{}
+		for _, detection := range r.Detections {
+			for _, entity := range detection.Entities {
+				converted, ok := entityMap[entity.Type]
+				if !ok {
+					continue
+				}
 
-			_, ok = redactedEntities[Rule(converted)]
-			if ok {
-				sr.Action = AllowButRedact
-				old := replaced[entity.BeginOffset:entity.EndOffset]
-				replaced = strings.ReplaceAll(replaced, old, "***")
+				found[converted] = true
 			}
 		}
 
-		sr.Updated = append(sr.Updated, replaced)
+		blockedEntities := []Rule{}
+		warnedEntities := []Rule{}
+		redactedEntities := map[Rule]bool{}
+
+		if p.Config != nil {
+			for rule, action := range p.Config.Rules {
+				_, ok := found[string(rule)]
+				if action == Block && ok {
+					blockedEntities = append(blockedEntities, rule)
+				} else if action == AllowButWarn && ok {
+					warnedEntities = append(warnedEntities, rule)
+				} else if action == AllowButRedact && ok {
+					redactedEntities[rule] = true
+				}
+			}
+		}
+
+		if len(blockedEntities) != 0 {
+			sr.Action = Block
+			sr.BlockedEntities = blockedEntities
+		}
+
+		if len(warnedEntities) != 0 {
+			if sr.Action != Block {
+				sr.Action = AllowButWarn
+			}
+
+			sr.WarnedEntities = warnedEntities
+		}
+
+		for _, detection := range r.Detections {
+			replaced := detection.Input
+
+			for _, entity := range detection.Entities {
+				converted, ok := entityMap[entity.Type]
+				if !ok {
+					continue
+				}
+
+				_, ok = redactedEntities[Rule(converted)]
+				if ok {
+					if sr.Action != Block && sr.Action != AllowButWarn {
+						sr.Action = AllowButRedact
+					}
+					old := replaced[entity.BeginOffset:entity.EndOffset]
+					replaced = strings.ReplaceAll(replaced, old, "***")
+				}
+			}
+
+			sr.Updated = append(sr.Updated, replaced)
+		}
+	}
+
+	if p.RegexConfig != nil {
+		found := map[string]bool{}
+		for _, text := range sr.Updated {
+			for _, rule := range p.RegexConfig.RegularExpressionRules {
+				regex, err := regexp.Compile(rule.Definition)
+				if err != nil {
+					stats.Incr("bricksllm.policy.scanner.scan.regex_compile_error", nil, 1)
+					continue
+				}
+
+				match := regex.FindString(text)
+				if len(match) != 0 {
+					found[rule.Definition] = true
+				}
+			}
+		}
+
+		blockedRegexDefinitions := []string{}
+		warnedRegexDefinitions := []string{}
+
+		for _, rule := range p.RegexConfig.RegularExpressionRules {
+			_, ok := found[rule.Definition]
+			if ok && rule.Action == Block {
+				blockedRegexDefinitions = append(blockedRegexDefinitions, rule.Definition)
+			}
+
+			if ok && rule.Action == AllowButWarn {
+				warnedRegexDefinitions = append(warnedRegexDefinitions, rule.Definition)
+			}
+		}
+
+		if len(blockedRegexDefinitions) != 0 {
+			sr.Action = Block
+			sr.BlockedRegexDefinitions = blockedRegexDefinitions
+		}
+
+		if len(warnedRegexDefinitions) != 0 {
+			if sr.Action != Block {
+				sr.Action = AllowButWarn
+			}
+
+			sr.WarnedRegexDefinitions = warnedRegexDefinitions
+		}
+
+		updated := []string{}
+		for _, text := range sr.Updated {
+			replaced := text
+
+			for _, rule := range p.RegexConfig.RegularExpressionRules {
+				if rule.Action == AllowButRedact {
+					regex, err := regexp.Compile(rule.Definition)
+					if err != nil {
+						stats.Incr("bricksllm.policy.scanner.scan.regex_compile_error", nil, 1)
+						continue
+					}
+
+					if sr.Action != Block && sr.Action != AllowButWarn {
+						sr.Action = AllowButRedact
+					}
+
+					replaced = regex.ReplaceAllString(text, "***")
+				}
+			}
+
+			updated = append(updated, replaced)
+		}
+
+		sr.Updated = updated
 	}
 
 	return sr, nil
