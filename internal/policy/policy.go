@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
 	"github.com/bricks-cloud/bricksllm/internal/pii"
@@ -175,7 +176,7 @@ func (p *Policy) Validate() error {
 	return nil
 }
 
-func (p *Policy) Filter(client http.Client, input any, scanner Scanner) error {
+func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd CustomPolicyDetector) error {
 	if p == nil || scanner == nil {
 		return nil
 	}
@@ -224,7 +225,7 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner) error {
 				inputsToInspect = append(inputsToInspect, stringified)
 			}
 
-			result, err := p.scan(inputsToInspect, scanner)
+			result, err := p.scan(inputsToInspect, scanner, cd)
 			if err != nil {
 				return err
 			}
@@ -241,7 +242,7 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner) error {
 				converted.Input = result.Updated[0]
 			}
 		} else if input, ok := converted.Input.(string); ok {
-			result, err := p.scan([]string{input}, scanner)
+			result, err := p.scan([]string{input}, scanner, cd)
 			if err != nil {
 				return err
 			}
@@ -269,8 +270,7 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner) error {
 			contents = append(contents, message.Content)
 		}
 
-		result, err := p.scan(contents, scanner)
-
+		result, err := p.scan(contents, scanner, cd)
 		if err != nil {
 			return err
 		}
@@ -319,6 +319,10 @@ type Scanner interface {
 	Scan(input []string) (*pii.Result, error)
 }
 
+type CustomPolicyDetector interface {
+	Detect(input []string, requirements []string) (bool, error)
+}
+
 var entityMap map[string]string = map[string]string{
 	"BANK_ACCOUNT_NUMBER":           "bank_account_number",
 	"BANK_ROUTING":                  "bank_routing",
@@ -360,91 +364,154 @@ var entityMap map[string]string = map[string]string{
 }
 
 type ScanResult struct {
-	Action                  Action
-	BlockedEntities         []Rule
-	WarnedEntities          []Rule
-	BlockedRegexDefinitions []string
-	WarnedRegexDefinitions  []string
-	Updated                 []string
+	Action                   Action
+	ActionLock               sync.RWMutex
+	BlockedEntities          []Rule
+	WarnedEntities           []Rule
+	BlockedRegexDefinitions  []string
+	WarnedRegexDefinitions   []string
+	BlockedCustomDefinitions []string
+	WarnedCustomDefinitions  []string
+	Updated                  []string
 }
 
-func (p *Policy) scan(input []string, scanner Scanner) (*ScanResult, error) {
+func (p *Policy) scan(input []string, scanner Scanner, cd CustomPolicyDetector) (*ScanResult, error) {
 	sr := &ScanResult{
-		Action: Allow,
+		Action:  Allow,
+		Updated: input,
 	}
 
-	if p.Config != nil {
-		r, err := scanner.Scan(input)
-		if err != nil {
-			return nil, err
-		}
+	var wg sync.WaitGroup
 
-		found := map[string]bool{}
-		for _, detection := range r.Detections {
-			for _, entity := range detection.Entities {
-				converted, ok := entityMap[entity.Type]
-				if !ok {
-					continue
-				}
+	if p.Config != nil && len(p.Config.Rules) != 0 {
+		wg.Add(1)
+		go func(result *ScanResult) {
+			defer wg.Done()
 
-				found[converted] = true
-			}
-		}
-
-		blockedEntities := []Rule{}
-		warnedEntities := []Rule{}
-		redactedEntities := map[Rule]bool{}
-
-		if p.Config != nil {
-			for rule, action := range p.Config.Rules {
-				_, ok := found[string(rule)]
-				if action == Block && ok {
-					blockedEntities = append(blockedEntities, rule)
-				} else if action == AllowButWarn && ok {
-					warnedEntities = append(warnedEntities, rule)
-				} else if action == AllowButRedact && ok {
-					redactedEntities[rule] = true
-				}
-			}
-		}
-
-		if len(blockedEntities) != 0 {
-			sr.Action = Block
-			sr.BlockedEntities = blockedEntities
-		}
-
-		if len(warnedEntities) != 0 {
-			if sr.Action != Block {
-				sr.Action = AllowButWarn
+			r, err := scanner.Scan(result.Updated)
+			if err != nil {
+				stats.Incr("bricksllm.policy.scanner.scan.scan_error", nil, 1)
+				return
 			}
 
-			sr.WarnedEntities = warnedEntities
-		}
+			result.ActionLock.Lock()
+			defer result.ActionLock.Unlock()
 
-		for _, detection := range r.Detections {
-			replaced := detection.Input
-
-			for _, entity := range detection.Entities {
-				converted, ok := entityMap[entity.Type]
-				if !ok {
-					continue
-				}
-
-				_, ok = redactedEntities[Rule(converted)]
-				if ok {
-					if sr.Action != Block && sr.Action != AllowButWarn {
-						sr.Action = AllowButRedact
+			found := map[string]bool{}
+			for _, detection := range r.Detections {
+				for _, entity := range detection.Entities {
+					converted, ok := entityMap[entity.Type]
+					if !ok {
+						continue
 					}
-					old := replaced[entity.BeginOffset:entity.EndOffset]
-					replaced = strings.ReplaceAll(replaced, old, "***")
+
+					found[converted] = true
 				}
 			}
 
-			sr.Updated = append(sr.Updated, replaced)
+			blockedEntities := []Rule{}
+			warnedEntities := []Rule{}
+			redactedEntities := map[Rule]bool{}
+
+			if p.Config != nil {
+				for rule, action := range p.Config.Rules {
+					_, ok := found[string(rule)]
+					if action == Block && ok {
+						blockedEntities = append(blockedEntities, rule)
+					} else if action == AllowButWarn && ok {
+						warnedEntities = append(warnedEntities, rule)
+					} else if action == AllowButRedact && ok {
+						redactedEntities[rule] = true
+					}
+				}
+			}
+
+			if len(blockedEntities) != 0 {
+				result.Action = Block
+				result.BlockedEntities = blockedEntities
+			}
+
+			if len(warnedEntities) != 0 {
+				if result.Action != Block {
+					result.Action = AllowButWarn
+				}
+
+				result.WarnedEntities = warnedEntities
+			}
+
+			for _, detection := range r.Detections {
+				replaced := detection.Input
+
+				for _, entity := range detection.Entities {
+					converted, ok := entityMap[entity.Type]
+					if !ok {
+						continue
+					}
+
+					_, ok = redactedEntities[Rule(converted)]
+					if ok {
+						if result.Action != Block && result.Action != AllowButWarn {
+							result.Action = AllowButRedact
+						}
+						old := replaced[entity.BeginOffset:entity.EndOffset]
+						replaced = strings.ReplaceAll(replaced, old, "***")
+					}
+				}
+
+				result.Updated = append(result.Updated, replaced)
+			}
+		}(sr)
+	}
+
+	if p.CustomConfig != nil && len(p.CustomConfig.CustomRules) != 0 {
+		actionToRequirements := map[Action][]string{}
+		for _, cr := range p.CustomConfig.CustomRules {
+			_, ok := actionToRequirements[cr.Action]
+			if ok {
+				actionToRequirements[cr.Action] = append(actionToRequirements[cr.Action], cr.Definition)
+				continue
+			}
+
+			actionToRequirements[cr.Action] = []string{
+				cr.Definition,
+			}
+		}
+
+		for val, key := range actionToRequirements {
+			wg.Add(1)
+
+			go func(action Action, reqs []string, result *ScanResult) {
+				defer wg.Done()
+
+				found, err := cd.Detect(input, reqs)
+				if err != nil {
+					stats.Incr("bricksllm.policy.scanner.scan.detect_error", nil, 1)
+					return
+				}
+
+				result.ActionLock.Lock()
+				defer result.ActionLock.Unlock()
+
+				if action == Block && found {
+					result.BlockedCustomDefinitions = append(result.BlockedCustomDefinitions, reqs...)
+					result.Action = Block
+				}
+
+				if action == AllowButWarn && found {
+					if result.Action != Block {
+						result.Action = AllowButWarn
+					}
+
+					result.WarnedCustomDefinitions = append(result.WarnedCustomDefinitions, reqs...)
+				}
+
+			}(val, key, sr)
 		}
 	}
 
-	if p.RegexConfig != nil {
+	wg.Wait()
+
+	if p.RegexConfig != nil && len(p.RegexConfig.RegularExpressionRules) != 0 {
 		found := map[string]bool{}
 		for _, text := range sr.Updated {
 			for _, rule := range p.RegexConfig.RegularExpressionRules {

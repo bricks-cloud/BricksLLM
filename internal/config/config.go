@@ -27,6 +27,8 @@ type Config struct {
 	AdminPass                     string        `env:"ADMIN_PASS"`
 	ProxyTimeout                  time.Duration `env:"PROXY_TIMEOUT" envDefault:"600s"`
 	NumberOfEventMessageConsumers int           `env:"NUMBER_OF_EVENT_MESSAGE_CONSUMERS" envDefault:"3"`
+	OpenAiApiKey                  string        `env:"OPENAI_API_KEY"`
+	CustomPolicyDetectionTimeout  time.Duration `env:"CUSTOM_POLICY_DETECTION_TIMEOUT" envDefault:"10m"`
 	AmazonRequestTimeout          time.Duration `env:"AMAZON_REQUEST_TIMEOUT" envDefault:"5s"`
 	AmazonConnectionTimeout       time.Duration `env:"AMAZON_CONNECTION_TIMEOUT" envDefault:"10s"`
 }

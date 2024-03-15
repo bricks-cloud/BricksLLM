@@ -172,7 +172,11 @@ func (w responseWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
-func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManager, a authenticator, prod, private bool, log *zap.Logger, pub publisher, prefix string, ac accessCache, client http.Client, scanner Scanner) gin.HandlerFunc {
+type CustomPolicyDetector interface {
+	Detect(input []string, requirements []string) (bool, error)
+}
+
+func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManager, a authenticator, prod, private bool, log *zap.Logger, pub publisher, prefix string, ac accessCache, client http.Client, scanner Scanner, cd CustomPolicyDetector) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] request is empty")
@@ -451,7 +455,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				c.Set("encoding_format", string(er.EncodingFormat))
 
 				logEmbeddingRequest(log, prod, private, cid, er)
-				err := p.Filter(client, er, scanner)
+				err := p.Filter(client, er, scanner, cd)
 				if err != nil {
 					_, ok := err.(blockedError)
 					if ok {
@@ -495,7 +499,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 					c.Set("cache_key", route.ComputeCacheKeyForChatCompletionRequest(r, ccr))
 				}
 
-				err := p.Filter(client, ccr, scanner)
+				err := p.Filter(client, ccr, scanner, cd)
 				if err != nil {
 					_, ok := err.(blockedError)
 					if ok {
@@ -541,7 +545,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			}
 
 			if p != nil {
-				err := p.Filter(client, ccr, scanner)
+				err := p.Filter(client, ccr, scanner, cd)
 				if err != nil {
 					_, ok := err.(blockedError)
 					if ok {
@@ -578,7 +582,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			logEmbeddingRequest(log, prod, private, cid, er)
 
 			if p != nil {
-				err := p.Filter(client, er, scanner)
+				err := p.Filter(client, er, scanner, cd)
 				if err != nil {
 					_, ok := err.(blockedError)
 					if ok {
@@ -634,7 +638,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			}
 
 			if p != nil {
-				err := p.Filter(client, ccr, scanner)
+				err := p.Filter(client, ccr, scanner, cd)
 				if err != nil {
 					_, ok := err.(blockedError)
 					if ok {
@@ -670,7 +674,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			logEmbeddingRequest(log, prod, private, cid, er)
 
 			if p != nil {
-				err := p.Filter(client, er, scanner)
+				err := p.Filter(client, er, scanner, cd)
 				if err != nil {
 					_, ok := err.(blockedError)
 					if ok {

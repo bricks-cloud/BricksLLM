@@ -17,6 +17,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/message"
 	"github.com/bricks-cloud/bricksllm/internal/pii"
 	"github.com/bricks-cloud/bricksllm/internal/pii/amazon"
+	custompolicy "github.com/bricks-cloud/bricksllm/internal/policy/custom"
 	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
 	"github.com/bricks-cloud/bricksllm/internal/provider/azure"
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
@@ -247,7 +248,9 @@ func main() {
 	}
 
 	scanner := pii.NewScanner(detector)
-	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, c, m, rm, a, psm, cpm, store, memStore, ce, ace, aoe, v, rec, messageBus, rlm, cfg.ProxyTimeout, accessCache, pm, scanner)
+	cd := custompolicy.NewOpenAiDetector(cfg.CustomPolicyDetectionTimeout, cfg.OpenAiApiKey)
+
+	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, c, m, rm, a, psm, cpm, store, memStore, ce, ace, aoe, v, rec, messageBus, rlm, cfg.ProxyTimeout, accessCache, pm, scanner, cd)
 	if err != nil {
 		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}
