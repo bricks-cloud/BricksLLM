@@ -6,6 +6,7 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/encrypter"
 	"github.com/bricks-cloud/bricksllm/internal/key"
+	"github.com/bricks-cloud/bricksllm/internal/policy"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 )
@@ -16,6 +17,7 @@ type Storage interface {
 	CreateKey(key *key.RequestKey) (*key.ResponseKey, error)
 	DeleteKey(id string) error
 	GetProviderSetting(id string) (*provider.Setting, error)
+	GetPolicyById(id string) (*policy.Policy, error)
 	GetProviderSettings(withSecret bool, ids []string) ([]*provider.Setting, error)
 	GetKey(keyId string) (*key.ResponseKey, error)
 }
@@ -83,6 +85,13 @@ func (m *Manager) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		}
 	}
 
+	if len(rk.PolicyId) != 0 {
+		_, err := m.s.GetPolicyById(rk.PolicyId)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return m.s.CreateKey(rk)
 }
 
@@ -128,6 +137,15 @@ func (m *Manager) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, err
 		err := m.ac.Delete(id)
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	if uk.PolicyId != nil {
+		if len(*uk.PolicyId) != 0 {
+			_, err := m.s.GetPolicyById(*uk.PolicyId)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -86,6 +87,48 @@ type notFoundError interface {
 	NotFound()
 }
 
+type blockedError interface {
+	Error() string
+	Blocked()
+}
+
+type warningError interface {
+	Error() string
+	Warnings()
+}
+
+type AlertRequest struct {
+	Email   string `json:"email"`
+	Subject string `json:"subject"`
+	Body    string `json:"body"`
+}
+
+func sendAlertsToEmail(client http.Client, message string) error {
+	data, err := json.Marshal(&AlertRequest{
+		Email:   "spike@bricks-tech.com",
+		Subject: "BricksLLM Alerts",
+		Body:    message,
+	})
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://localhost:3000/alerts", io.NopCloser(bytes.NewReader(data)))
+	if err != nil {
+		return err
+	}
+
+	_, err = client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 type publisher interface {
 	Publish(message.Message)
 }
@@ -129,7 +172,11 @@ func (w responseWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
-func getMiddleware(cpm CustomProvidersManager, rm routeManager, a authenticator, prod, private bool, log *zap.Logger, pub publisher, prefix string, ac accessCache) gin.HandlerFunc {
+type CustomPolicyDetector interface {
+	Detect(input []string, requirements []string) (bool, error)
+}
+
+func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManager, a authenticator, prod, private bool, log *zap.Logger, pub publisher, prefix string, ac accessCache, client http.Client, scanner Scanner, cd CustomPolicyDetector) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] request is empty")
@@ -274,6 +321,8 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, a authenticator,
 			}
 		}
 
+		p := pm.GetPolicyByIdFromMemdb(kc.PolicyId)
+
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
 			logError(log, "error when reading request body", prod, cid, err)
@@ -406,6 +455,23 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, a authenticator,
 				c.Set("encoding_format", string(er.EncodingFormat))
 
 				logEmbeddingRequest(log, prod, private, cid, er)
+				err := p.Filter(client, er, scanner, cd, log)
+				if err != nil {
+					_, ok := err.(blockedError)
+					if ok {
+						stats.Incr("bricksllm.proxy.get_middleware.request_blocked", nil, 1)
+						JSON(c, http.StatusForbidden, "[BricksLLM] request blocked")
+						c.Abort()
+						return
+					}
+
+					logError(log, "error when filtering route openai embedding request", prod, cid, err)
+				}
+
+				data, err := json.Marshal(er)
+				if err == nil {
+					c.Request.Body = io.NopCloser(bytes.NewReader(data))
+				}
 			}
 
 			if !rc.ShouldRunEmbeddings() {
@@ -432,6 +498,24 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, a authenticator,
 				if rc.CacheConfig != nil && rc.CacheConfig.Enabled {
 					c.Set("cache_key", route.ComputeCacheKeyForChatCompletionRequest(r, ccr))
 				}
+
+				err := p.Filter(client, ccr, scanner, cd, log)
+				if err != nil {
+					_, ok := err.(blockedError)
+					if ok {
+						stats.Incr("bricksllm.proxy.get_middleware.request_blocked", nil, 1)
+						JSON(c, http.StatusForbidden, "[BricksLLM] request blocked")
+						c.Abort()
+					}
+
+					logError(log, "error when filtering route chat completion request", prod, cid, err)
+				}
+
+				data, err := json.Marshal(ccr)
+				if err == nil {
+					c.Request.Body = io.NopCloser(bytes.NewReader(data))
+				}
+
 			}
 		}
 
@@ -459,6 +543,27 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, a authenticator,
 				c.Set("stream", true)
 				// c.Set("promptTokenCount", tks)
 			}
+
+			if p != nil {
+				err := p.Filter(client, ccr, scanner, cd, log)
+				if err != nil {
+					_, ok := err.(blockedError)
+					if ok {
+						stats.Incr("bricksllm.proxy.get_middleware.request_blocked", nil, 1)
+						JSON(c, http.StatusForbidden, "[BricksLLM] request blocked")
+						c.Abort()
+						return
+					}
+
+					logError(log, "error when filtering azure chat completion request", prod, cid, err)
+				}
+
+				data, err := json.Marshal(ccr)
+				if err == nil {
+					c.Request.Body = io.NopCloser(bytes.NewReader(data))
+				}
+			}
+
 		}
 
 		if c.FullPath() == "/api/providers/azure/openai/deployments/:deployment_id/embeddings" {
@@ -475,6 +580,26 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, a authenticator,
 			c.Set("encoding_format", string(er.EncodingFormat))
 
 			logEmbeddingRequest(log, prod, private, cid, er)
+
+			if p != nil {
+				err := p.Filter(client, er, scanner, cd, log)
+				if err != nil {
+					_, ok := err.(blockedError)
+					if ok {
+						stats.Incr("bricksllm.proxy.get_middleware.request_blocked", nil, 1)
+						JSON(c, http.StatusForbidden, "[BricksLLM] request blocked")
+						c.Abort()
+						return
+					}
+
+					logError(log, "error when filtering azure embedding request", prod, cid, err)
+				}
+
+				data, err := json.Marshal(er)
+				if err == nil {
+					c.Request.Body = io.NopCloser(bytes.NewReader(data))
+				}
+			}
 
 			// cost, err = aoe.EstimateEmbeddingsCost(er)
 			// if err != nil {
@@ -511,6 +636,26 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, a authenticator,
 				// c.Set("estimatedPromptCostInUsd", cost)
 				// c.Set("promptTokenCount", tks)
 			}
+
+			if p != nil {
+				err := p.Filter(client, ccr, scanner, cd, log)
+				if err != nil {
+					_, ok := err.(blockedError)
+					if ok {
+						stats.Incr("bricksllm.proxy.get_middleware.request_blocked", nil, 1)
+						JSON(c, http.StatusForbidden, "[BricksLLM] request blocked")
+						c.Abort()
+						return
+					}
+
+					logError(log, "error when filtering openai chat completion request", prod, cid, err)
+				}
+
+				data, err := json.Marshal(ccr)
+				if err == nil {
+					c.Request.Body = io.NopCloser(bytes.NewReader(data))
+				}
+			}
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/embeddings" {
@@ -527,6 +672,26 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, a authenticator,
 			c.Set("encoding_format", string(er.EncodingFormat))
 
 			logEmbeddingRequest(log, prod, private, cid, er)
+
+			if p != nil {
+				err := p.Filter(client, er, scanner, cd, log)
+				if err != nil {
+					_, ok := err.(blockedError)
+					if ok {
+						stats.Incr("bricksllm.proxy.get_middleware.request_blocked", nil, 1)
+						JSON(c, http.StatusForbidden, "[BricksLLM] request blocked")
+						c.Abort()
+						return
+					}
+
+					logError(log, "error when filtering azure embedding request", prod, cid, err)
+				}
+
+				data, err := json.Marshal(er)
+				if err == nil {
+					c.Request.Body = io.NopCloser(bytes.NewReader(data))
+				}
+			}
 
 			// cost, err = e.EstimateEmbeddingsCost(er)
 			// if err != nil {

@@ -33,19 +33,6 @@ func (s *Store) CreateRoutesTable() error {
 	return nil
 }
 
-func (s *Store) DropRoutesTable() error {
-	dropTableQuery := `DROP TABLE routes`
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
-	defer cancel()
-
-	_, err := s.db.ExecContext(ctxTimeout, dropTableQuery)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (s *Store) CreateRoute(r *route.Route) (*route.Route, error) {
 	sbytes, err := json.Marshal(r.Steps)
 	if err != nil {
@@ -81,6 +68,7 @@ func (s *Store) CreateRoute(r *route.Route) (*route.Route, error) {
 
 	var cdata []byte
 	var sdata []byte
+
 	if err := s.db.QueryRowContext(ctxTimeout, query, values...).Scan(
 		&created.Id,
 		&created.CreatedAt,
@@ -111,6 +99,7 @@ func (s *Store) GetRoute(id string) (*route.Route, error) {
 
 	var cdata []byte
 	var sdata []byte
+
 	created := &route.Route{}
 	if err := s.db.QueryRowContext(ctxTimeout, "SELECT * FROM routes WHERE $1 = id", id).Scan(
 		&created.Id,
@@ -146,6 +135,7 @@ func (s *Store) GetRouteByPath(path string) (*route.Route, error) {
 
 	var cdata []byte
 	var sdata []byte
+
 	created := &route.Route{}
 	if err := s.db.QueryRowContext(ctxTimeout, "SELECT * FROM routes WHERE $1 = path", path).Scan(
 		&created.Id,
@@ -190,6 +180,7 @@ func (s *Store) GetUpdatedRoutes(updatedAt int64) ([]*route.Route, error) {
 		r := &route.Route{}
 		var cdata []byte
 		var sdata []byte
+
 		if err := rows.Scan(
 			&r.Id,
 			&r.CreatedAt,
@@ -232,6 +223,7 @@ func (s *Store) GetRoutes() ([]*route.Route, error) {
 		r := &route.Route{}
 		var cdata []byte
 		var sdata []byte
+
 		if err := rows.Scan(
 			&r.Id,
 			&r.CreatedAt,

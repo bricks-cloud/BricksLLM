@@ -1,3 +1,7 @@
+## 1.13.0 - 2024-03-14
+### Added
+- Added `policy` APIs
+
 ## 1.12.3 - 2024-03-07
 ### Added
 - Started supporting storing streaming responses in bytes as part of `event`

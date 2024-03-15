@@ -11,6 +11,7 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
+	"github.com/bricks-cloud/bricksllm/internal/policy"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
@@ -42,6 +43,12 @@ type KeyReportingManager interface {
 	GetEventReporting(e *event.ReportingRequest) (*event.ReportingResponse, error)
 }
 
+type PoliciesManager interface {
+	CreatePolicy(p *policy.Policy) (*policy.Policy, error)
+	UpdatePolicy(id string, p *policy.UpdatePolicy) (*policy.Policy, error)
+	GetPoliciesByTags(tags []string) ([]*policy.Policy, error)
+}
+
 type ErrorResponse struct {
 	Type     string `json:"type"`
 	Title    string `json:"title"`
@@ -56,7 +63,7 @@ type AdminServer struct {
 	m      KeyManager
 }
 
-func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReportingManager, psm ProviderSettingsManager, cpm CustomProvidersManager, rm RouteManager, adminPass string) (*AdminServer, error) {
+func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReportingManager, psm ProviderSettingsManager, cpm CustomProvidersManager, rm RouteManager, pm PoliciesManager, adminPass string) (*AdminServer, error) {
 	router := gin.New()
 
 	prod := mode == "production"
@@ -84,6 +91,10 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 	router.POST("/api/routes", getCreateRouteHandler(rm, log, prod))
 	router.GET("/api/routes/:id", getGetRouteHandler(rm, log, prod))
 	router.GET("/api/routes", getGetRoutesHandler(rm, log, prod))
+
+	router.POST("/api/policies", getCreatePolicyHandler(pm, log, prod))
+	router.PATCH("/api/policies/:id", getUpdatePolicyHandler(pm, log, prod))
+	router.GET("/api/policies", getGetPoliciesByTagsHandler(pm, log, prod))
 
 	srv := &http.Server{
 		Addr:    ":8001",
@@ -115,6 +126,9 @@ func (as *AdminServer) Run() {
 		as.log.Info("PORT 8001 | POST  | /api/routes is set up for creating a custom route")
 		as.log.Info("PORT 8001 | GET   | /api/routes/:id is set up for retrieving a route")
 		as.log.Info("PORT 8001 | GET   | /api/routes is set up for retrieving routes")
+		as.log.Info("PORT 8001 | POST  | /api/policies is set up for creating a policy")
+		as.log.Info("PORT 8001 | PATCH | /api/policies/:id is set up for retrieving a policy")
+		as.log.Info("PORT 8001 | GET   | /api/policies is set up for retrieving policies")
 
 		if err := as.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			as.log.Sugar().Fatalf("error admin server listening: %v", err)
