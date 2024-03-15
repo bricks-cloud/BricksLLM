@@ -284,9 +284,6 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 			return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
 		}
 
-		fmt.Printf("result.Updated: %s \n", strings.Join(result.Updated, ","))
-		fmt.Printf("converted.Messages: %+v \n", converted.Messages)
-
 		if len(result.Updated) != len(converted.Messages) {
 			return errors.New("updated contents length not consistent with existing content length")
 		}
