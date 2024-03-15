@@ -450,6 +450,7 @@ func (p *Policy) scan(input []string, scanner Scanner, cd CustomPolicyDetector, 
 				result.WarnedEntities = warnedEntities
 			}
 
+			updated := []string{}
 			for _, detection := range r.Detections {
 				replaced := detection.Input
 
@@ -469,8 +470,10 @@ func (p *Policy) scan(input []string, scanner Scanner, cd CustomPolicyDetector, 
 					}
 				}
 
-				result.Updated = append(result.Updated, replaced)
+				updated = append(updated, replaced)
 			}
+
+			sr.Updated = updated
 		}(sr)
 	}
 
