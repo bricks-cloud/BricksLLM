@@ -29,10 +29,7 @@ type result struct {
 }
 
 func (c *OpenAiDetector) Detect(input []string, requirements []string) (bool, error) {
-	requirement := ""
-	for index, req := range requirements {
-		requirement += fmt.Sprintf("%d.%s \n", index, req)
-	}
+	requirement := strings.Join(requirements, ",")
 
 	resp, err := c.client.CreateChatCompletion(
 		context.Background(),
@@ -41,11 +38,11 @@ func (c *OpenAiDetector) Detect(input []string, requirements []string) (bool, er
 			Messages: []openai.ChatCompletionMessage{
 				{
 					Role:    openai.ChatMessageRoleSystem,
-					Content: "You are a helpful assistant. You take in an array of strings and ouput JSON with one field called relevant_texts_found. relevant_texts_found is a boolean field that indicates whether or not given texts contain subtexts that fullfill the following requirements: " + requirement,
+					Content: "You are a text classifier. You take in an array of strings and ouput JSON with one field called relevant_texts_found. relevant_texts_found is a boolean field that indicates whether or not the given text contains: " + requirement,
 				},
 				{
 					Role:    openai.ChatMessageRoleUser,
-					Content: fmt.Sprintf("[%s]", strings.Join(input, " ,")),
+					Content: fmt.Sprintf("this is the input [%s]", strings.Join(input, " ,")),
 				},
 			},
 			ResponseFormat: &goopenai.ChatCompletionResponseFormat{

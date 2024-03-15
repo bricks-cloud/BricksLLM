@@ -11,6 +11,7 @@ import (
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
 	"github.com/bricks-cloud/bricksllm/internal/pii"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"go.uber.org/zap"
 
 	goopenai "github.com/sashabaranov/go-openai"
 )
@@ -176,7 +177,7 @@ func (p *Policy) Validate() error {
 	return nil
 }
 
-func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd CustomPolicyDetector) error {
+func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd CustomPolicyDetector, log *zap.Logger) error {
 	if p == nil || scanner == nil {
 		return nil
 	}
@@ -225,7 +226,7 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 				inputsToInspect = append(inputsToInspect, stringified)
 			}
 
-			result, err := p.scan(inputsToInspect, scanner, cd)
+			result, err := p.scan(inputsToInspect, scanner, cd, log)
 			if err != nil {
 				return err
 			}
@@ -242,7 +243,7 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 				converted.Input = result.Updated[0]
 			}
 		} else if input, ok := converted.Input.(string); ok {
-			result, err := p.scan([]string{input}, scanner, cd)
+			result, err := p.scan([]string{input}, scanner, cd, log)
 			if err != nil {
 				return err
 			}
@@ -270,7 +271,7 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 			contents = append(contents, message.Content)
 		}
 
-		result, err := p.scan(contents, scanner, cd)
+		result, err := p.scan(contents, scanner, cd, log)
 		if err != nil {
 			return err
 		}
@@ -282,6 +283,9 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 		if result.Action == AllowButWarn {
 			return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
 		}
+
+		fmt.Printf("result.Updated: %s \n", strings.Join(result.Updated, ","))
+		fmt.Printf("converted.Messages: %+v \n", converted.Messages)
 
 		if len(result.Updated) != len(converted.Messages) {
 			return errors.New("updated contents length not consistent with existing content length")
@@ -382,7 +386,7 @@ type ScanResult struct {
 	Updated                  []string
 }
 
-func (p *Policy) scan(input []string, scanner Scanner, cd CustomPolicyDetector) (*ScanResult, error) {
+func (p *Policy) scan(input []string, scanner Scanner, cd CustomPolicyDetector, log *zap.Logger) (*ScanResult, error) {
 	sr := &ScanResult{
 		Action:  Allow,
 		Updated: input,
@@ -492,6 +496,7 @@ func (p *Policy) scan(input []string, scanner Scanner, cd CustomPolicyDetector) 
 
 				found, err := cd.Detect(input, reqs)
 				if err != nil {
+					log.Debug("error when detecting using custom policy", zap.Error(err))
 					stats.Incr("bricksllm.policy.scanner.scan.detect_error", nil, 1)
 					return
 				}

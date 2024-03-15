@@ -455,7 +455,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				c.Set("encoding_format", string(er.EncodingFormat))
 
 				logEmbeddingRequest(log, prod, private, cid, er)
-				err := p.Filter(client, er, scanner, cd)
+				err := p.Filter(client, er, scanner, cd, log)
 				if err != nil {
 					_, ok := err.(blockedError)
 					if ok {
@@ -499,7 +499,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 					c.Set("cache_key", route.ComputeCacheKeyForChatCompletionRequest(r, ccr))
 				}
 
-				err := p.Filter(client, ccr, scanner, cd)
+				err := p.Filter(client, ccr, scanner, cd, log)
 				if err != nil {
 					_, ok := err.(blockedError)
 					if ok {
@@ -545,7 +545,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			}
 
 			if p != nil {
-				err := p.Filter(client, ccr, scanner, cd)
+				err := p.Filter(client, ccr, scanner, cd, log)
 				if err != nil {
 					_, ok := err.(blockedError)
 					if ok {
@@ -582,7 +582,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			logEmbeddingRequest(log, prod, private, cid, er)
 
 			if p != nil {
-				err := p.Filter(client, er, scanner, cd)
+				err := p.Filter(client, er, scanner, cd, log)
 				if err != nil {
 					_, ok := err.(blockedError)
 					if ok {
@@ -638,7 +638,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			}
 
 			if p != nil {
-				err := p.Filter(client, ccr, scanner, cd)
+				err := p.Filter(client, ccr, scanner, cd, log)
 				if err != nil {
 					_, ok := err.(blockedError)
 					if ok {
@@ -674,7 +674,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			logEmbeddingRequest(log, prod, private, cid, er)
 
 			if p != nil {
-				err := p.Filter(client, er, scanner, cd)
+				err := p.Filter(client, er, scanner, cd, log)
 				if err != nil {
 					_, ok := err.(blockedError)
 					if ok {
