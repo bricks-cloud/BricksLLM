@@ -231,11 +231,11 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 			}
 
 			if result.Action == Block {
-				return internal_errors.NewBlockedError("request blocked due to detected entities: " + join(result.BlockedEntities))
+				return internal_errors.NewBlockedError("request blocked due to detected entities: " + join(result.BlockedEntities, result.BlockedRegexDefinitions, result.BlockedCustomDefinitions))
 			}
 
 			if result.Action == AllowButWarn {
-				return internal_errors.NewBlockedError("request warned due to detected entities: " + join(result.WarnedEntities))
+				return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
 			}
 
 			if len(result.Updated) == 1 {
@@ -248,11 +248,11 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 			}
 
 			if result.Action == Block {
-				return internal_errors.NewBlockedError("request blocked due to detected entities: " + join(result.BlockedEntities))
+				return internal_errors.NewBlockedError("request blocked due to detected entities: " + join(result.BlockedEntities, result.BlockedRegexDefinitions, result.BlockedCustomDefinitions))
 			}
 
 			if result.Action == AllowButWarn {
-				return internal_errors.NewBlockedError("request warned due to detected entities: " + join(result.WarnedEntities))
+				return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
 			}
 
 			if len(result.Updated) == 1 {
@@ -276,11 +276,11 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 		}
 
 		if result.Action == Block {
-			return internal_errors.NewBlockedError("request blocked due to detected entities: " + join(result.BlockedEntities))
+			return internal_errors.NewBlockedError("request blocked due to detected entities: " + join(result.BlockedEntities, result.BlockedRegexDefinitions, result.BlockedCustomDefinitions))
 		}
 
 		if result.Action == AllowButWarn {
-			return internal_errors.NewBlockedError("request warned due to detected entities: " + join(result.WarnedEntities))
+			return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
 		}
 
 		if len(result.Updated) != len(converted.Messages) {
@@ -306,10 +306,18 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 	return nil
 }
 
-func join(entities []Rule) string {
+func join(entities []Rule, regexDefitions []string, customDefinitions []string) string {
 	strs := []string{}
 	for _, entity := range entities {
 		strs = append(strs, string(entity))
+	}
+
+	for _, def := range regexDefitions {
+		strs = append(strs, def)
+	}
+
+	for _, def := range customDefinitions {
+		strs = append(strs, def)
 	}
 
 	return strings.Join(strs, " ,")
@@ -371,7 +379,6 @@ type ScanResult struct {
 	BlockedRegexDefinitions  []string
 	WarnedRegexDefinitions   []string
 	BlockedCustomDefinitions []string
-	WarnedCustomDefinitions  []string
 	Updated                  []string
 }
 
@@ -495,14 +502,6 @@ func (p *Policy) scan(input []string, scanner Scanner, cd CustomPolicyDetector) 
 				if action == Block && found {
 					result.BlockedCustomDefinitions = append(result.BlockedCustomDefinitions, reqs...)
 					result.Action = Block
-				}
-
-				if action == AllowButWarn && found {
-					if result.Action != Block {
-						result.Action = AllowButWarn
-					}
-
-					result.WarnedCustomDefinitions = append(result.WarnedCustomDefinitions, reqs...)
 				}
 
 			}(val, key, sr)
