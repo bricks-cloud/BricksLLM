@@ -20,7 +20,7 @@ type Client struct {
 	log    *zap.Logger
 }
 
-func NewClient(rt time.Duration, ct time.Duration) (*Client, error) {
+func NewClient(rt time.Duration, ct time.Duration, log *zap.Logger) (*Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), ct)
 	defer cancel()
 
@@ -35,6 +35,7 @@ func NewClient(rt time.Duration, ct time.Duration) (*Client, error) {
 		client: client,
 		rt:     rt,
 		ct:     ct,
+		log:    log,
 	}, nil
 }
 

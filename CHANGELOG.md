@@ -1,3 +1,7 @@
+## 1.13.1 - 2024-03-15
+### Fixed
+- Fixed `nil` pointer error
+
 ## 1.13.0 - 2024-03-14
 ### Added
 - Added `policy` APIs
