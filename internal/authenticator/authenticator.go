@@ -181,7 +181,7 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 		if err != nil {
 			_, ok := err.(notFoundError)
 			if ok {
-				return nil, nil, internal_errors.NewAuthError("key not found")
+				return nil, nil, internal_errors.NewAuthError("key not found in db ")
 			}
 
 			return nil, nil, err
@@ -193,7 +193,7 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 	}
 
 	if key == nil {
-		return nil, nil, internal_errors.NewAuthError("key not found")
+		return nil, nil, internal_errors.NewAuthError("key not found in memdb")
 	}
 
 	if key.Revoked {

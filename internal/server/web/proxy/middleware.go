@@ -287,6 +287,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		_, ok := err.(notAuthorizedError)
 		if ok {
 			stats.Incr("bricksllm.proxy.get_middleware.authentication_error", nil, 1)
+			logError(log, "error when authenticating http requests", prod, cid, err)
 			JSON(c, http.StatusUnauthorized, "[BricksLLM] not authorized")
 			c.Abort()
 			return
@@ -295,6 +296,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		_, ok = err.(notFoundError)
 		if ok {
 			stats.Incr("bricksllm.proxy.get_middleware.not_found_error", nil, 1)
+			logError(log, "error when authenticating http requests", prod, cid, err)
 			JSON(c, http.StatusNotFound, "[BricksLLM] route not found")
 			c.Abort()
 			return
