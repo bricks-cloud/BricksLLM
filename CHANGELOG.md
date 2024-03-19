@@ -1,7 +1,11 @@
+## 1.13.1 - 2024-03-18
+### Changed
+- Updated default postgresql read operation timeout from `15s` to `2m`
+
 ## 1.13.1 - 2024-03-15
 ### Fixed
 - Fixed `nil` pointer error
-
+s
 ## 1.13.0 - 2024-03-14
 ### Added
 - Added `policy` APIs
