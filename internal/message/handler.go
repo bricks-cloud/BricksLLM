@@ -161,8 +161,13 @@ func (h *Handler) handleValidationResult(kc *key.ResponseKey, cost float64) erro
 	if err != nil {
 		stats.Incr("bricksllm.message.handler.handle_validation_result.handle_validation_result", nil, 1)
 
-		if _, ok := err.(expirationError); ok {
+		if xe, ok := err.(expirationError); ok {
 			stats.Incr("bricksllm.message.handler.handle_validation_result.expiraton_error", nil, 1)
+
+			h.log.Debug("expiration error",
+				zap.String("expired_reason", xe.Reason()),
+				zap.String("key_id", kc.KeyId),
+			)
 
 			truePtr := true
 			_, err = h.km.UpdateKey(kc.KeyId, &key.UpdateKey{
