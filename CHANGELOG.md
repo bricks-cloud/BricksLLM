@@ -1,4 +1,4 @@
-## 1.13.1 - 2024-03-18
+## 1.13.2 - 2024-03-18
 ### Changed
 - Updated default postgresql read operation timeout from `15s` to `2m`
 
