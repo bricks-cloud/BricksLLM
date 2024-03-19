@@ -178,6 +178,60 @@ func (s *Store) GetKeys(tags, keyIds []string, provider string) ([]*key.Response
 	return keys, nil
 }
 
+func (s *Store) GetKeyByHash(hash string) (*key.ResponseKey, error) {
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	var k key.ResponseKey
+	var settingId sql.NullString
+	var data []byte
+
+	err := s.db.QueryRowContext(ctxTimeout, "SELECT * FROM keys WHERE key = $1", hash).Scan(
+		&k.Name,
+		&k.CreatedAt,
+		&k.UpdatedAt,
+		pq.Array(&k.Tags),
+		&k.Revoked,
+		&k.KeyId,
+		&k.Key,
+		&k.RevokedReason,
+		&k.CostLimitInUsd,
+		&k.CostLimitInUsdOverTime,
+		&k.CostLimitInUsdUnit,
+		&k.RateLimitOverTime,
+		&k.RateLimitUnit,
+		&k.Ttl,
+		&settingId,
+		&data,
+		pq.Array(&k.SettingIds),
+		&k.ShouldLogRequest,
+		&k.ShouldLogResponse,
+		&k.RotationEnabled,
+		&k.PolicyId,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, internal_errors.NewNotFoundError("key is not found using hash")
+		}
+
+		return nil, err
+	}
+
+	k.SettingId = settingId.String
+
+	if len(data) != 0 {
+		pathConfigs := []key.PathConfig{}
+		if err := json.Unmarshal(data, &pathConfigs); err != nil {
+			return nil, err
+		}
+
+		k.AllowedPaths = pathConfigs
+	}
+
+	return &k, nil
+}
+
 func (s *Store) GetKey(keyId string) (*key.ResponseKey, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()

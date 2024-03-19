@@ -27,17 +27,23 @@ type keyMemStorage interface {
 	GetKey(hash string) *key.ResponseKey
 }
 
+type keyStorage interface {
+	GetKeyByHash(hash string) (*key.ResponseKey, error)
+}
+
 type Authenticator struct {
 	psm providerSettingsManager
 	kms keyMemStorage
 	rm  routesManager
+	ks  keyStorage
 }
 
-func NewAuthenticator(psm providerSettingsManager, kms keyMemStorage, rm routesManager) *Authenticator {
+func NewAuthenticator(psm providerSettingsManager, kms keyMemStorage, rm routesManager, ks keyStorage) *Authenticator {
 	return &Authenticator{
 		psm: psm,
 		kms: kms,
 		rm:  rm,
+		ks:  ks,
 	}
 }
 
@@ -151,6 +157,11 @@ func canAccessPath(provider string, path string) bool {
 	return true
 }
 
+type notFoundError interface {
+	Error() string
+	NotFound()
+}
+
 func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.ResponseKey, []*provider.Setting, error) {
 	raw, err := getApiKey(req)
 	if err != nil {
@@ -160,7 +171,23 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 	hash := encrypter.Encrypt(raw)
 
 	key := a.kms.GetKey(hash)
-	if key == nil || key.Revoked {
+	if key == nil {
+		key, err = a.ks.GetKeyByHash(hash)
+		if err != nil {
+			_, ok := err.(notFoundError)
+			if ok {
+				return nil, nil, internal_errors.NewAuthError("key not found")
+			}
+
+			return nil, nil, err
+		}
+	}
+
+	if key == nil {
+		return nil, nil, internal_errors.NewAuthError("key not found")
+	}
+
+	if key.Revoked {
 		return nil, nil, internal_errors.NewAuthError("not authorized")
 	}
 
