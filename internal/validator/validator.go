@@ -79,11 +79,7 @@ func (v *Validator) validateTtl(createdAt int64, ttl time.Duration) bool {
 	}
 
 	current := time.Now().Unix()
-	if current > createdAt+ttlInSecs {
-		return false
-	}
-
-	return true
+	return current < createdAt+ttlInSecs
 }
 
 func (v *Validator) validateRateLimitOverTime(keyId string, rateLimitOverTime int, rateLimitUnit key.TimeUnit) error {
