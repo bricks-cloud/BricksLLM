@@ -9,6 +9,7 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/encrypter"
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
+	"github.com/bricks-cloud/bricksllm/internal/stats"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
@@ -171,6 +172,10 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 	hash := encrypter.Encrypt(raw)
 
 	key := a.kms.GetKey(hash)
+	if key != nil {
+		stats.Incr("bricksllm.authenticator.authenticate_http_request.found_key_from_memdb", nil, 1)
+	}
+
 	if key == nil {
 		key, err = a.ks.GetKeyByHash(hash)
 		if err != nil {
@@ -180,6 +185,10 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 			}
 
 			return nil, nil, err
+		}
+
+		if key != nil {
+			stats.Incr("bricksllm.authenticator.authenticate_http_request.found_key_from_db", nil, 1)
 		}
 	}
 
