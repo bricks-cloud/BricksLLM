@@ -28,6 +28,7 @@ type UpdateKey struct {
 	ShouldLogRequest       *bool         `json:"shouldLogRequest"`
 	ShouldLogResponse      *bool         `json:"shouldLogResponse"`
 	RotationEnabled        *bool         `json:"rotationEnabled"`
+	PolicyId               *string       `json:"policyId"`
 }
 
 func (uk *UpdateKey) Validate() error {
@@ -55,7 +56,7 @@ func (uk *UpdateKey) Validate() error {
 	if len(uk.SettingIds) != 0 {
 		for index, id := range uk.SettingIds {
 			if len(id) == 0 {
-				invalid = append(invalid, fmt.Sprintf("settingIds.[%d]", index))
+				invalid = append(invalid, fmt.Sprintf("settingIds[%d]", index))
 			}
 		}
 	}
@@ -71,6 +72,12 @@ func (uk *UpdateKey) Validate() error {
 				invalid = append(invalid, fmt.Sprintf("allowedPaths.%d.method", index))
 				break
 			}
+		}
+	}
+
+	if uk.PolicyId != nil {
+		if len(*uk.PolicyId) == 0 {
+			invalid = append(invalid, "policyId")
 		}
 	}
 
@@ -161,6 +168,7 @@ type RequestKey struct {
 	ShouldLogRequest       bool         `json:"shouldLogRequest"`
 	ShouldLogResponse      bool         `json:"shouldLogResponse"`
 	RotationEnabled        bool         `json:"rotationEnabled"`
+	PolicyId               string       `json:"policyId"`
 }
 
 func (rk *RequestKey) Validate() error {
@@ -204,7 +212,7 @@ func (rk *RequestKey) Validate() error {
 	if len(rk.SettingIds) != 0 {
 		for index, id := range rk.SettingIds {
 			if len(id) == 0 {
-				invalid = append(invalid, fmt.Sprintf("settingIds.[%d]", index))
+				invalid = append(invalid, fmt.Sprintf("settingIds[%d]", index))
 			}
 		}
 	}
@@ -308,6 +316,7 @@ type ResponseKey struct {
 	ShouldLogRequest       bool         `json:"shouldLogRequest"`
 	ShouldLogResponse      bool         `json:"shouldLogResponse"`
 	RotationEnabled        bool         `json:"rotationEnabled"`
+	PolicyId               string       `json:"policyId"`
 }
 
 func (rk *ResponseKey) GetSettingIds() []string {

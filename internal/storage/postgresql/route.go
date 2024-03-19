@@ -33,21 +33,6 @@ func (s *Store) CreateRoutesTable() error {
 	return nil
 }
 
-func (s *Store) AlterRoutesTable() error {
-	alterTableQuery := `
-		ALTER TABLE routes ADD COLUMN IF NOT EXISTS policy JSONB NOT NULL DEFAULT '{}'::jsonb
-	`
-
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
-	defer cancel()
-	_, err := s.db.ExecContext(ctxTimeout, alterTableQuery)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (s *Store) CreateRoute(r *route.Route) (*route.Route, error) {
 	sbytes, err := json.Marshal(r.Steps)
 	if err != nil {
@@ -70,19 +55,10 @@ func (s *Store) CreateRoute(r *route.Route) (*route.Route, error) {
 		cbytes,
 	}
 
-	pbytes := []byte{}
-	if r.Policy != nil {
-		pbytes, err = json.Marshal(r.Policy)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	values = append(values, pbytes)
 	query := `
-	INSERT INTO routes (id, created_at, updated_at, name, path, key_ids, steps, cache_config, policy)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	RETURNING id, created_at, updated_at, name, path, key_ids, steps, cache_config, policy
+	INSERT INTO routes (id, created_at, updated_at, name, path, key_ids, steps, cache_config)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	RETURNING id, created_at, updated_at, name, path, key_ids, steps, cache_config
 `
 
 	created := &route.Route{}
@@ -92,7 +68,6 @@ func (s *Store) CreateRoute(r *route.Route) (*route.Route, error) {
 
 	var cdata []byte
 	var sdata []byte
-	var pdata []byte
 
 	if err := s.db.QueryRowContext(ctxTimeout, query, values...).Scan(
 		&created.Id,
@@ -103,7 +78,6 @@ func (s *Store) CreateRoute(r *route.Route) (*route.Route, error) {
 		pq.Array(&created.KeyIds),
 		&sdata,
 		&cdata,
-		&pdata,
 	); err != nil {
 		return nil, err
 	}
@@ -116,10 +90,6 @@ func (s *Store) CreateRoute(r *route.Route) (*route.Route, error) {
 		return nil, err
 	}
 
-	if err := json.Unmarshal(pdata, &created.Policy); err != nil {
-		return nil, err
-	}
-
 	return created, nil
 }
 
@@ -129,7 +99,6 @@ func (s *Store) GetRoute(id string) (*route.Route, error) {
 
 	var cdata []byte
 	var sdata []byte
-	var pdata []byte
 
 	created := &route.Route{}
 	if err := s.db.QueryRowContext(ctxTimeout, "SELECT * FROM routes WHERE $1 = id", id).Scan(
@@ -141,7 +110,6 @@ func (s *Store) GetRoute(id string) (*route.Route, error) {
 		pq.Array(&created.KeyIds),
 		&sdata,
 		&cdata,
-		&pdata,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, internal_errors.NewNotFoundError("custom provider is not found")
@@ -158,10 +126,6 @@ func (s *Store) GetRoute(id string) (*route.Route, error) {
 		return nil, err
 	}
 
-	if err := json.Unmarshal(pdata, &created.Policy); err != nil {
-		return nil, err
-	}
-
 	return created, nil
 }
 
@@ -171,7 +135,6 @@ func (s *Store) GetRouteByPath(path string) (*route.Route, error) {
 
 	var cdata []byte
 	var sdata []byte
-	var pdata []byte
 
 	created := &route.Route{}
 	if err := s.db.QueryRowContext(ctxTimeout, "SELECT * FROM routes WHERE $1 = path", path).Scan(
@@ -183,7 +146,6 @@ func (s *Store) GetRouteByPath(path string) (*route.Route, error) {
 		pq.Array(&created.KeyIds),
 		&sdata,
 		&cdata,
-		&pdata,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, internal_errors.NewNotFoundError("route is not found")
@@ -197,10 +159,6 @@ func (s *Store) GetRouteByPath(path string) (*route.Route, error) {
 	}
 
 	if err := json.Unmarshal(cdata, &created.CacheConfig); err != nil {
-		return nil, err
-	}
-
-	if err := json.Unmarshal(pdata, &created.Policy); err != nil {
 		return nil, err
 	}
 
@@ -222,7 +180,6 @@ func (s *Store) GetUpdatedRoutes(updatedAt int64) ([]*route.Route, error) {
 		r := &route.Route{}
 		var cdata []byte
 		var sdata []byte
-		var pdata []byte
 
 		if err := rows.Scan(
 			&r.Id,
@@ -233,7 +190,6 @@ func (s *Store) GetUpdatedRoutes(updatedAt int64) ([]*route.Route, error) {
 			pq.Array(&r.KeyIds),
 			&sdata,
 			&cdata,
-			&pdata,
 		); err != nil {
 			return nil, err
 		}
@@ -243,10 +199,6 @@ func (s *Store) GetUpdatedRoutes(updatedAt int64) ([]*route.Route, error) {
 		}
 
 		if err := json.Unmarshal(cdata, &r.CacheConfig); err != nil {
-			return nil, err
-		}
-
-		if err := json.Unmarshal(pdata, &r.Policy); err != nil {
 			return nil, err
 		}
 
@@ -271,7 +223,6 @@ func (s *Store) GetRoutes() ([]*route.Route, error) {
 		r := &route.Route{}
 		var cdata []byte
 		var sdata []byte
-		var pdata []byte
 
 		if err := rows.Scan(
 			&r.Id,
@@ -282,7 +233,6 @@ func (s *Store) GetRoutes() ([]*route.Route, error) {
 			pq.Array(&r.KeyIds),
 			&sdata,
 			&cdata,
-			&pdata,
 		); err != nil {
 			return nil, err
 		}
@@ -292,10 +242,6 @@ func (s *Store) GetRoutes() ([]*route.Route, error) {
 		}
 
 		if err := json.Unmarshal(cdata, &r.CacheConfig); err != nil {
-			return nil, err
-		}
-
-		if err := json.Unmarshal(pdata, &r.Policy); err != nil {
 			return nil, err
 		}
 

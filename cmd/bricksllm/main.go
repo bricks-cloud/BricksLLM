@@ -15,6 +15,9 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/logger/zap"
 	"github.com/bricks-cloud/bricksllm/internal/manager"
 	"github.com/bricks-cloud/bricksllm/internal/message"
+	"github.com/bricks-cloud/bricksllm/internal/pii"
+	"github.com/bricks-cloud/bricksllm/internal/pii/amazon"
+	custompolicy "github.com/bricks-cloud/bricksllm/internal/policy/custom"
 	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
 	"github.com/bricks-cloud/bricksllm/internal/provider/azure"
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
@@ -71,11 +74,6 @@ func main() {
 		log.Sugar().Fatalf("error creating routes table: %v", err)
 	}
 
-	err = store.AlterRoutesTable()
-	if err != nil {
-		log.Sugar().Fatalf("error altering routes table: %v", err)
-	}
-
 	err = store.CreateKeysTable()
 	if err != nil {
 		log.Sugar().Fatalf("error creating keys table: %v", err)
@@ -129,7 +127,7 @@ func main() {
 	}
 	cpMemStore.Listen()
 
-	rMemStore, err := memdb.NewRoutesMemDb(store, log, cfg.InMemoryDbUpdateInterval)
+	rMemStore, err := memdb.NewRoutesMemDb(store, store, log, cfg.InMemoryDbUpdateInterval)
 	if err != nil {
 		log.Sugar().Fatalf("cannot initialize routes memdb: %v", err)
 	}
@@ -206,7 +204,7 @@ func main() {
 	cpm := manager.NewCustomProvidersManager(store, cpMemStore)
 	rm := manager.NewRouteManager(store, store, rMemStore, psMemStore)
 
-	pm := manager.NewPolicyManager(store)
+	pm := manager.NewPolicyManager(store, rMemStore)
 
 	as, err := admin.NewAdminServer(log, *modePtr, m, krm, psm, cpm, rm, pm, cfg.AdminPass)
 	if err != nil {
@@ -244,7 +242,15 @@ func main() {
 	eventConsumer := message.NewConsumer(eventMessageChan, log, 4, handler.HandleEventWithRequestAndResponse)
 	eventConsumer.StartEventMessageConsumers()
 
-	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, c, m, rm, a, psm, cpm, store, memStore, ce, ace, aoe, v, rec, messageBus, rlm, cfg.ProxyTimeout, accessCache)
+	detector, err := amazon.NewClient(cfg.AmazonRequestTimeout, cfg.AmazonConnectionTimeout, log)
+	if err != nil {
+		log.Sugar().Infof("error when connecting to amazon: %v", err)
+	}
+
+	scanner := pii.NewScanner(detector)
+	cd := custompolicy.NewOpenAiDetector(cfg.CustomPolicyDetectionTimeout, cfg.OpenAiApiKey)
+
+	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, c, m, rm, a, psm, cpm, store, memStore, ce, ace, aoe, v, rec, messageBus, rlm, cfg.ProxyTimeout, accessCache, pm, scanner, cd)
 	if err != nil {
 		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}

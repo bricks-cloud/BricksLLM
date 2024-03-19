@@ -9,30 +9,58 @@ import (
 
 type PoliciesStorage interface {
 	CreatePolicy(p *policy.Policy) (*policy.Policy, error)
-	UpdatePolicy(id string, p *policy.Policy) (*policy.Policy, error)
+	UpdatePolicy(id string, p *policy.UpdatePolicy) (*policy.Policy, error)
 	GetPolicyById(id string) (*policy.Policy, error)
 	GetPoliciesByTags(tags []string) ([]*policy.Policy, error)
 }
 
-type PolicyManager struct {
-	Storage PoliciesStorage
+type PoliciesMemStorage interface {
+	GetPolicy(id string) *policy.Policy
 }
 
-func NewPolicyManager(s PoliciesStorage) *PolicyManager {
+type PolicyManager struct {
+	Storage PoliciesStorage
+	Memdb   PoliciesMemStorage
+}
+
+func NewPolicyManager(s PoliciesStorage, memdb PoliciesMemStorage) *PolicyManager {
 	return &PolicyManager{
 		Storage: s,
+		Memdb:   memdb,
 	}
 }
 
 func (m *PolicyManager) CreatePolicy(p *policy.Policy) (*policy.Policy, error) {
+	err := p.Validate()
+	if err != nil {
+		return nil, err
+	}
+
 	p.CreatedAt = time.Now().Unix()
 	p.UpdatedAt = time.Now().Unix()
 	p.Id = util.NewUuid()
 
+	if p.Config == nil {
+		p.Config = &policy.Config{}
+	}
+
+	if p.RegexConfig == nil {
+		p.RegexConfig = &policy.RegexConfig{}
+	}
+
+	if p.CustomConfig == nil {
+		p.CustomConfig = &policy.CustomConfig{}
+	}
+
 	return m.Storage.CreatePolicy(p)
 }
 
-func (m *PolicyManager) UpdatePolicy(id string, p *policy.Policy) (*policy.Policy, error) {
+func (m *PolicyManager) UpdatePolicy(id string, p *policy.UpdatePolicy) (*policy.Policy, error) {
+	err := p.Validate()
+	if err != nil {
+		return nil, err
+	}
+
 	p.UpdatedAt = time.Now().Unix()
 
 	return m.Storage.UpdatePolicy(id, p)
@@ -42,6 +70,6 @@ func (m *PolicyManager) GetPoliciesByTags(tags []string) ([]*policy.Policy, erro
 	return m.Storage.GetPoliciesByTags(tags)
 }
 
-func (m *PolicyManager) GetPolicyById(id string) (*policy.Policy, error) {
-	return m.Storage.GetPolicyById(id)
+func (m *PolicyManager) GetPolicyByIdFromMemdb(id string) *policy.Policy {
+	return m.Memdb.GetPolicy(id)
 }

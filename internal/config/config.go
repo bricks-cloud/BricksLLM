@@ -19,7 +19,7 @@ type Config struct {
 	RedisPassword                 string        `env:"REDIS_PASSWORD"`
 	RedisReadTimeout              time.Duration `env:"REDIS_READ_TIME_OUT" envDefault:"1s"`
 	RedisWriteTimeout             time.Duration `env:"REDIS_WRITE_TIME_OUT" envDefault:"500ms"`
-	PostgresqlReadTimeout         time.Duration `env:"POSTGRESQL_READ_TIME_OUT" envDefault:"15s"`
+	PostgresqlReadTimeout         time.Duration `env:"POSTGRESQL_READ_TIME_OUT" envDefault:"2m"`
 	PostgresqlWriteTimeout        time.Duration `env:"POSTGRESQL_WRITE_TIME_OUT" envDefault:"5s"`
 	InMemoryDbUpdateInterval      time.Duration `env:"IN_MEMORY_DB_UPDATE_INTERVAL" envDefault:"5s"`
 	OpenAiKey                     string        `env:"OPENAI_API_KEY"`
@@ -27,6 +27,10 @@ type Config struct {
 	AdminPass                     string        `env:"ADMIN_PASS"`
 	ProxyTimeout                  time.Duration `env:"PROXY_TIMEOUT" envDefault:"600s"`
 	NumberOfEventMessageConsumers int           `env:"NUMBER_OF_EVENT_MESSAGE_CONSUMERS" envDefault:"3"`
+	OpenAiApiKey                  string        `env:"OPENAI_API_KEY"`
+	CustomPolicyDetectionTimeout  time.Duration `env:"CUSTOM_POLICY_DETECTION_TIMEOUT" envDefault:"10m"`
+	AmazonRequestTimeout          time.Duration `env:"AMAZON_REQUEST_TIMEOUT" envDefault:"5s"`
+	AmazonConnectionTimeout       time.Duration `env:"AMAZON_CONNECTION_TIMEOUT" envDefault:"10s"`
 }
 
 func ParseEnvVariables() (*Config, error) {

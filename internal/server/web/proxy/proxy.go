@@ -14,6 +14,8 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
+	"github.com/bricks-cloud/bricksllm/internal/pii"
+	"github.com/bricks-cloud/bricksllm/internal/policy"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
@@ -27,6 +29,10 @@ type ProviderSettingsManager interface {
 	CreateSetting(setting *provider.Setting) (*provider.Setting, error)
 	UpdateSetting(id string, setting *provider.UpdateSetting) (*provider.Setting, error)
 	GetSetting(id string) (*provider.Setting, error)
+}
+
+type PoliciesManager interface {
+	GetPolicyByIdFromMemdb(id string) *policy.Policy
 }
 
 const (
@@ -55,6 +61,10 @@ type CustomProvidersManager interface {
 	GetCustomProviderFromMem(name string) *custom.Provider
 }
 
+type Scanner interface {
+	Scan(input []string) (*pii.Result, error)
+}
+
 func CorsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		a_or_b := func(a, b string) string {
@@ -74,13 +84,13 @@ func CorsMiddleware() gin.HandlerFunc {
 	}
 }
 
-func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyManager, rm routeManager, a authenticator, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, kms keyMemStorage, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, r recorder, pub publisher, rlm rateLimitManager, timeOut time.Duration, ac accessCache) (*ProxyServer, error) {
+func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyManager, rm routeManager, a authenticator, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, kms keyMemStorage, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, r recorder, pub publisher, rlm rateLimitManager, timeOut time.Duration, ac accessCache, pm PoliciesManager, scanner Scanner, cd CustomPolicyDetector) (*ProxyServer, error) {
 	router := gin.New()
 	prod := mode == "production"
 	private := privacyMode == "strict"
 
 	router.Use(CorsMiddleware())
-	router.Use(getMiddleware(cpm, rm, a, prod, private, log, pub, "proxy", ac, http.Client{}))
+	router.Use(getMiddleware(cpm, rm, pm, a, prod, private, log, pub, "proxy", ac, http.Client{}, scanner, cd))
 
 	client := http.Client{}
 
