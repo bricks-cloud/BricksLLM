@@ -197,7 +197,7 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 	}
 
 	if key.Revoked {
-		return nil, nil, internal_errors.NewAuthError("not authorized")
+		return nil, nil, internal_errors.NewAuthError(fmt.Sprintf("key %s not authorized", key.KeyId))
 	}
 
 	if strings.HasPrefix(req.URL.Path, "/api/routes") {
