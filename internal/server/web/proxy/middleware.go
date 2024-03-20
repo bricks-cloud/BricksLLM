@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -288,7 +289,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		if ok {
 			stats.Incr("bricksllm.proxy.get_middleware.authentication_error", nil, 1)
 			logError(log, "error when authenticating http requests", prod, cid, err)
-			JSON(c, http.StatusUnauthorized, "[BricksLLM] not authorized")
+			JSON(c, http.StatusUnauthorized, fmt.Sprintf("[BricksLLM] %v", err))
 			c.Abort()
 			return
 		}
