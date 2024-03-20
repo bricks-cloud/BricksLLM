@@ -66,7 +66,7 @@ func getApiKey(req *http.Request) (string, error) {
 		}
 	}
 
-	return "", internal_errors.NewAuthError("api key not found")
+	return "", internal_errors.NewAuthError("api key not found in header")
 }
 
 func rewriteHttpAuthHeader(req *http.Request, setting *provider.Setting) error {
@@ -163,6 +163,18 @@ type notFoundError interface {
 	NotFound()
 }
 
+func anonymize(input string) string {
+	if len(input) == 0 {
+		return ""
+	}
+
+	if len(input) <= 5 && len(input) >= 1 {
+		return string(input[0]) + "*****"
+	}
+
+	return string(input[0:5]) + "**********************************************"
+}
+
 func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.ResponseKey, []*provider.Setting, error) {
 	raw, err := getApiKey(req)
 	if err != nil {
@@ -181,7 +193,7 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 		if err != nil {
 			_, ok := err.(notFoundError)
 			if ok {
-				return nil, nil, internal_errors.NewAuthError("key not found in db ")
+				return nil, nil, internal_errors.NewAuthError(fmt.Sprintf("key %s is not found", anonymize(raw)))
 			}
 
 			return nil, nil, err
@@ -193,11 +205,11 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 	}
 
 	if key == nil {
-		return nil, nil, internal_errors.NewAuthError("key not found in memdb")
+		return nil, nil, internal_errors.NewAuthError(fmt.Sprintf("key %s is not found", anonymize(raw)))
 	}
 
 	if key.Revoked {
-		return nil, nil, internal_errors.NewAuthError(fmt.Sprintf("key %s not authorized", key.KeyId))
+		return nil, nil, internal_errors.NewAuthError(fmt.Sprintf("key %s has been revoked", anonymize(raw)))
 	}
 
 	if strings.HasPrefix(req.URL.Path, "/api/routes") {
@@ -228,7 +240,7 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 		selected = a.getProviderSettingsThatCanAccessCustomRoute(req.URL.Path, allSettings)
 
 		if len(selected) == 0 {
-			return nil, nil, internal_errors.NewAuthError("provider settings associated with the key are not compatible with the route")
+			return nil, nil, internal_errors.NewAuthError(fmt.Sprintf("provider settings associated with the key %s are not compatible with the route", anonymize(raw)))
 		}
 	}
 
@@ -246,5 +258,5 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 		return key, selected, nil
 	}
 
-	return nil, nil, internal_errors.NewAuthError("provider setting not found")
+	return nil, nil, internal_errors.NewAuthError(fmt.Sprintf("provider setting not found for key %s", raw))
 }
