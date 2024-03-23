@@ -1176,11 +1176,12 @@ func getChatCompletionHandler(prod, private bool, client http.Client, log *zap.L
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_chat_completion_handler.json_marshal_error", nil, 1)
 					logError(log, "error when marshalling bytes for openai streaming chat completion error response", prod, cid, err)
-					return true
+					return false
 				}
 
 				c.SSEvent("", string(bytes))
-				return true
+				c.SSEvent("", " [DONE]")
+				return false
 			}
 
 			streamingResponse = append(streamingResponse, raw)
