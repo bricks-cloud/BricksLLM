@@ -61,11 +61,14 @@ func (m *Manager) GetKeys(tags, keyIds []string, provider string) ([]*key.Respon
 func (m *Manager) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 	rk.CreatedAt = time.Now().Unix()
 	rk.UpdatedAt = time.Now().Unix()
-	rk.Key = encrypter.Encrypt(rk.Key)
 	rk.KeyId = util.NewUuid()
 
 	if err := rk.Validate(); err != nil {
 		return nil, err
+	}
+
+	if !rk.IsKeyNotHashed {
+		rk.Key = encrypter.Encrypt(rk.Key)
 	}
 
 	if len(rk.SettingId) != 0 {
@@ -100,6 +103,19 @@ func (m *Manager) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, err
 
 	if err := uk.Validate(); err != nil {
 		return nil, err
+	}
+
+	existing, err := m.s.GetKey(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if uk.IsKeyNotHashed != nil && !*uk.IsKeyNotHashed {
+		uk.Key = encrypter.Encrypt(existing.Key)
+	}
+
+	if uk.IsKeyNotHashed == nil || (uk.IsKeyNotHashed != nil && *uk.IsKeyNotHashed) {
+		uk.Key = ""
 	}
 
 	if len(uk.SettingId) != 0 {

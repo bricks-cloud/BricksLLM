@@ -189,6 +189,10 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 	}
 
 	if key == nil {
+		key = a.kms.GetKey(raw)
+	}
+
+	if key == nil {
 		key, err = a.ks.GetKeyByHash(hash)
 		if err != nil {
 			_, ok := err.(notFoundError)
