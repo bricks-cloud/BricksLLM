@@ -41,6 +41,7 @@ type KeyReportingManager interface {
 	GetKeyReporting(keyId string) (*key.KeyReporting, error)
 	GetEvents(userId, customId string, keyIds []string, start int64, end int64) ([]*event.Event, error)
 	GetEventReporting(e *event.ReportingRequest) (*event.ReportingResponse, error)
+	GetAggregatedEventByDayReporting(e *event.ReportingRequest) (*event.ReportingResponse, error)
 }
 
 type PoliciesManager interface {
@@ -78,6 +79,7 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 
 	router.GET("/api/reporting/keys/:id", getGetKeyReportingHandler(krm, log, prod))
 	router.POST("/api/reporting/events", getGetEventMetricsHandler(krm, log, prod))
+	router.POST("/api/reporting/events-by-day", getGetEventMetricsByDayHandler(krm, log, prod))
 	router.GET("/api/events", getGetEventsHandler(krm, log, prod))
 
 	router.PUT("/api/provider-settings", getCreateProviderSettingHandler(psm, log, prod))
@@ -723,6 +725,18 @@ func validateEventReportingRequest(r *event.ReportingRequest) bool {
 	return true
 }
 
+func validateEventReportingByDayRequest(r *event.ReportingRequest) bool {
+	if r.Start == 0 || r.End == 0 {
+		return false
+	}
+
+	if r.Start >= r.End {
+		return false
+	}
+
+	return true
+}
+
 func getGetEventMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.admin.get_get_event_metrics.requests", nil, 1)
@@ -805,6 +819,93 @@ func getGetEventMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bool
 		}
 
 		stats.Incr("bricksllm.admin.get_get_event_metrics.success", nil, 1)
+
+		c.JSON(http.StatusOK, reportingResponse)
+	}
+}
+
+func getGetEventMetricsByDayHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		stats.Incr("bricksllm.admin.get_get_event_metrics_by_day.requests", nil, 1)
+
+		start := time.Now()
+		defer func() {
+			dur := time.Since(start)
+			stats.Timing("bricksllm.admin.get_get_event_metrics_by_day.latency", dur, nil, 1)
+		}()
+
+		path := "/api/reporting/events-by-day"
+
+		if c == nil || c.Request == nil {
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/empty-context",
+				Title:    "context is empty error",
+				Status:   http.StatusInternalServerError,
+				Detail:   "gin context is empty",
+				Instance: path,
+			})
+			return
+		}
+
+		cid := c.GetString(correlationId)
+		data, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			logError(log, "error when reading event by day reporting request body", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/request-body-read",
+				Title:    "request body reader error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		request := &event.ReportingRequest{}
+		err = json.Unmarshal(data, request)
+		if err != nil {
+			logError(log, "error when unmarshalling event by day reporting request body", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/json-unmarshal",
+				Title:    "json unmarshaller error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		if !validateEventReportingByDayRequest(request) {
+			stats.Incr("bricksllm.admin.get_get_event_metrics_by_day.request_not_valid", nil, 1)
+
+			err = fmt.Errorf("event reporting request %+v is not valid", request)
+			logError(log, "invalid reporting request", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/invalid-reporting-request",
+				Title:    "invalid reporting request",
+				Status:   http.StatusBadRequest,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		reportingResponse, err := m.GetAggregatedEventByDayReporting(request)
+		if err != nil {
+			stats.Incr("bricksllm.admin.get_get_event_metrics_by_day.get_aggregated_event_by_day_reporting", nil, 1)
+
+			logError(log, "error when getting event by day reporting", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/event-reporting-manager",
+				Title:    "event reporting error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		stats.Incr("bricksllm.admin.get_get_event_metrics_by_day.success", nil, 1)
 
 		c.JSON(http.StatusOK, reportingResponse)
 	}

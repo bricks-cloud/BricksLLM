@@ -109,6 +109,26 @@ func main() {
 		log.Sugar().Fatalf("error creating policies table: %v", err)
 	}
 
+	err = store.CreateEventsByDayTable()
+	if err != nil {
+		log.Sugar().Fatalf("error creating event aggregated by day table: %v", err)
+	}
+
+	err = store.CreateUniqueIndexForEventsTable()
+	if err != nil {
+		log.Sugar().Fatalf("error creating unique index for event aggregated by day table: %v", err)
+	}
+
+	err = store.CreateTimeStampIndexForEventsTable()
+	if err != nil {
+		log.Sugar().Fatalf("error creating time stamp index for event aggregated by day table: %v", err)
+	}
+
+	err = store.CreateKeyIdIndexForEventsTable()
+	if err != nil {
+		log.Sugar().Fatalf("error creating key id index for event aggregated by day table: %v", err)
+	}
+
 	memStore, err := memdb.NewMemDb(store, log, cfg.InMemoryDbUpdateInterval)
 	if err != nil {
 		log.Sugar().Fatalf("cannot initialize memdb: %v", err)
