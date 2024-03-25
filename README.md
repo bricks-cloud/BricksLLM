@@ -1302,7 +1302,7 @@ The custom provider proxy runs on Port `8002`.
   <summary>Create Azure OpenAI chat completion: <code>POST</code> <code><b>/api/providers/azure/openai/deployments/:deployment_id/chat/completions?api-version={API_VERSION}</b></code></summary>
 
 ##### Description
-This endpoint is set up for proxying Anthropic completion requests. Documentation for this endpoint can be found [here](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference).
+This endpoint is set up for proxying Azure OpenAI completion requests. Documentation for this endpoint can be found [here](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference).
 
 </details>
 
