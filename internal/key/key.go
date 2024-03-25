@@ -17,6 +17,7 @@ type UpdateKey struct {
 	Tags                   []string      `json:"tags"`
 	Revoked                *bool         `json:"revoked"`
 	RevokedReason          string        `json:"revokedReason"`
+	Key                    string        `json:"key"`
 	SettingId              string        `json:"settingId"`
 	SettingIds             []string      `json:"settingIds"`
 	CostLimitInUsd         *float64      `json:"costLimitInUsd"`
@@ -29,6 +30,7 @@ type UpdateKey struct {
 	ShouldLogResponse      *bool         `json:"shouldLogResponse"`
 	RotationEnabled        *bool         `json:"rotationEnabled"`
 	PolicyId               *string       `json:"policyId"`
+	IsKeyNotHashed         *bool         `json:"isKeyNotHashed"`
 }
 
 func (uk *UpdateKey) Validate() error {
@@ -169,6 +171,7 @@ type RequestKey struct {
 	ShouldLogResponse      bool         `json:"shouldLogResponse"`
 	RotationEnabled        bool         `json:"rotationEnabled"`
 	PolicyId               string       `json:"policyId"`
+	IsKeyNotHashed         bool         `json:"isKeyNotHashed"`
 }
 
 func (rk *RequestKey) Validate() error {
@@ -317,6 +320,7 @@ type ResponseKey struct {
 	ShouldLogResponse      bool         `json:"shouldLogResponse"`
 	RotationEnabled        bool         `json:"rotationEnabled"`
 	PolicyId               string       `json:"policyId"`
+	IsKeyNotHashed         bool         `json:"isKeyNotHashed"`
 }
 
 func (rk *ResponseKey) GetSettingIds() []string {

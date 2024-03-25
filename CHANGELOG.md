@@ -1,3 +1,7 @@
+## 1.13.3 - 2024-03-19
+### Fixed
+- Fixed `ttl` behavior not to disable keys
+
 ## 1.13.2 - 2024-03-18
 ### Changed
 - Updated default postgresql read operation timeout from `15s` to `2m`

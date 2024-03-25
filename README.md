@@ -139,8 +139,8 @@ docker pull luyuanxin1995/bricksllm:1.4.0
 > | `POSTGRESQL_PASSWORD`         | required | Postgresql DB password |
 > | `POSTGRESQL_SSL_MODE`         | optional | Postgresql SSL mode| `disable`
 > | `POSTGRESQL_PORT`         | optional | The port that Postgresql DB runs on| `5432`
-> | `POSTGRESQL_READ_TIME_OUT`         | optional | Timeout for Postgresql read operations | `2s`
-> | `POSTGRESQL_WRITE_TIME_OUT`         | optional | Timeout for Postgresql write operations | `1s`
+> | `POSTGRESQL_READ_TIME_OUT`         | optional | Timeout for Postgresql read operations | `2m`
+> | `POSTGRESQL_WRITE_TIME_OUT`         | optional | Timeout for Postgresql write operations | `5s`
 > | `REDIS_HOSTS`         | required | Host for Redis. Separated by , | `localhost`
 > | `REDIS_PASSWORD`         | optional | Redis Password |
 > | `REDIS_PORT`         | optional | The port that Redis DB runs on | `6379`
@@ -1302,7 +1302,7 @@ The custom provider proxy runs on Port `8002`.
   <summary>Create Azure OpenAI chat completion: <code>POST</code> <code><b>/api/providers/azure/openai/deployments/:deployment_id/chat/completions?api-version={API_VERSION}</b></code></summary>
 
 ##### Description
-This endpoint is set up for proxying Anthropic completion requests. Documentation for this endpoint can be found [here](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference).
+This endpoint is set up for proxying Azure OpenAI completion requests. Documentation for this endpoint can be found [here](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference).
 
 </details>
 

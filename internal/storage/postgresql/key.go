@@ -55,7 +55,7 @@ func (s *Store) AlterKeysTable() error {
 			END IF;
 		END
 		$$;
-		ALTER TABLE keys ADD COLUMN IF NOT EXISTS setting_id VARCHAR(255), ADD COLUMN IF NOT EXISTS allowed_paths JSONB, ADD COLUMN IF NOT EXISTS setting_ids VARCHAR(255)[] NOT NULL DEFAULT ARRAY[]::VARCHAR(255)[], ADD COLUMN IF NOT EXISTS should_log_request BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS should_log_response BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS rotation_enabled BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS policy_id VARCHAR(255) NOT NULL DEFAULT '';
+		ALTER TABLE keys ADD COLUMN IF NOT EXISTS setting_id VARCHAR(255), ADD COLUMN IF NOT EXISTS allowed_paths JSONB, ADD COLUMN IF NOT EXISTS setting_ids VARCHAR(255)[] NOT NULL DEFAULT ARRAY[]::VARCHAR(255)[], ADD COLUMN IF NOT EXISTS should_log_request BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS should_log_response BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS rotation_enabled BOOLEAN NOT NULL DEFAULT FALSE, ADD COLUMN IF NOT EXISTS policy_id VARCHAR(255) NOT NULL DEFAULT '', ADD COLUMN IF NOT EXISTS is_key_not_hashed BOOLEAN NOT NULL DEFAULT FALSE;
 	`
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -156,6 +156,7 @@ func (s *Store) GetKeys(tags, keyIds []string, provider string) ([]*key.Response
 			&k.ShouldLogResponse,
 			&k.RotationEnabled,
 			&k.PolicyId,
+			&k.IsKeyNotHashed,
 		); err != nil {
 			return nil, err
 		}
@@ -176,6 +177,61 @@ func (s *Store) GetKeys(tags, keyIds []string, provider string) ([]*key.Response
 	}
 
 	return keys, nil
+}
+
+func (s *Store) GetKeyByHash(hash string) (*key.ResponseKey, error) {
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	var k key.ResponseKey
+	var settingId sql.NullString
+	var data []byte
+
+	err := s.db.QueryRowContext(ctxTimeout, "SELECT * FROM keys WHERE key = $1", hash).Scan(
+		&k.Name,
+		&k.CreatedAt,
+		&k.UpdatedAt,
+		pq.Array(&k.Tags),
+		&k.Revoked,
+		&k.KeyId,
+		&k.Key,
+		&k.RevokedReason,
+		&k.CostLimitInUsd,
+		&k.CostLimitInUsdOverTime,
+		&k.CostLimitInUsdUnit,
+		&k.RateLimitOverTime,
+		&k.RateLimitUnit,
+		&k.Ttl,
+		&settingId,
+		&data,
+		pq.Array(&k.SettingIds),
+		&k.ShouldLogRequest,
+		&k.ShouldLogResponse,
+		&k.RotationEnabled,
+		&k.PolicyId,
+		&k.IsKeyNotHashed,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, internal_errors.NewNotFoundError("key is not found using hash")
+		}
+
+		return nil, err
+	}
+
+	k.SettingId = settingId.String
+
+	if len(data) != 0 {
+		pathConfigs := []key.PathConfig{}
+		if err := json.Unmarshal(data, &pathConfigs); err != nil {
+			return nil, err
+		}
+
+		k.AllowedPaths = pathConfigs
+	}
+
+	return &k, nil
 }
 
 func (s *Store) GetKey(keyId string) (*key.ResponseKey, error) {
@@ -216,6 +272,7 @@ func (s *Store) GetKey(keyId string) (*key.ResponseKey, error) {
 			&k.ShouldLogResponse,
 			&k.RotationEnabled,
 			&k.PolicyId,
+			&k.IsKeyNotHashed,
 		); err != nil {
 			return nil, err
 		}
@@ -279,6 +336,7 @@ func (s *Store) GetAllKeys() ([]*key.ResponseKey, error) {
 			&k.ShouldLogResponse,
 			&k.RotationEnabled,
 			&k.PolicyId,
+			&k.IsKeyNotHashed,
 		); err != nil {
 			return nil, err
 		}
@@ -337,6 +395,7 @@ func (s *Store) GetUpdatedKeys(updatedAt int64) ([]*key.ResponseKey, error) {
 			&k.ShouldLogResponse,
 			&k.RotationEnabled,
 			&k.PolicyId,
+			&k.IsKeyNotHashed,
 		); err != nil {
 			return nil, err
 		}
@@ -477,6 +536,12 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 		counter++
 	}
 
+	if len(uk.Key) != 0 {
+		values = append(values, uk.Key)
+		fields = append(fields, fmt.Sprintf("key = $%d", counter))
+		counter++
+	}
+
 	query := fmt.Sprintf("UPDATE keys SET %s WHERE key_id = $1 RETURNING *;", strings.Join(fields, ","))
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -507,6 +572,7 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 		&k.ShouldLogResponse,
 		&k.RotationEnabled,
 		&k.PolicyId,
+		&k.IsKeyNotHashed,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, internal_errors.NewNotFoundError(fmt.Sprintf("key not found for id: %s", id))
@@ -531,8 +597,8 @@ func (s *Store) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error
 
 func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 	query := `
-		INSERT INTO keys (name, created_at, updated_at, tags, revoked, key_id, key, revoked_reason, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl, setting_id, allowed_paths, setting_ids, should_log_request, should_log_response, rotation_enabled, policy_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+		INSERT INTO keys (name, created_at, updated_at, tags, revoked, key_id, key, revoked_reason, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl, setting_id, allowed_paths, setting_ids, should_log_request, should_log_response, rotation_enabled, policy_id, is_key_not_hashed)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
 		RETURNING *;
 	`
 
@@ -563,6 +629,7 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		rk.ShouldLogResponse,
 		rk.RotationEnabled,
 		rk.PolicyId,
+		rk.IsKeyNotHashed,
 	}
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -594,6 +661,7 @@ func (s *Store) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 		&k.ShouldLogResponse,
 		&k.RotationEnabled,
 		&k.PolicyId,
+		&k.IsKeyNotHashed,
 	); err != nil {
 		return nil, err
 	}

@@ -229,7 +229,7 @@ func main() {
 	v := validator.NewValidator(costLimitCache, rateLimitCache, costStorage)
 	rec := recorder.NewRecorder(costStorage, costLimitCache, ce, store)
 	rlm := manager.NewRateLimitManager(rateLimitCache)
-	a := auth.NewAuthenticator(psm, memStore, rm)
+	a := auth.NewAuthenticator(psm, memStore, rm, store)
 
 	c := cache.NewCache(apiCache)
 
