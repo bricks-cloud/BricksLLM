@@ -1,3 +1,35 @@
+## 1.13.11 - 2024-03-25
+### Added
+- Added new reporting endpoint for retrieving metric data points by day
+
+## 1.13.10 - 2024-03-25
+### Added
+- Added a new key field called `isKeyNotHashed`
+
+## 1.13.9 - 2024-03-23
+### Fixed
+- Fixed http response exceeding `1GB` when receiving a streaming error from OpenAI
+
+## 1.13.8 - 2024-03-20
+### Changed
+- Updated error messages for authentication errors
+
+## 1.13.7 - 2024-03-20
+### Changed
+- Changed error message for authentication errors
+
+## 1.13.6 - 2024-03-20
+### Added
+- Added more detailed logs for authentication errors
+
+## 1.13.5 - 2024-03-20
+### Added
+- Added stats when key is not found in cache
+
+## 1.13.3 - 2024-03-20
+### Added
+- Added fallback when key is not found in cache
+
 ## 1.13.3 - 2024-03-19
 ### Fixed
 - Fixed `ttl` behavior not to disable keys
