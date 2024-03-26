@@ -30,7 +30,7 @@
 ### Added
 - Added stats when key is not found in cache
 
-## 1.13.3 - 2024-03-20
+## 1.13.4 - 2024-03-20
 ### Added
 - Added fallback when key is not found in cache
 
