@@ -74,7 +74,7 @@ func (s *Store) CreateKeyIdIndexForEventsTable() error {
 	return nil
 }
 
-func (s *Store) GetAggregatedEventByDayDataPoints(start, end int64, keyIds []string, filters []string) ([]*event.DataPoint, error) {
+func (s *Store) GetAggregatedEventByDayDataPoints(start, end int64, keyIds []string) ([]*event.DataPoint, error) {
 	conditionBlock := fmt.Sprintf("WHERE time_stamp >= %d AND time_stamp < %d ", start, end)
 	if len(keyIds) != 0 {
 		conditionBlock += fmt.Sprintf("AND key_id = ANY('%s')", sliceToSqlStringArray(keyIds))
@@ -102,7 +102,6 @@ func (s *Store) GetAggregatedEventByDayDataPoints(start, end int64, keyIds []str
 	for rows.Next() {
 		var e event.DataPoint
 		var keyId sql.NullString
-
 		var id sql.NullInt32
 
 		additional := []any{
