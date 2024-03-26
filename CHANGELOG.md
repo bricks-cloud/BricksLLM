@@ -1,3 +1,7 @@
+## 1.13.12 - 2024-03-25
+### Fixed
+- Fixed a db query issue with the new reporting endpoint
+
 ## 1.13.11 - 2024-03-25
 ### Added
 - Added new reporting endpoint for retrieving metric data points by day
