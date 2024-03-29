@@ -299,7 +299,7 @@ func getMessagesHandler(r recorder, prod, private bool, client http.Client, kms 
 		}
 
 		raw, exists := c.Get("key")
-		kc, ok := raw.(*key.ResponseKey)
+		_, ok := raw.(*key.ResponseKey)
 		if !exists || !ok {
 			stats.Incr("bricksllm.proxy.get_messages_handler.api_key_not_registered", nil, 1)
 			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
@@ -367,8 +367,6 @@ func getMessagesHandler(r recorder, prod, private bool, client http.Client, kms 
 					logError(log, "error when estimating anthropic cost", prod, cid, err)
 				}
 
-				micros := int64(cost * 1000000)
-				err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_messages_handler.record_key_spend_error", nil, 1)
 					logError(log, "error when recording anthropic spend", prod, cid, err)
