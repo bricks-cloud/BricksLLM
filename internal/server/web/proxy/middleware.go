@@ -378,6 +378,25 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			}
 		}
 
+		if c.FullPath() == "/api/providers/anthropic/v1/messages" {
+			logCreateMessageRequest(log, body, prod, private, cid)
+
+			mr := &anthropic.MessagesRequest{}
+			err = json.Unmarshal(body, mr)
+			if err != nil {
+				logError(log, "error when unmarshalling anthropic messages request", prod, cid, err)
+				return
+			}
+
+			if mr.Stream {
+				c.Set("stream", mr.Stream)
+			}
+
+			if len(mr.Model) != 0 {
+				c.Set("model", mr.Model)
+			}
+		}
+
 		if strings.HasPrefix(c.FullPath(), "/api/custom/providers/:provider") {
 			providerName := c.Param("provider")
 
