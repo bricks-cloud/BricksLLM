@@ -174,6 +174,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 
 	// anthropic
 	router.POST("/api/providers/anthropic/v1/complete", getCompletionHandler(prod, private, client, log, timeOut))
+	router.POST("/api/providers/anthropic/v1/messages", getMessagesHandler(r, prod, private, client, kms, log, ae, timeOut))
 
 	// custom provider
 	router.POST("/api/custom/providers/:provider/*wildcard", getCustomProviderHandler(prod, client, log, timeOut))
@@ -1297,6 +1298,7 @@ func (ps *ProxyServer) Run() {
 
 		// anthropic
 		ps.log.Info("PORT 8002 | POST   | /api/providers/anthropic/v1/complete is ready for forwarding completion requests to anthropic")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/anthropic/v1/messages is ready for forwarding message requests to anthropic")
 
 		// custom provider
 		ps.log.Info("PORT 8002 | POST   | /api/custom/providers/:provider/*wildcard is ready for forwarding requests to custom providers")

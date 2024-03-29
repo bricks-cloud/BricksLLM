@@ -1326,6 +1326,14 @@ This endpoint is set up for proxying Anthropic completion requests. Documentatio
 
 </details>
 
+<details>
+  <summary>Create Anthropic messages: <code>POST</code> <code><b>/api/providers/anthropic/v1/messages</b></code></summary>
+
+##### Description
+This endpoint is set up for proxying Anthropic messages requests. Documentation for this endpoint can be found [here](https://docs.anthropic.com/claude/reference/messages_post).
+
+</details>
+
 ## Custom Provider Proxy
 The custom provider proxy runs on Port `8002`.
 
