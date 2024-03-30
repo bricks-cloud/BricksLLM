@@ -174,7 +174,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 
 	// anthropic
 	router.POST("/api/providers/anthropic/v1/complete", getCompletionHandler(prod, private, client, log, timeOut))
-	router.POST("/api/providers/anthropic/v1/messages", getMessagesHandler(r, prod, private, client, kms, log, ae, timeOut))
+	router.POST("/api/providers/anthropic/v1/messages", getMessagesHandler(prod, private, client, log, ae, timeOut))
 
 	// custom provider
 	router.POST("/api/custom/providers/:provider/*wildcard", getCustomProviderHandler(prod, client, log, timeOut))

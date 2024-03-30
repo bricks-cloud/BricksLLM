@@ -66,13 +66,16 @@ type MessagesStreamMessageDelta struct {
 	Delta struct {
 		StopReason   string `json:"stop_reason"`
 		StopSequence string `json:"stop_sequence,omitempty"`
-		Usage        struct {
-			OutputTokens int `json:"output_tokens"`
-		} `json:"usage"`
 	} `json:"delta"`
+
+	Usage struct {
+		OutputTokens int `json:"output_tokens"`
+	} `json:"usage"`
 }
 
-type MessagesStreamMessageStop struct{}
+type MessagesStreamMessageStop struct {
+	Type string `json:"type"`
+}
 
 type MessagesStreamBlockStart struct {
 	Index        int                    `json:"index"`

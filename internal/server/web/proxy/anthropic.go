@@ -219,11 +219,24 @@ func getCompletionHandler(prod, private bool, client http.Client, log *zap.Logge
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_completion_handler.json_marshal_error", nil, 1)
 					logError(log, "error when marshalling bytes for anthropic streaming error response", prod, cid, err)
-					return true
+					return false
 				}
 
 				c.SSEvent(" error", string(bytes))
-				return true
+
+				messageStop := &anthropic.MessagesStreamMessageStop{
+					Type: "message_stop",
+				}
+
+				bytes, err = json.Marshal(messageStop)
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_messages_handler.json_marshal_error", nil, 1)
+					logError(log, "error when marshalling bytes for anthropic streaming message stop", prod, cid, err)
+					return false
+				}
+
+				c.SSEvent(" message_stop", string(bytes))
+				return false
 			}
 
 			streamingResponse = append(streamingResponse, raw)
@@ -278,7 +291,7 @@ var (
 	eventContentBlockStop  = []byte("event: content_block_stop")
 )
 
-func getMessagesHandler(r recorder, prod, private bool, client http.Client, kms keyMemStorage, log *zap.Logger, e anthropicEstimator, timeOut time.Duration) gin.HandlerFunc {
+func getMessagesHandler(prod, private bool, client http.Client, log *zap.Logger, e anthropicEstimator, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.proxy.get_completion_handler.requests", nil, 1)
 
@@ -348,6 +361,8 @@ func getMessagesHandler(r recorder, prod, private bool, client http.Client, kms 
 
 			var cost float64 = 0
 			completionTokens := 0
+			promptTokens := 0
+
 			completionRes := &anthropic.MessagesResponse{}
 			stats.Incr("bricksllm.proxy.get_completion_handler.success", nil, 1)
 			stats.Timing("bricksllm.proxy.get_completion_handler.success_latency", dur, nil, 1)
@@ -360,7 +375,7 @@ func getMessagesHandler(r recorder, prod, private bool, client http.Client, kms 
 			if err == nil {
 				logCompletionResponse(log, bytes, prod, private, cid)
 				completionTokens = completionRes.Usage.OutputTokens
-				promptTokens := completionRes.Usage.InputTokens
+				promptTokens = completionRes.Usage.InputTokens
 				cost, err = e.EstimateTotalCost(model, promptTokens, completionTokens)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_messages_handler.estimate_total_cost_error", nil, 1)
@@ -374,6 +389,7 @@ func getMessagesHandler(r recorder, prod, private bool, client http.Client, kms 
 			}
 
 			c.Set("costInUsd", cost)
+			c.Set("promptTokenCount", promptTokens)
 			c.Set("completionTokenCount", completionTokens)
 
 			c.Data(res.StatusCode, "application/json", bytes)
@@ -399,7 +415,12 @@ func getMessagesHandler(r recorder, prod, private bool, client http.Client, kms 
 		buffer := bufio.NewReader(res.Body)
 		var totalCost float64 = 0
 
-		response := anthropic.MessagesResponse{}
+		streamingResponse := [][]byte{}
+		defer func() {
+			c.Set("streaming_response", bytes.Join(streamingResponse, []byte{'\n'}))
+		}()
+
+		response := &anthropic.MessagesResponse{}
 		defer func() {
 			tks := response.Usage.OutputTokens
 			model := c.GetString("model")
@@ -418,6 +439,7 @@ func getMessagesHandler(r recorder, prod, private bool, client http.Client, kms 
 			totalCost = cost + estimatedPromptCost
 
 			c.Set("costInUsd", totalCost)
+			c.Set("promptTokenCount", response.Usage.InputTokens)
 			c.Set("completionTokenCount", tks)
 		}()
 
@@ -445,12 +467,27 @@ func getMessagesHandler(r recorder, prod, private bool, client http.Client, kms 
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_messages_handler.json_marshal_error", nil, 1)
 					logError(log, "error when marshalling bytes for anthropic streaming error response", prod, cid, err)
-					return true
+					return false
 				}
 
 				c.SSEvent(" error", string(bytes))
-				return true
+
+				messageStop := &anthropic.MessagesStreamMessageStop{
+					Type: "message_stop",
+				}
+
+				bytes, err = json.Marshal(messageStop)
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_messages_handler.json_marshal_error", nil, 1)
+					logError(log, "error when marshalling bytes for anthropic streaming message stop", prod, cid, err)
+					return false
+				}
+
+				c.SSEvent(" message_stop", string(bytes))
+				return false
 			}
+
+			streamingResponse = append(streamingResponse, raw)
 
 			noSpaceLine := bytes.TrimSpace(raw)
 			if len(noSpaceLine) == 0 {
@@ -506,20 +543,23 @@ func getMessagesHandler(r recorder, prod, private bool, client http.Client, kms 
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_messages_handler.message_start_response_unmarshall_error", nil, 1)
 					logError(log, "error when unmarshalling anthropic message stream response message_start", prod, cid, err)
-				} else {
-					response.Usage.InputTokens = messageStart.Message.Usage.InputTokens
+					return true
 				}
+
+				response.Usage.InputTokens = messageStart.Message.Usage.InputTokens
 			}
 
 			if eventName == " message_delta" {
 				messageDelta := &anthropic.MessagesStreamMessageDelta{}
+
 				err = json.Unmarshal(noPrefixLine, messageDelta)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_messages_handler.message_delta_response_unmarshall_error", nil, 1)
 					logError(log, "error when unmarshalling anthropic message stream response message_delta", prod, cid, err)
-				} else {
-					response.Usage.OutputTokens = messageDelta.Delta.Usage.OutputTokens
+					return true
 				}
+
+				response.Usage.OutputTokens = messageDelta.Usage.OutputTokens
 			}
 
 			if eventName == " content_block_start" {
@@ -528,8 +568,7 @@ func getMessagesHandler(r recorder, prod, private bool, client http.Client, kms 
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_messages_handler.content_block_start_response_unmarshall_error", nil, 1)
 					logError(log, "error when unmarshalling anthropic message stream response content_block_start", prod, cid, err)
-				} else {
-					// append(response.Content, contentBlockStart.ContentBlock)
+					return true
 				}
 			}
 
@@ -539,8 +578,7 @@ func getMessagesHandler(r recorder, prod, private bool, client http.Client, kms 
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_messages_handler.content_block_delta_response_unmarshall_error", nil, 1)
 					logError(log, "error when unmarshalling anthropic message stream response content_block_delta", prod, cid, err)
-				} else {
-					// response.Content[contentBlockDelta.Index].Text += contentBlockDelta.Delta.Text
+					return true
 				}
 			}
 
