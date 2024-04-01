@@ -1,4 +1,4 @@
-# How we created a highly scalable LLM gateway with go
+# How we built a highly scalable LLM gateway with go
 
 When I was working at Unity Technologies, one of the most useful internal tools we built was an API gateway. It served as the authentication layer that connects the Unity dashboard to various microservices. In addition to authentication, the gateway also included a portal for API documentation built on top of swagger UI. 
 
