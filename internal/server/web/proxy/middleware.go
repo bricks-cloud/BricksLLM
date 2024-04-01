@@ -388,6 +388,10 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				return
 			}
 
+			if mr.Metadata != nil {
+				userId = mr.Metadata.UserId
+			}
+
 			if mr.Stream {
 				c.Set("stream", mr.Stream)
 			}
