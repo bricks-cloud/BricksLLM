@@ -1,3 +1,7 @@
+## 1.14.1 - 2024-04-01
+### Fixed
+- Fixed user Id not being captured with Anthropic's new messages endpoint
+
 ## 1.14.0 - 2024-03-29
 ### Added
 - Added integration with Anthropic's new messages endpoint
