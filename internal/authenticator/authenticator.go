@@ -213,6 +213,10 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 		return nil, nil, internal_errors.NewAuthError(fmt.Sprintf("key %s is not found", anonymize(raw)))
 	}
 
+	if key.KeyId == "0dcd2064-b1cc-4d1f-b7b9-21a730836c78" {
+		fmt.Printf("%+v", key)
+	}
+
 	if key.Revoked {
 		return nil, nil, internal_errors.NewAuthError(fmt.Sprintf("key %s has been revoked", anonymize(raw)))
 	}
