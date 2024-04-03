@@ -1,3 +1,7 @@
+## 1.14.2 - 2024-04-02
+### Added
+- Added fetch from DB if a provider setting associated with a key is not found in memory
+
 ## 1.14.1 - 2024-04-01
 ### Fixed
 - Fixed user Id not being captured with Anthropic's new messages endpoint
