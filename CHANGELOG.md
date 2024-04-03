@@ -1,3 +1,19 @@
+## 1.14.2 - 2024-04-02
+### Added
+- Added fetch from DB if a provider setting associated with a key is not found in memory
+
+## 1.14.1 - 2024-04-01
+### Fixed
+- Fixed user Id not being captured with Anthropic's new messages endpoint
+
+## 1.14.0 - 2024-03-29
+### Added
+- Added integration with Anthropic's new messages endpoint
+
+## 1.13.12 - 2024-03-25
+### Fixed
+- Fixed a db query issue with the new reporting endpoint
+
 ## 1.13.11 - 2024-03-25
 ### Added
 - Added new reporting endpoint for retrieving metric data points by day
@@ -26,7 +42,7 @@
 ### Added
 - Added stats when key is not found in cache
 
-## 1.13.3 - 2024-03-20
+## 1.13.4 - 2024-03-20
 ### Added
 - Added fallback when key is not found in cache
 

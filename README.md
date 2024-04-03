@@ -523,7 +523,7 @@ This endpoint is retrieving aggregated metrics given an array of key ids and tag
 > | keyIds | required | `[]string` | `["key-1", "key-2", "key-3" ]` | Array of ids that specicify the keys that you want to aggregate stats from. |
 > | tags | required | `[]string` | `["tag-1", "tag-2"]`           | Array of tags that specicify the key tags that you want to aggregate stats from. |
 > | customIds | required | `[]string` | `["customId-1", "customId-2"]` | A list of custom IDs that you want to aggregate stats from. |
-> | filters | required | `[]string` | `["model", "keyId"]` | Group by data points through different filters(`model`,`keyId` or `customId`). |
+> | filters | required | `[]string` | `["model", "keyId"]` | Group by data points through different filters(`model`,`keyId`, `userId` or `customId`). |
 > | start | required | `int64` | `1699933571` | Start timestamp for the requested timeseries data. |
 > | end | required | `int64` | `1699933571` | End timestamp for the requested timeseries data. |
 > | increment | required | `int` | `60` | This field is the increment in seconds for the requested timeseries data. |
@@ -1323,6 +1323,14 @@ The custom provider proxy runs on Port `8002`.
 
 ##### Description
 This endpoint is set up for proxying Anthropic completion requests. Documentation for this endpoint can be found [here](https://docs.anthropic.com/claude/reference/complete_post).
+
+</details>
+
+<details>
+  <summary>Create Anthropic messages: <code>POST</code> <code><b>/api/providers/anthropic/v1/messages</b></code></summary>
+
+##### Description
+This endpoint is set up for proxying Anthropic messages requests. Documentation for this endpoint can be found [here](https://docs.anthropic.com/claude/reference/messages_post).
 
 </details>
 

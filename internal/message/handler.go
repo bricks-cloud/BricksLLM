@@ -327,7 +327,9 @@ func (h *Handler) decorateEvent(m Message) error {
 		e.Event.PromptTokenCount = tks
 
 		e.Event.CompletionTokenCount = completiontks
-		e.Event.CostInUsd = completionCost + cost
+		if e.Event.Status == http.StatusOK {
+			e.Event.CostInUsd = completionCost + cost
+		}
 	}
 
 	if e.Event.Path == "/api/providers/azure/openai/deployments/:deployment_id/chat/completions" {
@@ -359,7 +361,10 @@ func (h *Handler) decorateEvent(m Message) error {
 
 			e.Event.PromptTokenCount = tks
 			e.Event.CompletionTokenCount = completiontks
-			e.Event.CostInUsd = cost + completionCost
+
+			if e.Event.Status == http.StatusOK {
+				e.Event.CostInUsd = cost + completionCost
+			}
 		}
 	}
 
@@ -386,7 +391,9 @@ func (h *Handler) decorateEvent(m Message) error {
 
 			e.Event.PromptTokenCount = tks
 			e.Event.CompletionTokenCount = completiontks
-			e.Event.CostInUsd = cost + completionCost
+			if e.Event.Status == http.StatusOK {
+				e.Event.CostInUsd = cost + completionCost
+			}
 		}
 	}
 

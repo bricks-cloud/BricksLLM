@@ -8,12 +8,18 @@ import (
 
 var AnthropicPerMillionTokenCost = map[string]map[string]float64{
 	"prompt": {
-		"claude-instant": 0.8,
-		"claude":         8,
+		"claude-instant":  0.8,
+		"claude":          8,
+		"claude-3-opus":   15,
+		"claude-3-sonnet": 3,
+		"claude-3-haiku":  0.25,
 	},
 	"completion": {
-		"claude-instant": 2.4,
-		"claude":         24,
+		"claude-instant":  2.4,
+		"claude":          24,
+		"claude-3-opus":   75,
+		"claude-3-sonnet": 15,
+		"claude-3-haiku":  1.25,
 	},
 }
 
@@ -65,7 +71,13 @@ func (ce *CostEstimator) EstimatePromptCost(model string, tks int) (float64, err
 }
 
 func selectModel(model string) string {
-	if strings.HasPrefix(model, "claude-instant") {
+	if strings.HasPrefix(model, "claude-3-opus") {
+		return "claude-3-opus"
+	} else if strings.HasPrefix(model, "claude-3-sonnet") {
+		return "claude-3-sonnet"
+	} else if strings.HasPrefix(model, "claude-3-haiku") {
+		return "claude-3-haiku"
+	} else if strings.HasPrefix(model, "claude-instant") {
 		return "claude-instant"
 	} else if strings.HasPrefix(model, "claude") {
 		return "claude"
@@ -92,4 +104,18 @@ func (ce *CostEstimator) EstimateCompletionCost(model string, tks int) (float64,
 
 func (ce *CostEstimator) Count(input string) int {
 	return ce.tc.Count(input)
+}
+
+var (
+	anthropicMessageOverhead = 4
+)
+
+func (ce *CostEstimator) CountMessagesTokens(messages []Message) int {
+	count := 0
+
+	for _, message := range messages {
+		count += ce.tc.Count(message.Content) + anthropicMessageOverhead
+	}
+
+	return count + anthropicMessageOverhead
 }
