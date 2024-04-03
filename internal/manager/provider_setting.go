@@ -14,7 +14,7 @@ import (
 type ProviderSettingsStorage interface {
 	UpdateProviderSetting(id string, setting *provider.UpdateSetting) (*provider.Setting, error)
 	CreateProviderSetting(setting *provider.Setting) (*provider.Setting, error)
-	GetProviderSetting(id string) (*provider.Setting, error)
+	GetProviderSetting(id string, withSecret bool) (*provider.Setting, error)
 	GetCustomProviderByName(name string) (*custom.Provider, error)
 	GetProviderSettings(withSecret bool, ids []string) ([]*provider.Setting, error)
 }
@@ -112,7 +112,7 @@ func (m *ProviderSettingsManager) UpdateSetting(id string, setting *provider.Upd
 		return nil, internal_errors.NewValidationError("id cannot be empty")
 	}
 
-	existing, _ := m.Storage.GetProviderSetting(id)
+	existing, _ := m.Storage.GetProviderSetting(id, false)
 	if existing == nil {
 		return nil, internal_errors.NewNotFoundError("provider setting is not found")
 	}
@@ -126,6 +126,10 @@ func (m *ProviderSettingsManager) UpdateSetting(id string, setting *provider.Upd
 	setting.UpdatedAt = time.Now().Unix()
 
 	return m.Storage.UpdateProviderSetting(id, setting)
+}
+
+func (m *ProviderSettingsManager) GetSettingFromDb(id string) (*provider.Setting, error) {
+	return m.Storage.GetProviderSetting(id, true)
 }
 
 func (m *ProviderSettingsManager) GetSetting(id string) (*provider.Setting, error) {

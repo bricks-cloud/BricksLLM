@@ -16,7 +16,7 @@ type Storage interface {
 	UpdateKey(id string, key *key.UpdateKey) (*key.ResponseKey, error)
 	CreateKey(key *key.RequestKey) (*key.ResponseKey, error)
 	DeleteKey(id string) error
-	GetProviderSetting(id string) (*provider.Setting, error)
+	GetProviderSetting(id string, withSecret bool) (*provider.Setting, error)
 	GetPolicyById(id string) (*policy.Policy, error)
 	GetProviderSettings(withSecret bool, ids []string) ([]*provider.Setting, error)
 	GetKey(keyId string) (*key.ResponseKey, error)
@@ -72,7 +72,7 @@ func (m *Manager) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 	}
 
 	if len(rk.SettingId) != 0 {
-		if _, err := m.s.GetProviderSetting(rk.SettingId); err != nil {
+		if _, err := m.s.GetProviderSetting(rk.SettingId, false); err != nil {
 			return nil, err
 		}
 	}
@@ -119,7 +119,7 @@ func (m *Manager) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, err
 	}
 
 	if len(uk.SettingId) != 0 {
-		if _, err := m.s.GetProviderSetting(uk.SettingId); err != nil {
+		if _, err := m.s.GetProviderSetting(uk.SettingId, false); err != nil {
 			return nil, err
 		}
 	}

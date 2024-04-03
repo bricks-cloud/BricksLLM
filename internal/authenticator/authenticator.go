@@ -18,6 +18,7 @@ import (
 
 type providerSettingsManager interface {
 	GetSetting(id string) (*provider.Setting, error)
+	GetSettingFromDb(id string) (*provider.Setting, error)
 }
 
 type routesManager interface {
@@ -229,11 +230,15 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 	for _, settingId := range settingIds {
 		setting, err := a.psm.GetSetting(settingId)
 		if err != nil {
-			return nil, nil, err
+			setting, err = a.psm.GetSettingFromDb(settingId)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			stats.Incr("bricksllm.authenticator.authenticate_http_request.found_provider_setting_in_db", nil, 1)
 		}
 
 		if canAccessPath(setting.Provider, req.URL.Path) {
-
 			selected = append(selected, setting)
 		}
 

@@ -293,7 +293,7 @@ func (s *Store) GetLatencyPercentiles(start, end int64, tags, keyIds []string) (
 	return data, nil
 }
 
-func (s *Store) GetProviderSetting(id string) (*provider.Setting, error) {
+func (s *Store) GetProviderSetting(id string, withSecret bool) (*provider.Setting, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
@@ -309,6 +309,7 @@ func (s *Store) GetProviderSetting(id string) (*provider.Setting, error) {
 		&name,
 		pq.Array(&setting.AllowedModels),
 	)
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, internal_errors.NewNotFoundError("provider setting is not found")
@@ -316,6 +317,16 @@ func (s *Store) GetProviderSetting(id string) (*provider.Setting, error) {
 
 		return nil, err
 	}
+
+	if withSecret {
+		m := map[string]string{}
+		if err := json.Unmarshal(data, &m); err != nil {
+			return nil, err
+		}
+		setting.Setting = m
+	}
+
+	setting.Name = name.String
 
 	return setting, nil
 }
