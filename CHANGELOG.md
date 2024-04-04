@@ -1,3 +1,7 @@
+## 1.14.3 - 2024-04-03
+### Fixed
+- Fixed revoking key without hitting cost limit error
+
 ## 1.14.2 - 2024-04-02
 ### Added
 - Added fetch from DB if a provider setting associated with a key is not found in memory
