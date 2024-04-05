@@ -76,6 +76,10 @@ func rewriteHttpAuthHeader(req *http.Request, setting *provider.Setting) error {
 		return nil
 	}
 
+	if strings.HasPrefix(uri, "/api/providers/vllm") {
+		return nil
+	}
+
 	apiKey := setting.GetParam("apikey")
 
 	if len(apiKey) == 0 {
@@ -83,16 +87,16 @@ func rewriteHttpAuthHeader(req *http.Request, setting *provider.Setting) error {
 	}
 
 	if strings.HasPrefix(uri, "/api/providers/anthropic") {
-		req.Header.Set("x-api-key", setting.GetParam("apikey"))
+		req.Header.Set("x-api-key", apiKey)
 		return nil
 	}
 
 	if strings.HasPrefix(uri, "/api/providers/azure") {
-		req.Header.Set("api-key", setting.GetParam("apikey"))
+		req.Header.Set("api-key", apiKey)
 		return nil
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", setting.GetParam("apikey")))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
 
 	return nil
 }
@@ -153,6 +157,10 @@ func canAccessPath(provider string, path string) bool {
 	}
 
 	if provider == "anthropic" && !strings.HasPrefix(path, "/api/providers/anthropic") {
+		return false
+	}
+
+	if provider == "vllm" && !strings.HasPrefix(path, "/api/providers/vllm") {
 		return false
 	}
 
