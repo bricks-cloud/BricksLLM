@@ -49,6 +49,7 @@ type validator interface {
 }
 
 type keyManager interface {
+	GetKeys(tags, keyIds []string, provider string) ([]*key.ResponseKey, error)
 	UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error)
 }
 
@@ -161,26 +162,38 @@ func (h *Handler) handleValidationResult(kc *key.ResponseKey, cost float64) erro
 	if err != nil {
 		stats.Incr("bricksllm.message.handler.handle_validation_result.handle_validation_result", nil, 1)
 
-		if xe, ok := err.(expirationError); ok {
+		if _, ok := err.(expirationError); ok {
 			stats.Incr("bricksllm.message.handler.handle_validation_result.expiraton_error", nil, 1)
 
-			h.log.Debug("expiration error",
-				zap.String("expired_reason", xe.Reason()),
-				zap.String("key_id", kc.KeyId),
-			)
-
-			truePtr := true
-			_, err = h.km.UpdateKey(kc.KeyId, &key.UpdateKey{
-				Revoked:       &truePtr,
-				RevokedReason: key.RevokedReasonExpired,
-			})
-
+			tks, err := h.km.GetKeys(nil, []string{kc.KeyId}, "")
 			if err != nil {
-				stats.Incr("bricksllm.message.handler.handle_validation_result.update_key_error", nil, 1)
-				return err
+				stats.Incr("bricksllm.message.handler.handle_validation_result.get_keys_error", nil, 1)
 			}
 
-			return nil
+			if len(tks) == 1 {
+				err := h.v.Validate(tks[0], cost)
+				if err != nil {
+					if xe, ok := err.(expirationError); ok {
+						h.log.Debug("expiration error",
+							zap.String("expired_reason", xe.Reason()),
+							zap.String("key_id", kc.KeyId),
+						)
+
+						truePtr := true
+						_, err = h.km.UpdateKey(kc.KeyId, &key.UpdateKey{
+							Revoked:       &truePtr,
+							RevokedReason: key.RevokedReasonExpired,
+						})
+
+						if err != nil {
+							stats.Incr("bricksllm.message.handler.handle_validation_result.update_key_error", nil, 1)
+							return err
+						}
+
+						return nil
+					}
+				}
+			}
 		}
 
 		if _, ok := err.(rateLimitError); ok {
