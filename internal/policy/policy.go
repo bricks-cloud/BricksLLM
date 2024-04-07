@@ -180,7 +180,7 @@ func (p *Policy) Validate() error {
 }
 
 func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd CustomPolicyDetector, log *zap.Logger) error {
-	if p == nil || scanner == nil {
+	if p == nil || scanner == nil || input == nil {
 		return nil
 	}
 

@@ -10,6 +10,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
+	"github.com/bricks-cloud/bricksllm/internal/provider/vllm"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
@@ -44,6 +45,12 @@ type azureEstimator interface {
 	EstimateEmbeddingsInputCost(model string, tks int) (float64, error)
 }
 
+type vllmEstimator interface {
+	EstimateCompletionPromptToken(r *vllm.CompletionRequest) int
+	EstimateChatCompletionPromptToken(r *vllm.ChatRequest) int
+	EstimateContentTokenCounts(model string, content string) int
+}
+
 type validator interface {
 	Validate(k *key.ResponseKey, promptCost float64) error
 }
@@ -66,6 +73,7 @@ type Handler struct {
 	log      *zap.Logger
 	ae       anthropicEstimator
 	e        estimator
+	vllme    vllmEstimator
 	aze      azureEstimator
 	v        validator
 	km       keyManager
@@ -73,12 +81,13 @@ type Handler struct {
 	ac       accessCache
 }
 
-func NewHandler(r recorder, log *zap.Logger, ae anthropicEstimator, e estimator, aze azureEstimator, v validator, km keyManager, rlm rateLimitManager, ac accessCache) *Handler {
+func NewHandler(r recorder, log *zap.Logger, ae anthropicEstimator, e estimator, vllme vllmEstimator, aze azureEstimator, v validator, km keyManager, rlm rateLimitManager, ac accessCache) *Handler {
 	return &Handler{
 		recorder: r,
 		log:      log,
 		ae:       ae,
 		e:        e,
+		vllme:    vllme,
 		aze:      aze,
 		v:        v,
 		km:       km,
@@ -407,6 +416,34 @@ func (h *Handler) decorateEvent(m Message) error {
 			if e.Event.Status == http.StatusOK {
 				e.Event.CostInUsd = cost + completionCost
 			}
+		}
+	}
+
+	if e.Event.Path == "/api/providers/vllm/v1/chat/completions" {
+		ccr, ok := e.Request.(*vllm.ChatRequest)
+		if !ok {
+			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
+			h.log.Debug("event contains data that cannot be converted to vllm chat completion request", zap.Any("data", m.Data))
+			return errors.New("event request data cannot be parsed as vllm chat completon request")
+		}
+
+		if ccr.Stream {
+			e.Event.PromptTokenCount = h.vllme.EstimateChatCompletionPromptToken(ccr)
+			e.Event.CompletionTokenCount = h.vllme.EstimateContentTokenCounts(e.Event.Model, e.Content)
+		}
+	}
+
+	if e.Event.Path == "/api/providers/vllm/v1/completions" {
+		cr, ok := e.Request.(*vllm.CompletionRequest)
+		if !ok {
+			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
+			h.log.Debug("event contains data that cannot be converted to vllm completion request", zap.Any("data", m.Data))
+			return errors.New("event request data cannot be parsed as vllm completon request")
+		}
+
+		if cr.Stream {
+			e.Event.PromptTokenCount = h.vllme.EstimateCompletionPromptToken(cr)
+			e.Event.CompletionTokenCount = h.vllme.EstimateContentTokenCounts(e.Event.Model, e.Content)
 		}
 	}
 
