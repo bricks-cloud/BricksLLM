@@ -1,3 +1,7 @@
+## 1.14.4 - 2024-04-07
+### Added
+- Added vllm integration
+
 ## 1.14.3 - 2024-04-03
 ### Fixed
 - Fixed revoking key without hitting cost limit error

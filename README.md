@@ -391,6 +391,7 @@ This endpoint is creating a provider setting.
 > | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | apiKey | required | `string` | `xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`  | This value is required. |
+> | url | required | `string` | `https://your.deployment.url`  | This value is required when the provider is `vllm` |
 > | resourceName | required | `string` | `YOUR_AZURE_RESOURCE_NAME`            | This value is required when the provider is `azure`. |
 
 
@@ -483,6 +484,7 @@ This endpoint is updating a provider setting .
 > | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | apiKey | required | `string` | `xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`  | This value is required. |
+> | url | required | `string` | `https://your.deployment.url`  | This value is required when the provider is `vllm` |
 > | resourceName | required | `string` | `YOUR_AZURE_RESOURCE_NAME`            | This value is required when the provider is `azure`. |
 
 
@@ -1331,6 +1333,25 @@ This endpoint is set up for proxying Anthropic completion requests. Documentatio
 
 ##### Description
 This endpoint is set up for proxying Anthropic messages requests. Documentation for this endpoint can be found [here](https://docs.anthropic.com/claude/reference/messages_post).
+
+</details>
+
+## vllm Provider Proxy
+The vllm provider proxy runs on Port `8002`.
+
+<details>
+  <summary>Create chat completions: <code>POST</code> <code><b>/api/providers/vllm/v1/chat/completions</b></code></summary>
+
+##### Description
+This endpoint is set up for proxying vllm chat completions requests. Documentation for this endpoint can be found [here](https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html).
+
+</details>
+
+<details>
+  <summary>Create completions: <code>POST</code> <code><b>/api/providers/vllm/v1/completions</b></code></summary>
+
+##### Description
+This endpoint is set up for proxying vllm completions requests. Documentation for this endpoint can be found [here](https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html).
 
 </details>
 
