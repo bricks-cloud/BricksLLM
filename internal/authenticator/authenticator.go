@@ -76,11 +76,12 @@ func rewriteHttpAuthHeader(req *http.Request, setting *provider.Setting) error {
 		return nil
 	}
 
-	if strings.HasPrefix(uri, "/api/providers/vllm") {
+	apiKey := setting.GetParam("apikey")
+
+	if strings.HasPrefix(uri, "/api/providers/vllm") && len(apiKey) != 0 {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
 		return nil
 	}
-
-	apiKey := setting.GetParam("apikey")
 
 	if len(apiKey) == 0 {
 		return errors.New("api key is empty in provider setting")
