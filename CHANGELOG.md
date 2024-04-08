@@ -1,3 +1,11 @@
+## 1.15.1 - 2024-04-07
+### Added
+- Added support for `apikey` in vLLM integration
+
+## 1.15.0 - 2024-04-07
+### Added
+- Added vLLM integration
+
 ## 1.14.3 - 2024-04-03
 ### Fixed
 - Fixed revoking key without hitting cost limit error

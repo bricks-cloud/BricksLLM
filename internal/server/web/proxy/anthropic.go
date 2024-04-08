@@ -293,7 +293,7 @@ var (
 
 func getMessagesHandler(prod, private bool, client http.Client, log *zap.Logger, e anthropicEstimator, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		stats.Incr("bricksllm.proxy.get_completion_handler.requests", nil, 1)
+		stats.Incr("bricksllm.proxy.get_messages_handler.requests", nil, 1)
 
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
@@ -364,8 +364,8 @@ func getMessagesHandler(prod, private bool, client http.Client, log *zap.Logger,
 			promptTokens := 0
 
 			completionRes := &anthropic.MessagesResponse{}
-			stats.Incr("bricksllm.proxy.get_completion_handler.success", nil, 1)
-			stats.Timing("bricksllm.proxy.get_completion_handler.success_latency", dur, nil, 1)
+			stats.Incr("bricksllm.proxy.get_messages_handler.success", nil, 1)
+			stats.Timing("bricksllm.proxy.get_messages_handler.success_latency", dur, nil, 1)
 
 			err = json.Unmarshal(bytes, completionRes)
 			if err != nil {

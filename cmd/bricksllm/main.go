@@ -22,6 +22,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/provider/azure"
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
 	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
+	"github.com/bricks-cloud/bricksllm/internal/provider/vllm"
 	"github.com/bricks-cloud/bricksllm/internal/recorder"
 	"github.com/bricks-cloud/bricksllm/internal/server/web/admin"
 	"github.com/bricks-cloud/bricksllm/internal/server/web/proxy"
@@ -243,8 +244,14 @@ func main() {
 		log.Sugar().Fatalf("error creating anthropic token counter: %v", err)
 	}
 
+	vllmtc, err := vllm.NewTokenCounter()
+	if err != nil {
+		log.Sugar().Fatalf("error creating vllm token counter: %v", err)
+	}
+
 	ace := anthropic.NewCostEstimator(atc)
 	aoe := azure.NewCostEstimator()
+	vllme := vllm.NewCostEstimator(vllmtc)
 
 	v := validator.NewValidator(costLimitCache, rateLimitCache, costStorage)
 	rec := recorder.NewRecorder(costStorage, costLimitCache, ce, store)
@@ -257,7 +264,7 @@ func main() {
 	eventMessageChan := make(chan message.Message)
 	messageBus.Subscribe("event", eventMessageChan)
 
-	handler := message.NewHandler(rec, log, ace, ce, aoe, v, m, rlm, accessCache)
+	handler := message.NewHandler(rec, log, ace, ce, vllme, aoe, v, m, rlm, accessCache)
 
 	eventConsumer := message.NewConsumer(eventMessageChan, log, 4, handler.HandleEventWithRequestAndResponse)
 	eventConsumer.StartEventMessageConsumers()

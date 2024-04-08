@@ -8,6 +8,12 @@ type Setting struct {
 	Id            string            `json:"id"`
 	Name          string            `json:"name"`
 	AllowedModels []string          `json:"allowedModels"`
+	CostMap       *CostMap          `json:"costMap"`
+}
+
+type CostMap struct {
+	PromptCostPerModel     map[string]float64 `json:"promptCostPerModel"`
+	CompletionCostPerModel map[string]float64 `json:"completionCostPerModel"`
 }
 
 func (s *Setting) GetParam(key string) string {
@@ -19,4 +25,5 @@ type UpdateSetting struct {
 	Setting       map[string]string `json:"setting,omitempty"`
 	Name          *string           `json:"name"`
 	AllowedModels *[]string         `json:"allowedModels,omitempty"`
+	CostMap       *CostMap          `json:"costMap,omitempty"`
 }

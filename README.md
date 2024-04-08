@@ -14,9 +14,17 @@
 > [!TIP]
 > A [managed version of BricksLLM](https://www.trybricks.ai?utm_source=github&utm_medium=repo&utm_campaign=bricksllm) is also available! It is production ready, and comes with a dashboard to make interacting with BricksLLM easier. Try us out for free today!
 
-**BricksLLM** is a cloud native AI gateway written in Go. Currently, it provide native support for OpenAI, Anthropic and Azure OpenAI. We let you create API keys that have rate limits, cost limits and TTLs. The API keys can be used in both development and production to achieve fine-grained access control that is not provided by any of the foundational model providers. The proxy is designed to be 100% compatible with existing SDKs.
+**BricksLLM** is a cloud native AI gateway written in Go. Currently, it provides native support for OpenAI, Anthropic, Azure OpenAI and vLLM. BricksLLM aims to provide enterprise level infrastructure that can power any LLM production use cases. Here are some use cases for BricksLLM: 
+
+* Set LLM usage limits for users on different pricing tiers
+* Track LLM usage on a per user and per organization basis
+* Block or redact requests containing PIIs
+* Improve LLM reliability with failovers, retries and caching
+* Distribute API keys with rate limits and cost limits for internal development/production use cases
+* Distribute API keys with rate limits and cost limits for students
 
 ## Features
+- [x] [PII detection and masking](https://github.com/bricks-cloud/BricksLLM/blob/main/cookbook/pii_detection.md)
 - [x] Rate limit
 - [x] Cost control
 - [x] Cost analytics
@@ -29,17 +37,12 @@
 - [x] Native support for all OpenAI endpoints
 - [x] Native support for Anthropic
 - [x] Native support for Azure OpenAI
+- [x] [Native support for vLLM](https://github.com/bricks-cloud/BricksLLM/blob/main/cookbook/vllm_integration.md)
+- [x] Support for custom deployments
 - [x] Integration with custom models
 - [x] Datadog integration
 - [x] Logging with privacy control
 
-
-## Roadmap
-- [x] Access control via API key with rate limit, cost limit and ttl
-- [x] Logging integration
-- [x] Statsd integration
-- [x] Custom Provider Integration
-- [ ] PII detection and masking :construction:
 
 ## Getting Started
 The easiest way to get started with BricksLLM is through [BricksLLM-Docker](https://github.com/bricks-cloud/BricksLLM-Docker).
@@ -148,8 +151,12 @@ docker pull luyuanxin1995/bricksllm:1.4.0
 > | `REDIS_WRITE_TIME_OUT`         | optional | Timeout for Redis write operations | `500ms`
 > | `IN_MEMORY_DB_UPDATE_INTERVAL`         | optional | The interval BricksLLM API gateway polls Postgresql DB for latest key configurations | `1s`
 > | `STATS_PROVIDER`         | optional | This value can only be datadog. Required for integration with Datadog.  |
-> | `PROXY_TIMEOUT`         | optional | Timeout for proxy HTTP requests. |
-> | `ADMIN_PASS`         | optional | Simple password authentication for admin endpoints.  |
+> | `PROXY_TIMEOUT`         | optional | Timeout for proxy HTTP requests. | `600s` |
+> | `NUMBER_OF_EVENT_MESSAGE_CONSUMERS`         | optional | Number of event message consumers that help handle counting tokens and inserting event into db.  | `3` |
+> | `AMAZON_REQUEST_TIMEOUT`         | optional | Timeout for amazon requests.  | `5s` |
+> | `AMAZON_CONNECTION_TIMEOUT`         | optional | Timeout for amazon connection.  | `10s` |
+> | `AWS_SECRET_ACCESS_KEY`         | optional | Required for PII detection features.  |
+> | `AWS_ACCESS_KEY_ID`         | optional | Required for PII detection features.  |
 
 ## Configuration Endpoints
 The configuration server runs on Port `8001`.
@@ -217,6 +224,7 @@ Fields of KeyConfiguration
 > | shouldLogRequest | `bool` | `false` | Should request be stored. |
 > | shouldLogResponse | `bool` | `true` | Should response be stored. |
 > | rotationEnabled | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
+> | policyId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Policy id associated with the key. |
 
 </details>
 
@@ -254,6 +262,7 @@ PathConfig
 > | shouldLogRequest | optional | `bool` | `false` | Should request be stored. |
 > | shouldLogResponse | optional | `bool` | `true` | Should response be stored. |
 > | rotationEnabled | optional | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
+> | policyId | optional | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Policy id associated with the key. |
 
 
 ##### Error Response
@@ -293,6 +302,7 @@ PathConfig
 > | shouldLogRequest | `bool` | `false` | Should request be stored. |
 > | shouldLogResponse | `bool` | `true` | Should response be stored. |
 > | rotationEnabled | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
+> | policyId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Policy id associated with the key. |
 
 </details>
 
@@ -333,6 +343,7 @@ PathConfig
 > | shouldLogRequest | optional | `bool` | `false` | Should request be stored. |
 > | shouldLogResponse | optional | `bool` | `true` | Should response be stored. |
 > | rotationEnabled | optional | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
+> | policyId | optional | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Policy id associated with the key. |
 
 ##### Error Response
 
@@ -370,6 +381,7 @@ PathConfig
 > | shouldLogRequest | `bool` | `false` | Should request be stored. |
 > | shouldLogResponse | `bool` | `true` | Should response be stored. |
 > | rotationEnabled | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
+> | policyId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Policy id associated with the key. |
 
 </details>
 
@@ -391,6 +403,7 @@ This endpoint is creating a provider setting.
 > | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | apiKey | required | `string` | `xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`  | This value is required. |
+> | url | required | `string` | `https://your.deployment.url`  | This value is required when the provider is `vllm` |
 > | resourceName | required | `string` | `YOUR_AZURE_RESOURCE_NAME`            | This value is required when the provider is `azure`. |
 
 
@@ -483,6 +496,7 @@ This endpoint is updating a provider setting .
 > | Field | required | type | example                      | description |
 > |---------------|-----------------------------------|-|-|-|
 > | apiKey | required | `string` | `xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`  | This value is required. |
+> | url | required | `string` | `https://your.deployment.url`  | This value is required when the provider is `vllm` |
 > | resourceName | required | `string` | `YOUR_AZURE_RESOURCE_NAME`            | This value is required when the provider is `azure`. |
 
 
@@ -718,6 +732,152 @@ This endpoint is updating a custom provider.
 > | provider | `string` | `bricks`  | Unique identifier associated with the route config. |
 > | route_configs | `[]RouteConfig` | `{{ "path": "/chat/completions", "target_url": "https://api.openai.com/v1/chat/completions" }}` | Start timestamp for the requested timeseries data. |
 > | authentication_param | `string` | `apikey` | The authentication parameter required for. |
+</details>
+
+<details>
+  <summary>Create a policy: <code>POST</code> <code><b>/api/policies</b></code></summary>
+
+##### Description
+This endpoint is for creating a policy.
+
+##### Request
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | name | optional | `string` | `Pivacy Policy  #1` | Name for the policy. |
+> | tags | required | `[]string` | `["orgId-1"]` | Associated tags. |
+> | config | optional | `config` | `{"rules": { "address": "block" }}` | PII detection rules. |
+> | regexConfig | optional | `regexConfig` | `{"rules": [{"definition": "[2-9]\|[12]\d\|3[0-6]", "action": "block"}]}` | Regular expression rules. |
+
+##### Config
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | rules | required | `map[Rule]Action` | `{ "address": "block" }` | PII entities mapped to their associated actions. |
+
+##### RegexConfig
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | definition | required | `string` | `[2-9]\|[12]\d\|3[0-6]` | Regex definition. |
+> | action | required | `Action` | `block` | Action associated with the regex definition. |
+
+##### Rule
+> | type | example | description |
+> | `enum`| `address` | Possible values are `address`,`age`,`all`,`aws_access_key`,`aws_secret_key`,`bank_account_number`,`bank_routing`,`ca_health_number`,`ca_social_insurance_number`,`credit_debit_cvv`,`credit_debit_expiry`,`credit_debit_number`,`date_time`,`driver_id`,`email`,`in_aadhaar`,`in_nrega`,`in_permanent_account_number`,`in_voter_number`,`international_bank_account_number`,`ip_address`,`license_plate`,`mac_address`,`name`,`passport_number`,`password`,`phone`,`pin`,`ssn`,`swift_code`,`uk_national_health_service_number`,`uk_national_insurance_number`,`uk_unique_taxpayer_reference_number`,`url`,`us_individual_tax_identification_number`,`username`, and `vehicle_identification_number`. |
+
+##### Action
+> | type | example | description |
+> | `enum`| `block` | Possible values are `block`,`allow_but_redact`, and `allow`. |
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `500`         | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `400`, `500`           |
+> | title         | `string` | `request body reader error `            |
+> | type         | `string` | `/errors/policies`             |
+> | detail         | `string` | `something is wrong`            |
+> | instance         | `string` | `/api/policies`  |
+
+##### Response
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | id | `int64` | `9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb` | Unique identifier associated with the event.  |
+> | created_at | `int64` | `1699933571` | Unix timestamp for creation time.  |
+> | updated_at | `int64` | `1699933571` | Unix timestamp for update time.  |
+> | tags | `[]string` | `["org-111"]`  | Tags attached to policies. |
+> | config | `config` | `{"rules": { "address": "block" }}` | PII detection rules. |
+> | regexConfig | `regexConfig` | `{"rules": [{"definition": "[2-9]\|[12]\d\|3[0-6]", "action": "block"}]}` | Regular expression rules. |
+
+</details>
+
+
+<details>
+  <summary>Update a policy: <code>PATCH</code> <code><b>/api/policies/:id</b></code></summary>
+
+##### Description
+This endpoint is for updating a policy.
+
+##### Request
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | name | optional | `string` | `Pivacy Policy  #1` | Name for the policy. |
+> | tags | required | `[]string` | `["orgId-1"]` | Associated tags. |
+> | config | optional | `config` | `{"rules": { "address": "block" }}` | PII detection rules. |
+> | regexConfig | optional | `regexConfig` | `{"rules": [{"definition": "[2-9]\|[12]\d\|3[0-6]", "action": "block"}]}` | Regular expression rules. |
+
+##### Config
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | rules | required | `map[Rule]Action` | `{ "address": "block" }` | PII entities mapped to their associated actions. |
+
+##### RegexConfig
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | definition | required | `string` | `[2-9]\|[12]\d\|3[0-6]` | Regex definition. |
+> | action | required | `Action` | `block` | Action associated with the regex definition. |
+
+##### Rule
+> | type | example | description |
+> | `enum`| `address` | Possible values are `address`,`age`,`all`,`aws_access_key`,`aws_secret_key`,`bank_account_number`,`bank_routing`,`ca_health_number`,`ca_social_insurance_number`,`credit_debit_cvv`,`credit_debit_expiry`,`credit_debit_number`,`date_time`,`driver_id`,`email`,`in_aadhaar`,`in_nrega`,`in_permanent_account_number`,`in_voter_number`,`international_bank_account_number`,`ip_address`,`license_plate`,`mac_address`,`name`,`passport_number`,`password`,`phone`,`pin`,`ssn`,`swift_code`,`uk_national_health_service_number`,`uk_national_insurance_number`,`uk_unique_taxpayer_reference_number`,`url`,`us_individual_tax_identification_number`,`username`, and `vehicle_identification_number`. |
+
+##### Action
+> | type | example | description |
+> | `enum`| `block` | Possible values are `block`,`allow_but_redact`, and `allow`. |
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `500`         | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `400`, `500`           |
+> | title         | `string` | `request body reader error `            |
+> | type         | `string` | `/errors/policies`             |
+> | detail         | `string` | `something is wrong`            |
+> | instance         | `string` | `/api/policies`  |
+
+##### Response
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | id | `int64` | `9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb` | Unique identifier associated with the event.  |
+> | created_at | `int64` | `1699933571` | Unix timestamp for creation time.  |
+> | updated_at | `int64` | `1699933571` | Unix timestamp for update time.  |
+> | tags | `[]string` | `["org-111"]`  | Tags attached to policies. |
+> | config | `config` | `{"rules": { "address": "block" }}` | PII detection rules. |
+> | regexConfig | `regexConfig` | `{"rules": [{"definition": "[2-9]\|[12]\d\|3[0-6]", "action": "block"}]}` | Regular expression rules. |
+
+
+</details>
+
+
+<details>
+  <summary>Get policies by tags: <code>GET</code> <code><b>/api/policies</b></code></summary>
+
+##### Description
+This endpoint is for retrieving policies by tags.
+
+##### Query Parameters
+> | name   |  type      | data type      | description                                          |
+> |--------|------------|----------------|------------------------------------------------------|s
+> | `tags` |  required  | `[]string`         | Tags attached to the policies.                  |
+
+##### Response
+```
+[]Policy
+```
+Policy
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | id | `int64` | `9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb` | Unique identifier associated with the event.  |
+> | created_at | `int64` | `1699933571` | Unix timestamp for creation time.  |
+> | updated_at | `int64` | `1699933571` | Unix timestamp for update time.  |
+> | tags | `[]string` | `["org-111"]`  | Tags attached to policies. |
+> | config | `config` | `{"rules": { "address": "block" }}` | PII detection rules. |
+> | regexConfig | `regexConfig` | `{"rules": [{"definition": "[2-9]\|[12]\d\|3[0-6]", "action": "block"}]}` | Regular expression rules. |
+
 </details>
 
 <details>
@@ -1331,6 +1491,25 @@ This endpoint is set up for proxying Anthropic completion requests. Documentatio
 
 ##### Description
 This endpoint is set up for proxying Anthropic messages requests. Documentation for this endpoint can be found [here](https://docs.anthropic.com/claude/reference/messages_post).
+
+</details>
+
+## vllm Provider Proxy
+The vllm provider proxy runs on Port `8002`.
+
+<details>
+  <summary>Create chat completions: <code>POST</code> <code><b>/api/providers/vllm/v1/chat/completions</b></code></summary>
+
+##### Description
+This endpoint is set up for proxying vllm chat completions requests. Documentation for this endpoint can be found [here](https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html).
+
+</details>
+
+<details>
+  <summary>Create completions: <code>POST</code> <code><b>/api/providers/vllm/v1/completions</b></code></summary>
+
+##### Description
+This endpoint is set up for proxying vllm completions requests. Documentation for this endpoint can be found [here](https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html).
 
 </details>
 

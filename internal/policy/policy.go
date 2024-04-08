@@ -10,6 +10,8 @@ import (
 
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
 	"github.com/bricks-cloud/bricksllm/internal/pii"
+	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
+	"github.com/bricks-cloud/bricksllm/internal/provider/vllm"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"go.uber.org/zap"
 
@@ -178,7 +180,7 @@ func (p *Policy) Validate() error {
 }
 
 func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd CustomPolicyDetector, log *zap.Logger) error {
-	if p == nil || scanner == nil {
+	if p == nil || scanner == nil || input == nil {
 		return nil
 	}
 
@@ -300,6 +302,144 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 		}
 
 		converted.Messages = newMessages
+
+		return nil
+	case *vllm.CompletionRequest:
+		converted := input.(*vllm.CompletionRequest)
+		if inputs, ok := converted.Prompt.([]string); ok {
+			result, err := p.scan(inputs, scanner, cd, log)
+			if err != nil {
+				return err
+			}
+
+			if result.Action == Block {
+				return internal_errors.NewBlockedError("request blocked due to detected entities: " + join(result.BlockedEntities, result.BlockedRegexDefinitions, result.BlockedCustomDefinitions))
+			}
+
+			if result.Action == AllowButWarn {
+				return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
+			}
+
+			if len(result.Updated) == 1 {
+				converted.Prompt = result.Updated[0]
+			}
+
+		} else if input, ok := converted.Prompt.(string); ok {
+			result, err := p.scan([]string{input}, scanner, cd, log)
+			if err != nil {
+				return err
+			}
+
+			if result.Action == Block {
+				return internal_errors.NewBlockedError("request blocked due to detected entities: " + join(result.BlockedEntities, result.BlockedRegexDefinitions, result.BlockedCustomDefinitions))
+			}
+
+			if result.Action == AllowButWarn {
+				return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
+			}
+
+			if len(result.Updated) == 1 {
+				converted.Prompt = result.Updated[0]
+			}
+		}
+
+		return nil
+	case *vllm.ChatRequest:
+		converted := input.(*vllm.ChatRequest)
+		newMessages := []goopenai.ChatCompletionMessage{}
+
+		contents := []string{}
+		for _, message := range converted.Messages {
+			contents = append(contents, message.Content)
+		}
+
+		result, err := p.scan(contents, scanner, cd, log)
+		if err != nil {
+			return err
+		}
+
+		if result.Action == Block {
+			return internal_errors.NewBlockedError("request blocked due to detected entities: " + join(result.BlockedEntities, result.BlockedRegexDefinitions, result.BlockedCustomDefinitions))
+		}
+
+		if result.Action == AllowButWarn {
+			return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
+		}
+
+		if len(result.Updated) != len(converted.Messages) {
+			return errors.New("updated contents length not consistent with existing content length")
+		}
+
+		for index, c := range result.Updated {
+			newMessages = append(newMessages, goopenai.ChatCompletionMessage{
+				Content:      c,
+				Role:         converted.Messages[index].Role,
+				ToolCalls:    converted.Messages[index].ToolCalls,
+				ToolCallID:   converted.Messages[index].ToolCallID,
+				Name:         converted.Messages[index].Name,
+				FunctionCall: converted.Messages[index].FunctionCall,
+			})
+		}
+
+		converted.Messages = newMessages
+
+		return nil
+
+	case *anthropic.MessagesRequest:
+		converted := input.(*anthropic.MessagesRequest)
+		newMessages := []anthropic.Message{}
+
+		contents := []string{}
+		for _, message := range converted.Messages {
+			contents = append(contents, message.Content)
+		}
+
+		result, err := p.scan(contents, scanner, cd, log)
+		if err != nil {
+			return err
+		}
+
+		if result.Action == Block {
+			return internal_errors.NewBlockedError("request blocked due to detected entities: " + join(result.BlockedEntities, result.BlockedRegexDefinitions, result.BlockedCustomDefinitions))
+		}
+
+		if result.Action == AllowButWarn {
+			return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
+		}
+
+		if len(result.Updated) != len(converted.Messages) {
+			return errors.New("updated contents length not consistent with existing content length")
+		}
+
+		for index, c := range result.Updated {
+			newMessages = append(newMessages, anthropic.Message{
+				Content: c,
+				Role:    converted.Messages[index].Role,
+			})
+		}
+
+		converted.Messages = newMessages
+
+		return nil
+
+	case *anthropic.CompletionRequest:
+		converted := input.(*anthropic.CompletionRequest)
+		result, err := p.scan([]string{converted.Prompt}, scanner, cd, log)
+		if err != nil {
+			return err
+		}
+
+		if result.Action == Block {
+			return internal_errors.NewBlockedError("request blocked due to detected entities: " + join(result.BlockedEntities, result.BlockedRegexDefinitions, result.BlockedCustomDefinitions))
+		}
+
+		if result.Action == AllowButWarn {
+			return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
+		}
+
+		if len(result.Updated) == 1 {
+			converted.Prompt = result.Updated[0]
+		}
 
 		return nil
 	}
@@ -587,62 +727,3 @@ func (p *Policy) scan(input []string, scanner Scanner, cd CustomPolicyDetector, 
 
 	return sr, nil
 }
-
-// func (p *Policy) inspect(client http.Client, contents []string) ([]string, error) {
-// 	data, err := json.Marshal(&Request{
-// 		Contents: contents,
-// 		Policy:   p,
-// 	})
-
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-// 	defer cancel()
-
-// 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://localhost:8080/inspect", io.NopCloser(bytes.NewReader(data)))
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	req.Header.Add("Content-Type", "application/json")
-
-// 	res, err := client.Do(req)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	defer res.Body.Close()
-
-// 	body, err := io.ReadAll(res.Body)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	parsed := &Response{}
-// 	err = json.Unmarshal(body, &parsed)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	blockedReasons := []string{}
-// 	for blocked := range parsed.BlockedReasons {
-// 		blockedReasons = append(blockedReasons, blocked)
-// 	}
-
-// 	warnings := []string{}
-// 	for message := range parsed.Warnings {
-// 		warnings = append(warnings, message)
-// 	}
-
-// 	if parsed.Action == Block {
-// 		return nil, internal_errors.NewBlockedError(fmt.Sprintf("request blocked: %s", blockedReasons))
-// 	}
-
-// 	if len(parsed.Warnings) != 0 {
-// 		return nil, internal_errors.NewWarningError(fmt.Sprintf("request warned: %s", warnings))
-// 	}
-
-// 	return parsed.Contents, nil
-// }

@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bricks-cloud/bricksllm/internal/encrypter"
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
+	"github.com/bricks-cloud/bricksllm/internal/hasher"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
@@ -78,21 +78,26 @@ func rewriteHttpAuthHeader(req *http.Request, setting *provider.Setting) error {
 
 	apiKey := setting.GetParam("apikey")
 
+	if strings.HasPrefix(uri, "/api/providers/vllm") && len(apiKey) != 0 {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+		return nil
+	}
+
 	if len(apiKey) == 0 {
 		return errors.New("api key is empty in provider setting")
 	}
 
 	if strings.HasPrefix(uri, "/api/providers/anthropic") {
-		req.Header.Set("x-api-key", setting.GetParam("apikey"))
+		req.Header.Set("x-api-key", apiKey)
 		return nil
 	}
 
 	if strings.HasPrefix(uri, "/api/providers/azure") {
-		req.Header.Set("api-key", setting.GetParam("apikey"))
+		req.Header.Set("api-key", apiKey)
 		return nil
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", setting.GetParam("apikey")))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
 
 	return nil
 }
@@ -156,6 +161,10 @@ func canAccessPath(provider string, path string) bool {
 		return false
 	}
 
+	if provider == "vllm" && !strings.HasPrefix(path, "/api/providers/vllm") {
+		return false
+	}
+
 	return true
 }
 
@@ -182,7 +191,7 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 		return nil, nil, err
 	}
 
-	hash := encrypter.Encrypt(raw)
+	hash := hasher.Hash(raw)
 
 	key := a.kms.GetKey(hash)
 	if key != nil {
