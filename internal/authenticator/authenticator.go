@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bricks-cloud/bricksllm/internal/encrypter"
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
+	"github.com/bricks-cloud/bricksllm/internal/hasher"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
@@ -191,7 +191,7 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 		return nil, nil, err
 	}
 
-	hash := encrypter.Encrypt(raw)
+	hash := hasher.Hash(raw)
 
 	key := a.kms.GetKey(hash)
 	if key != nil {

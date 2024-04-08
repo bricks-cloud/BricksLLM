@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/bricks-cloud/bricksllm/internal/encrypter"
+	"github.com/bricks-cloud/bricksllm/internal/hasher"
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/policy"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
@@ -32,10 +32,6 @@ type rateLimitCache interface {
 
 type accessCache interface {
 	Delete(keyId string) error
-}
-
-type Encrypter interface {
-	Encrypt(secret string) string
 }
 
 type Manager struct {
@@ -68,7 +64,7 @@ func (m *Manager) CreateKey(rk *key.RequestKey) (*key.ResponseKey, error) {
 	}
 
 	if !rk.IsKeyNotHashed {
-		rk.Key = encrypter.Encrypt(rk.Key)
+		rk.Key = hasher.Hash(rk.Key)
 	}
 
 	if len(rk.SettingId) != 0 {
@@ -111,7 +107,7 @@ func (m *Manager) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, err
 	}
 
 	if uk.IsKeyNotHashed != nil && !*uk.IsKeyNotHashed {
-		uk.Key = encrypter.Encrypt(existing.Key)
+		uk.Key = hasher.Hash(existing.Key)
 	}
 
 	if uk.IsKeyNotHashed == nil || (uk.IsKeyNotHashed != nil && *uk.IsKeyNotHashed) {

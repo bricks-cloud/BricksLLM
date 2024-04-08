@@ -3,7 +3,7 @@ package cache
 import (
 	"time"
 
-	"github.com/bricks-cloud/bricksllm/internal/encrypter"
+	"github.com/bricks-cloud/bricksllm/internal/hasher"
 )
 
 type store interface {
@@ -22,7 +22,7 @@ func NewCache(s store) *Cache {
 }
 
 func (c *Cache) computeHashKey(value string) string {
-	return encrypter.Encrypt(value)
+	return hasher.Hash(value)
 }
 
 func (c *Cache) StoreBytes(key string, value []byte, ttl time.Duration) error {
