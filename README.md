@@ -14,10 +14,16 @@
 > [!TIP]
 > A [managed version of BricksLLM](https://www.trybricks.ai?utm_source=github&utm_medium=repo&utm_campaign=bricksllm) is also available! It is production ready, and comes with a dashboard to make interacting with BricksLLM easier. Try us out for free today!
 
-**BricksLLM** is a cloud native AI gateway written in Go. Currently, it provides native support for OpenAI, Anthropic, Azure OpenAI and vLLM. We let you create API keys that have rate limits, cost limits and TTLs. The API keys can be used in both development and production to achieve fine-grained access control that is not provided by any of the foundational model providers. The proxy is designed to be 100% compatible with existing SDKs.
+**BricksLLM** is a cloud native AI gateway written in Go. Currently, it provides native support for OpenAI, Anthropic, Azure OpenAI and vLLM. Here are the use cases for BricksLLM.
+
+* Set LLM usage limits for users on different pricing tiers
+* Track LLM usage on a per user and per organization basis
+* Block or redact requests containing PIIs
+* Improve LLM reliability with failovers, retries and caching
+* Distribute API keys for internal teams
 
 ## Features
-- [x] PII detection and masking
+- [x] [PII detection and masking](https://github.com/bricks-cloud/BricksLLM/blob/main/cookbook/pii_detection.md)
 - [x] Rate limit
 - [x] Cost control
 - [x] Cost analytics
@@ -30,7 +36,7 @@
 - [x] Native support for all OpenAI endpoints
 - [x] Native support for Anthropic
 - [x] Native support for Azure OpenAI
-- [x] Native support for vLLM
+- [x] [Native support for vLLM](https://github.com/bricks-cloud/BricksLLM/blob/main/cookbook/vllm_integration.md)
 - [x] Support for custom deployments
 - [x] Integration with custom models
 - [x] Datadog integration
