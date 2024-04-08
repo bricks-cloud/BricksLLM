@@ -889,13 +889,13 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			if err != nil {
 				_, ok := err.(blockedError)
 				if ok {
-					stats.Incr("bricksllm.proxy.get_middleware.vllm_chat_completions_request_blocked", nil, 1)
-					JSON(c, http.StatusForbidden, "[BricksLLM] vllm chat completions request blocked")
+					stats.Incr("bricksllm.proxy.get_middleware.request_blocked", nil, 1)
+					JSON(c, http.StatusForbidden, "[BricksLLM] request blocked")
 					c.Abort()
 					return
 				}
 
-				logError(log, "error when filtering vllm chat completions request", prod, cid, err)
+				logError(log, "error when filtering a request", prod, cid, err)
 			}
 
 			data, err := json.Marshal(policyInput)
