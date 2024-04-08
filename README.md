@@ -14,9 +14,10 @@
 > [!TIP]
 > A [managed version of BricksLLM](https://www.trybricks.ai?utm_source=github&utm_medium=repo&utm_campaign=bricksllm) is also available! It is production ready, and comes with a dashboard to make interacting with BricksLLM easier. Try us out for free today!
 
-**BricksLLM** is a cloud native AI gateway written in Go. Currently, it provide native support for OpenAI, Anthropic and Azure OpenAI. We let you create API keys that have rate limits, cost limits and TTLs. The API keys can be used in both development and production to achieve fine-grained access control that is not provided by any of the foundational model providers. The proxy is designed to be 100% compatible with existing SDKs.
+**BricksLLM** is a cloud native AI gateway written in Go. Currently, it provides native support for OpenAI, Anthropic, Azure OpenAI and vLLM. We let you create API keys that have rate limits, cost limits and TTLs. The API keys can be used in both development and production to achieve fine-grained access control that is not provided by any of the foundational model providers. The proxy is designed to be 100% compatible with existing SDKs.
 
 ## Features
+- [x] PII detection and masking
 - [x] Rate limit
 - [x] Cost control
 - [x] Cost analytics
@@ -29,17 +30,12 @@
 - [x] Native support for all OpenAI endpoints
 - [x] Native support for Anthropic
 - [x] Native support for Azure OpenAI
+- [x] Native support for vLLM
+- [x] Support for custom deployments
 - [x] Integration with custom models
 - [x] Datadog integration
 - [x] Logging with privacy control
 
-
-## Roadmap
-- [x] Access control via API key with rate limit, cost limit and ttl
-- [x] Logging integration
-- [x] Statsd integration
-- [x] Custom Provider Integration
-- [x] PII detection and masking
 
 ## Getting Started
 The easiest way to get started with BricksLLM is through [BricksLLM-Docker](https://github.com/bricks-cloud/BricksLLM-Docker).
