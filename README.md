@@ -14,13 +14,14 @@
 > [!TIP]
 > A [managed version of BricksLLM](https://www.trybricks.ai?utm_source=github&utm_medium=repo&utm_campaign=bricksllm) is also available! It is production ready, and comes with a dashboard to make interacting with BricksLLM easier. Try us out for free today!
 
-**BricksLLM** is a cloud native AI gateway written in Go. Currently, it provides native support for OpenAI, Anthropic, Azure OpenAI and vLLM. Here are the use cases for BricksLLM.
+**BricksLLM** is a cloud native AI gateway written in Go. Currently, it provides native support for OpenAI, Anthropic, Azure OpenAI and vLLM. BricksLLM aims to provide enterprise level infrastructure that can power any LLM production use cases. Here are some use cases for BricksLLM: 
 
 * Set LLM usage limits for users on different pricing tiers
 * Track LLM usage on a per user and per organization basis
 * Block or redact requests containing PIIs
 * Improve LLM reliability with failovers, retries and caching
-* Distribute API keys for internal teams
+* Distribute API keys with rate limits and cost limits for internal development/production use cases
+* Distribute API keys with rate limits and cost limits for students
 
 ## Features
 - [x] [PII detection and masking](https://github.com/bricks-cloud/BricksLLM/blob/main/cookbook/pii_detection.md)
