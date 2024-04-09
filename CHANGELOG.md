@@ -1,4 +1,3 @@
-
 ## 1.15.2 - 2024-04-09
 ### Fixed
 - Fixed an issue with `apikey` being required for making vLLM requests
