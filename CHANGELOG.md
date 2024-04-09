@@ -1,3 +1,11 @@
+## 1.15.3 - 2024-04-09
+### Added
+- Provider settings APIs start returning `setting` field without containing `apikey`
+
+## 1.15.2 - 2024-04-09
+### Fixed
+- Fixed an issue with `apikey` being required for making vLLM requests
+
 ## 1.15.1 - 2024-04-07
 ### Added
 - Added support for `apikey` in vLLM integration
