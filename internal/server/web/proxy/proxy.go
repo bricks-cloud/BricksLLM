@@ -83,7 +83,7 @@ func CorsMiddleware() gin.HandlerFunc {
 	}
 }
 
-func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyManager, rm routeManager, a authenticator, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, kms keyMemStorage, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, r recorder, pub publisher, rlm rateLimitManager, timeOut time.Duration, ac accessCache, pm PoliciesManager, scanner Scanner, cd CustomPolicyDetector) (*ProxyServer, error) {
+func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyManager, rm routeManager, a authenticator, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, kms keyMemStorage, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, r recorder, pub publisher, rlm rateLimitManager, timeOut time.Duration, ac accessCache, pm PoliciesManager, scanner Scanner, cd CustomPolicyDetector, die deepinfraEstimator) (*ProxyServer, error) {
 	router := gin.New()
 	prod := mode == "production"
 	private := privacyMode == "strict"
@@ -176,8 +176,13 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	router.POST("/api/providers/anthropic/v1/messages", getMessagesHandler(prod, private, client, log, ae, timeOut))
 
 	// vllm
-	router.POST("/api/providers/vllm/v1/chat/completions", getVllmChatCompletionsHandler(prod, private, client, e, log, timeOut))
-	router.POST("/api/providers/vllm/v1/completions", getVllmCompletionsHandler(prod, private, client, e, log, timeOut))
+	router.POST("/api/providers/vllm/v1/chat/completions", getVllmChatCompletionsHandler(prod, private, client, log, timeOut))
+	router.POST("/api/providers/vllm/v1/completions", getVllmCompletionsHandler(prod, private, client, log, timeOut))
+
+	// deepinfra
+	router.POST("/api/providers/deepinfra/v1/chat/completions", getDeepinfraChatCompletionsHandler(prod, private, client, log, timeOut))
+	router.POST("/api/providers/deepinfra/v1/completions", getDeepinfraCompletionsHandler(prod, private, client, log, timeOut))
+	router.POST("/api/providers/deepinfra/v1/embeddings", getDeepinfraEmbeddingsHandler(prod, private, client, log, e, timeOut))
 
 	// custom provider
 	router.POST("/api/custom/providers/:provider/*wildcard", getCustomProviderHandler(prod, client, log, timeOut))
@@ -1092,6 +1097,11 @@ func (ps *ProxyServer) Run() {
 		// vllm
 		ps.log.Info("PORT 8002 | POST   | /api/providers/vllm/v1/chat/completions is ready for forwarding vllm chat completions requests")
 		ps.log.Info("PORT 8002 | POST   | /api/providers/vllm/v1/completions is ready for forwarding vllm completions requests")
+
+		// deepinfra
+		ps.log.Info("PORT 8002 | POST   | /api/providers/deepinfra/v1/chat/completions is ready for forwarding deepinfra chat completions requests")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/deepinfra/v1/completions is ready for forwarding deepinfra completions requests")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/deepinfra/v1/embeddings is ready for forwarding deepinfra embeddings requests")
 
 		// custom provider
 		ps.log.Info("PORT 8002 | POST   | /api/custom/providers/:provider/*wildcard is ready for forwarding requests to custom providers")

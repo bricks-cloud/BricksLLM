@@ -55,6 +55,10 @@ type azureEstimator interface {
 	EstimateEmbeddingsInputCost(model string, tks int) (float64, error)
 }
 
+type deepinfraEstimator interface {
+	EstimateEmbeddingsInputCost(model string, tks int) (float64, error)
+}
+
 type authenticator interface {
 	AuthenticateHttpRequest(req *http.Request) (*key.ResponseKey, []*provider.Setting, error)
 }
@@ -490,6 +494,8 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			if ccr.Stream {
 				c.Set("stream", true)
 			}
+
+			policyInput = ccr
 		}
 
 		if c.FullPath() == "/api/providers/vllm/v1/completions" {
@@ -510,6 +516,61 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			}
 
 			policyInput = cr
+		}
+
+		if c.FullPath() == "/api/providers/deepinfra/v1/chat/completions" {
+			ccr := &vllm.ChatRequest{}
+			err = json.Unmarshal(body, ccr)
+			if err != nil {
+				logError(log, "error when unmarshalling deepinfra chat completions request", prod, cid, err)
+				return
+			}
+
+			userId = ccr.User
+			enrichedEvent.Request = ccr
+
+			if ccr.Stream {
+				c.Set("stream", true)
+			}
+
+			logVllmChatCompletionRequest(log, ccr, prod, private, cid)
+			policyInput = ccr
+		}
+
+		if c.FullPath() == "/api/providers/deepinfra/v1/completions" {
+			cr := &vllm.CompletionRequest{}
+			err = json.Unmarshal(body, cr)
+			if err != nil {
+				logError(log, "error when unmarshalling deepinfra completions request", prod, cid, err)
+				return
+			}
+
+			userId = cr.User
+			enrichedEvent.Request = cr
+
+			if cr.Stream {
+				c.Set("stream", true)
+			}
+
+			logVllmCompletionRequest(log, cr, prod, private, cid)
+			policyInput = cr
+		}
+
+		if c.FullPath() == "/api/providers/deepinfra/v1/embeddings" {
+			er := &goopenai.EmbeddingRequest{}
+			err = json.Unmarshal(body, er)
+			if err != nil {
+				logError(log, "error when unmarshalling deepinfra embeddings request", prod, cid, err)
+				return
+			}
+
+			userId = er.User
+			enrichedEvent.Request = er
+
+			c.Set("model", string(er.Model))
+
+			logEmbeddingRequest(log, prod, private, cid, er)
+			policyInput = er
 		}
 
 		if c.FullPath() == "/api/providers/azure/openai/deployments/:deployment_id/chat/completions" {
