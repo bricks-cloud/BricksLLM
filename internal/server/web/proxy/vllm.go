@@ -18,7 +18,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func getVllmCompletionsHandler(prod, private bool, client http.Client, e estimator, log *zap.Logger, timeout time.Duration) gin.HandlerFunc {
+func getVllmCompletionsHandler(prod, private bool, client http.Client, log *zap.Logger, timeout time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.proxy.get_vllm_completions_handler.requests", nil, 1)
 		if c == nil || c.Request == nil {
@@ -348,7 +348,7 @@ func logVllmCompletionResponse(log *zap.Logger, cr *goopenai.CompletionResponse,
 	}
 }
 
-func getVllmChatCompletionsHandler(prod, private bool, client http.Client, e estimator, log *zap.Logger, timeout time.Duration) gin.HandlerFunc {
+func getVllmChatCompletionsHandler(prod, private bool, client http.Client, log *zap.Logger, timeout time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.requests", nil, 1)
 		if c == nil || c.Request == nil {
