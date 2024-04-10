@@ -1,3 +1,7 @@
+## 1.15.4 - 2024-04-09
+### Changed
+- Changed update provider setting behavior to only do partial updates for `setting` field
+
 ## 1.15.3 - 2024-04-09
 ### Added
 - Provider settings APIs start returning `setting` field without containing `apikey`

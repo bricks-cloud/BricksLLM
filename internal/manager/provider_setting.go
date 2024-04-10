@@ -119,7 +119,7 @@ func (m *ProviderSettingsManager) UpdateSetting(id string, setting *provider.Upd
 		return nil, internal_errors.NewValidationError("id cannot be empty")
 	}
 
-	existing, _ := m.Storage.GetProviderSetting(id, false)
+	existing, _ := m.Storage.GetProviderSetting(id, true)
 	if existing == nil {
 		return nil, internal_errors.NewNotFoundError("provider setting is not found")
 	}
@@ -128,6 +128,13 @@ func (m *ProviderSettingsManager) UpdateSetting(id string, setting *provider.Upd
 		if err := m.validateSettings(existing.Provider, setting.Setting); err != nil {
 			return nil, err
 		}
+
+		merged := existing.Setting
+		for k, v := range setting.Setting {
+			merged[k] = v
+		}
+
+		setting.Setting = merged
 	}
 
 	setting.UpdatedAt = time.Now().Unix()
