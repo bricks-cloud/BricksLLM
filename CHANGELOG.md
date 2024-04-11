@@ -1,3 +1,7 @@
+## 1.17.0 - 2024-04-11
+### Added
+- Added new admin API endpoints for retriving `customIds` and `userIds`
+
 ## 1.16.0 - 2024-04-10
 ### Added
 - Added Deepinfra integration

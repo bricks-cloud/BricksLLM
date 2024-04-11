@@ -74,6 +74,72 @@ func (s *Store) CreateKeyIdIndexForEventsTable() error {
 	return nil
 }
 
+func (s *Store) GetCustomIds(keyId string) ([]string, error) {
+	query := fmt.Sprintf(`
+	SELECT DISTINCT custom_id
+	FROM events
+	WHERE key_id = '%s' AND custom_id IS NOT NULL AND NOT custom_id = ''
+	`, keyId)
+
+	ctx, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := []string{}
+
+	for rows.Next() {
+		var customId string
+
+		if err := rows.Scan(
+			&customId,
+		); err != nil {
+			return nil, err
+		}
+
+		result = append(result, customId)
+	}
+
+	return result, nil
+}
+
+func (s *Store) GetUserIds(keyId string) ([]string, error) {
+	query := fmt.Sprintf(`
+	SELECT DISTINCT user_id
+	FROM events
+	WHERE key_id = '%s' AND NOT user_id = ''
+	`, keyId)
+
+	ctx, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := []string{}
+
+	for rows.Next() {
+		var userId string
+
+		if err := rows.Scan(
+			&userId,
+		); err != nil {
+			return nil, err
+		}
+
+		result = append(result, userId)
+	}
+
+	return result, nil
+}
+
 func (s *Store) GetAggregatedEventByDayDataPoints(start, end int64, keyIds []string) ([]*event.DataPoint, error) {
 	conditionBlock := fmt.Sprintf("WHERE time_stamp >= %d AND time_stamp < %d ", start, end)
 	if len(keyIds) != 0 {
