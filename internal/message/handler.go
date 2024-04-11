@@ -303,7 +303,7 @@ func (h *Handler) decorateEvent(m Message) error {
 		if !ok {
 			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
 			h.log.Debug("event contains request that cannot be converted to anthropic completion request", zap.Any("data", m.Data))
-			return errors.New("event request data cannot be parsed as anthropic completon request")
+			return errors.New("event request data cannot be parsed as anthropic completion request")
 		}
 
 		if e.Event.Status == http.StatusOK {
@@ -323,7 +323,7 @@ func (h *Handler) decorateEvent(m Message) error {
 		if !ok {
 			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
 			h.log.Debug("event contains request that cannot be converted to anthropic completion request", zap.Any("data", m.Data))
-			return errors.New("event request data cannot be parsed as anthropic completon request")
+			return errors.New("event request data cannot be parsed as anthropic completion request")
 		}
 
 		tks := h.ae.Count(cr.Prompt)
@@ -359,7 +359,7 @@ func (h *Handler) decorateEvent(m Message) error {
 		if !ok {
 			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
 			h.log.Debug("event contains data that cannot be converted to azure openai completion request", zap.Any("data", m.Data))
-			return errors.New("event request data cannot be parsed as azure openai completon request")
+			return errors.New("event request data cannot be parsed as azure openai completion request")
 		}
 
 		if ccr.Stream {
@@ -395,7 +395,7 @@ func (h *Handler) decorateEvent(m Message) error {
 		if !ok {
 			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
 			h.log.Debug("event contains data that cannot be converted to openai completion request", zap.Any("data", m.Data))
-			return errors.New("event request data cannot be parsed as openai completon request")
+			return errors.New("event request data cannot be parsed as openai completion request")
 		}
 
 		if ccr.Stream {
@@ -424,7 +424,7 @@ func (h *Handler) decorateEvent(m Message) error {
 		if !ok {
 			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
 			h.log.Debug("event contains data that cannot be converted to vllm chat completion request", zap.Any("data", m.Data))
-			return errors.New("event request data cannot be parsed as vllm chat completon request")
+			return errors.New("event request data cannot be parsed as vllm chat completion request")
 		}
 
 		if ccr.Stream {
@@ -438,7 +438,35 @@ func (h *Handler) decorateEvent(m Message) error {
 		if !ok {
 			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
 			h.log.Debug("event contains data that cannot be converted to vllm completion request", zap.Any("data", m.Data))
-			return errors.New("event request data cannot be parsed as vllm completon request")
+			return errors.New("event request data cannot be parsed as vllm completion request")
+		}
+
+		if cr.Stream {
+			e.Event.PromptTokenCount = h.vllme.EstimateCompletionPromptToken(cr)
+			e.Event.CompletionTokenCount = h.vllme.EstimateContentTokenCounts(e.Event.Model, e.Content)
+		}
+	}
+
+	if e.Event.Path == "/api/providers/deepinfra/v1/chat/completions" {
+		ccr, ok := e.Request.(*vllm.ChatRequest)
+		if !ok {
+			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
+			h.log.Debug("event contains data that cannot be converted to deepinfra chat completion request", zap.Any("data", m.Data))
+			return errors.New("event request data cannot be parsed as deepinfra chat completion request")
+		}
+
+		if ccr.Stream {
+			e.Event.PromptTokenCount = h.vllme.EstimateChatCompletionPromptToken(ccr)
+			e.Event.CompletionTokenCount = h.vllme.EstimateContentTokenCounts(e.Event.Model, e.Content)
+		}
+	}
+
+	if e.Event.Path == "/api/providers/deepinfra/v1/completions" {
+		cr, ok := e.Request.(*vllm.CompletionRequest)
+		if !ok {
+			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
+			h.log.Debug("event contains data that cannot be converted to deepinfra completion request", zap.Any("data", m.Data))
+			return errors.New("event request data cannot be parsed as deepinfra completion request")
 		}
 
 		if cr.Stream {
@@ -452,7 +480,7 @@ func (h *Handler) decorateEvent(m Message) error {
 		if !ok {
 			stats.Incr("bricksllm.message.handler.decorate_event.event_request_custom_provider_parsing_error", nil, 1)
 			h.log.Debug("event contains request that cannot be converted to bytes", zap.Any("data", m.Data))
-			return errors.New("event request data cannot be parsed as anthropic completon request")
+			return errors.New("event request data cannot be parsed as anthropic completion request")
 		}
 
 		tks, err := countTokensFromJson(body, e.RouteConfig.RequestPromptLocation)

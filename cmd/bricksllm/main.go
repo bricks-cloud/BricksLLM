@@ -21,6 +21,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
 	"github.com/bricks-cloud/bricksllm/internal/provider/azure"
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
+	"github.com/bricks-cloud/bricksllm/internal/provider/deepinfra"
 	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	"github.com/bricks-cloud/bricksllm/internal/provider/vllm"
 	"github.com/bricks-cloud/bricksllm/internal/recorder"
@@ -252,6 +253,7 @@ func main() {
 	ace := anthropic.NewCostEstimator(atc)
 	aoe := azure.NewCostEstimator()
 	vllme := vllm.NewCostEstimator(vllmtc)
+	die := deepinfra.NewCostEstimator()
 
 	v := validator.NewValidator(costLimitCache, rateLimitCache, costStorage)
 	rec := recorder.NewRecorder(costStorage, costLimitCache, ce, store)
@@ -277,7 +279,7 @@ func main() {
 	scanner := pii.NewScanner(detector)
 	cd := custompolicy.NewOpenAiDetector(cfg.CustomPolicyDetectionTimeout, cfg.OpenAiApiKey)
 
-	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, c, m, rm, a, psm, cpm, store, memStore, ce, ace, aoe, v, rec, messageBus, rlm, cfg.ProxyTimeout, accessCache, pm, scanner, cd)
+	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, c, m, rm, a, psm, cpm, store, memStore, ce, ace, aoe, v, rec, messageBus, rlm, cfg.ProxyTimeout, accessCache, pm, scanner, cd, die)
 	if err != nil {
 		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}

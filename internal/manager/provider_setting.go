@@ -37,13 +37,13 @@ func NewProviderSettingsManager(s ProviderSettingsStorage, memdb ProviderSetting
 }
 
 func isProviderNativelySupported(provider string) bool {
-	return provider == "openai" || provider == "anthropic" || provider == "azure" || provider == "vllm"
+	return provider == "openai" || provider == "anthropic" || provider == "azure" || provider == "vllm" || provider == "deepinfra"
 }
 
 func findMissingAuthParams(providerName string, params map[string]string) string {
 	missingFields := []string{}
 
-	if providerName == "openai" || providerName == "anthropic" {
+	if providerName == "openai" || providerName == "anthropic" || providerName == "deepinfra" {
 		val := params["apikey"]
 		if len(val) == 0 {
 			missingFields = append(missingFields, "apikey")
