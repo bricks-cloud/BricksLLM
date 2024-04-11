@@ -42,6 +42,8 @@ type KeyReportingManager interface {
 	GetEvents(userId, customId string, keyIds []string, start int64, end int64) ([]*event.Event, error)
 	GetEventReporting(e *event.ReportingRequest) (*event.ReportingResponse, error)
 	GetAggregatedEventByDayReporting(e *event.ReportingRequest) (*event.ReportingResponse, error)
+	GetCustomIds(keyId string) ([]string, error)
+	GetUserIds(keyId string) ([]string, error)
 }
 
 type PoliciesManager interface {
@@ -81,6 +83,8 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 	router.POST("/api/reporting/events", getGetEventMetricsHandler(krm, log, prod))
 	router.POST("/api/reporting/events-by-day", getGetEventMetricsByDayHandler(krm, log, prod))
 	router.GET("/api/events", getGetEventsHandler(krm, log, prod))
+	router.GET("/api/reporting/user-ids", getGetUserIdsHandler(krm, log, prod))
+	router.GET("/api/reporting/custom-ids", getGetCustomIdsHandler(krm, log, prod))
 
 	router.PUT("/api/provider-settings", getCreateProviderSettingHandler(psm, log, prod))
 	router.GET("/api/provider-settings", getGetProviderSettingsHandler(psm, log, prod))

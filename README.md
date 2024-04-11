@@ -1084,6 +1084,66 @@ This endpoint is for retrieving routes.
 ```
 </details>
 
+<details>
+  <summary>Get user ids: <code>GET</code> <code><b>/api/reporting/users-ids</b></code></summary>
+
+##### Description
+This endpoint is for getting user ids given a key id.
+
+##### Query Parameters
+> | name   |  type      | data type      | description                                          |
+> |--------|------------|----------------|------------------------------------------------------|
+> | `keyId` |  required   | `string`         | Key Id               |
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `500`        | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `500`            |
+> | title         | `string` | request body reader error             |
+> | type         | `string` | /errors/request-body-read             |
+> | detail         | `string` | something is wrong            |
+> | instance         | `string` | /api/reporting/user-ids           |
+
+##### Response
+```
+[]string
+```
+</details>
+
+<details>
+  <summary>Get custom ids: <code>GET</code> <code><b>/api/reporting/custom-ids</b></code></summary>
+
+##### Description
+This endpoint is for getting custom ids given a key id.
+
+##### Query Parameters
+> | name   |  type      | data type      | description                                          |
+> |--------|------------|----------------|------------------------------------------------------|
+> | `keyId` |  required   | `string`         | Key Id               |
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `500`        | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `500`            |
+> | title         | `string` | request body reader error             |
+> | type         | `string` | /errors/request-body-read             |
+> | detail         | `string` | something is wrong            |
+> | instance         | `string` | /api/reporting/custom-ids           |
+
+##### Response
+```
+[]string
+```
+</details>
+
 ## OpenAI Proxy
 The OpenAI proxy runs on Port `8002`.
 

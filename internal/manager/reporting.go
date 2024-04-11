@@ -19,6 +19,8 @@ type eventStorage interface {
 	GetEventDataPoints(start, end, increment int64, tags, keyIds, customIds, userIds []string, filters []string) ([]*event.DataPoint, error)
 	GetLatencyPercentiles(start, end int64, tags, keyIds []string) ([]float64, error)
 	GetAggregatedEventByDayDataPoints(start, end int64, keyIds []string) ([]*event.DataPoint, error)
+	GetUserIds(keyId string) ([]string, error)
+	GetCustomIds(keyId string) ([]string, error)
 }
 
 type ReportingManager struct {
@@ -66,6 +68,14 @@ func (rm *ReportingManager) GetAggregatedEventByDayReporting(e *event.ReportingR
 	return &event.ReportingResponse{
 		DataPoints: dataPoints,
 	}, nil
+}
+
+func (rm *ReportingManager) GetCustomIds(keyId string) ([]string, error) {
+	return rm.es.GetCustomIds(keyId)
+}
+
+func (rm *ReportingManager) GetUserIds(keyId string) ([]string, error) {
+	return rm.es.GetUserIds(keyId)
 }
 
 func (rm *ReportingManager) GetKeyReporting(keyId string) (*key.KeyReporting, error) {
