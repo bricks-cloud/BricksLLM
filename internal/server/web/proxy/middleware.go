@@ -438,6 +438,8 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 				userId = er.User
 
+				c.Set("model", string(er.Model))
+
 				if rc.CacheConfig != nil && rc.CacheConfig.Enabled {
 					c.Set("cache_key", route.ComputeCacheKeyForEmbeddingsRequest(r, er))
 				}
@@ -458,6 +460,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 					return
 				}
 
+				c.Set("model", ccr.Model)
 				userId = ccr.User
 				enrichedEvent.Request = ccr
 
@@ -486,6 +489,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				return
 			}
 
+			c.Set("model", ccr.Model)
 			userId = ccr.User
 			enrichedEvent.Request = ccr
 
@@ -506,6 +510,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				return
 			}
 
+			c.Set("model", cr.Model)
 			userId = cr.User
 			enrichedEvent.Request = cr
 
@@ -526,6 +531,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				return
 			}
 
+			c.Set("model", ccr.Model)
 			userId = ccr.User
 			enrichedEvent.Request = ccr
 
@@ -545,6 +551,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				return
 			}
 
+			c.Set("model", cr.Model)
 			userId = cr.User
 			enrichedEvent.Request = cr
 
@@ -583,6 +590,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 			userId = ccr.User
 			enrichedEvent.Request = ccr
+			c.Set("model", ccr.Model)
 
 			logRequest(log, prod, private, cid, ccr)
 
