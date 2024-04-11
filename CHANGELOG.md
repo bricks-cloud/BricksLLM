@@ -1,3 +1,7 @@
+## 1.16.0 - 2024-04-10
+### Added
+- Added Deepinfra integration
+
 ## 1.15.4 - 2024-04-09
 ### Changed
 - Changed update provider setting behavior to only do partial updates for `setting` field
