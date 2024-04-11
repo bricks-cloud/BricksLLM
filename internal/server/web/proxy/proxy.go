@@ -182,7 +182,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	// deepinfra
 	router.POST("/api/providers/deepinfra/v1/chat/completions", getDeepinfraChatCompletionsHandler(prod, private, client, log, timeOut))
 	router.POST("/api/providers/deepinfra/v1/completions", getDeepinfraCompletionsHandler(prod, private, client, log, timeOut))
-	router.POST("/api/providers/deepinfra/v1/embeddings", getDeepinfraEmbeddingsHandler(prod, private, client, log, e, timeOut))
+	router.POST("/api/providers/deepinfra/v1/embeddings", getDeepinfraEmbeddingsHandler(prod, private, client, log, die, timeOut))
 
 	// custom provider
 	router.POST("/api/custom/providers/:provider/*wildcard", getCustomProviderHandler(prod, client, log, timeOut))
