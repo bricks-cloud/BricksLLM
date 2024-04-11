@@ -38,6 +38,7 @@
 - [x] Native support for Anthropic
 - [x] Native support for Azure OpenAI
 - [x] [Native support for vLLM](https://github.com/bricks-cloud/BricksLLM/blob/main/cookbook/vllm_integration.md)
+- [x] Native support for Deepinfra
 - [x] Support for custom deployments
 - [x] Integration with custom models
 - [x] Datadog integration
@@ -1510,6 +1511,33 @@ This endpoint is set up for proxying vllm chat completions requests. Documentati
 
 ##### Description
 This endpoint is set up for proxying vllm completions requests. Documentation for this endpoint can be found [here](https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html).
+
+</details>
+
+## Deepinfra Provider Proxy
+The deepinfra provider proxy runs on Port `8002`.
+
+<details>
+  <summary>Create chat completions: <code>POST</code> <code><b>/api/providers/deepinfra/v1/chat/completions</b></code></summary>
+
+##### Description
+This endpoint is set up for proxying deepinfra chat completions requests. Documentation for this endpoint can be found [here](https://deepinfra.com/docs/advanced/openai_api).
+
+</details>
+
+<details>
+  <summary>Create completions: <code>POST</code> <code><b>/api/providers/deepinfra/v1/completions</b></code></summary>
+
+##### Description
+This endpoint is set up for proxying deepinfra completions requests. Documentation for this endpoint can be found [here](https://deepinfra.com/docs/advanced/openai_api).
+
+</details>
+
+<details>
+  <summary>Create embeddings: <code>POST</code> <code><b>/api/providers/deepinfra/v1/embeddings</b></code></summary>
+
+##### Description
+This endpoint is set up for proxying deepinfra embeddings requests. Documentation for this endpoint can be found [here](https://deepinfra.com/docs/advanced/openai_api).
 
 </details>
 
