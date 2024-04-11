@@ -374,7 +374,7 @@ func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, 
 	}
 }
 
-func getDeepinfraEmbeddingsHandler(prod, private bool, client http.Client, log *zap.Logger, e estimator, timeout time.Duration) gin.HandlerFunc {
+func getDeepinfraEmbeddingsHandler(prod, private bool, client http.Client, log *zap.Logger, e deepinfraEstimator, timeout time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		stats.Incr("bricksllm.proxy.get_deepinfra_embeddings_handler.requests", nil, 1)
 		if c == nil || c.Request == nil {
