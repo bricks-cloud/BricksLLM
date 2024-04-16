@@ -66,7 +66,7 @@ type AdminServer struct {
 	m      KeyManager
 }
 
-func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReportingManager, psm ProviderSettingsManager, cpm CustomProvidersManager, rm RouteManager, pm PoliciesManager, adminPass string) (*AdminServer, error) {
+func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReportingManager, psm ProviderSettingsManager, cpm CustomProvidersManager, rm RouteManager, pm PoliciesManager, um UserManager, adminPass string) (*AdminServer, error) {
 	router := gin.New()
 
 	prod := mode == "production"
@@ -102,6 +102,10 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 	router.PATCH("/api/policies/:id", getUpdatePolicyHandler(pm, log, prod))
 	router.GET("/api/policies", getGetPoliciesByTagsHandler(pm, log, prod))
 
+	router.POST("/api/users", getCreateUserHandler(um, log, prod))
+	router.PATCH("/api/users/:id", getUpdateUserHandler(um, log, prod))
+	router.GET("/api/users", getGetUsersHandler(um, log, prod))
+
 	srv := &http.Server{
 		Addr:    ":8001",
 		Handler: router,
@@ -135,6 +139,9 @@ func (as *AdminServer) Run() {
 		as.log.Info("PORT 8001 | POST  | /api/policies is set up for creating a policy")
 		as.log.Info("PORT 8001 | PATCH | /api/policies/:id is set up for retrieving a policy")
 		as.log.Info("PORT 8001 | GET   | /api/policies is set up for retrieving policies")
+		as.log.Info("PORT 8001 | POST  | /api/users is set up for creating a user")
+		as.log.Info("PORT 8001 | GET   | /api/users is set up for retrieving users")
+		as.log.Info("PORT 8001 | PATCH | /api/users is set up for updating a user")
 
 		if err := as.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			as.log.Sugar().Fatalf("error admin server listening: %v", err)

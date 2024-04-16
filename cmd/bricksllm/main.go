@@ -131,6 +131,16 @@ func main() {
 		log.Sugar().Fatalf("error creating key id index for event aggregated by day table: %v", err)
 	}
 
+	err = store.CreateUsersTable()
+	if err != nil {
+		log.Sugar().Fatalf("error creating users table: %v", err)
+	}
+
+	err = store.CreateCreatedAtIndexForUsers()
+	if err != nil {
+		log.Sugar().Fatalf("error creating index for users table: %v", err)
+	}
+
 	memStore, err := memdb.NewMemDb(store, log, cfg.InMemoryDbUpdateInterval)
 	if err != nil {
 		log.Sugar().Fatalf("cannot initialize memdb: %v", err)
@@ -225,10 +235,10 @@ func main() {
 	psm := manager.NewProviderSettingsManager(store, psMemStore)
 	cpm := manager.NewCustomProvidersManager(store, cpMemStore)
 	rm := manager.NewRouteManager(store, store, rMemStore, psMemStore)
-
 	pm := manager.NewPolicyManager(store, rMemStore)
+	um := manager.NewUserManager(store, store)
 
-	as, err := admin.NewAdminServer(log, *modePtr, m, krm, psm, cpm, rm, pm, cfg.AdminPass)
+	as, err := admin.NewAdminServer(log, *modePtr, m, krm, psm, cpm, rm, pm, um, cfg.AdminPass)
 	if err != nil {
 		log.Sugar().Fatalf("error creating admin http server: %v", err)
 	}
