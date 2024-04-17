@@ -26,14 +26,11 @@ type User struct {
 	Ttl                    string           `json:"ttl"`
 	AllowedPaths           []key.PathConfig `json:"allowedPaths"`
 	AllowedModels          []string         `json:"allowedModels"`
+	UserId                 string           `json:"userId"`
 }
 
 func (u *User) Validate() error {
 	invalid := []string{}
-
-	if len(u.Id) == 0 {
-		invalid = append(invalid, "id")
-	}
 
 	for _, tag := range u.Tags {
 		if len(tag) == 0 {
@@ -148,6 +145,7 @@ type UpdateUser struct {
 	RateLimitUnit          *key.TimeUnit    `json:"rateLimitUnit"`
 	AllowedPaths           []key.PathConfig `json:"allowedPaths"`
 	AllowedModels          []string         `json:"allowedModels"`
+	UserId                 string           `json:"userId"`
 }
 
 func (uu *UpdateUser) Validate() error {

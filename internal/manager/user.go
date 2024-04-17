@@ -35,6 +35,10 @@ func (m *UserManager) CreateUser(u *user.User) (*user.User, error) {
 	u.UpdatedAt = time.Now().Unix()
 	u.Id = util.NewUuid()
 
+	if len(u.UserId) == 0 {
+		u.UserId = util.NewUuid()
+	}
+
 	if err := u.Validate(); err != nil {
 		return nil, err
 	}
