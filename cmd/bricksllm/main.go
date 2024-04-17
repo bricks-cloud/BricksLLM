@@ -143,7 +143,12 @@ func main() {
 
 	err = store.CreateCreatedAtIndexForUsers()
 	if err != nil {
-		log.Sugar().Fatalf("error creating index for users table: %v", err)
+		log.Sugar().Fatalf("error creating created at index for users table: %v", err)
+	}
+
+	err = store.CreateUserIdIndexForUsers()
+	if err != nil {
+		log.Sugar().Fatalf("error creating user id for users table: %v", err)
 	}
 
 	memStore, err := memdb.NewMemDb(store, log, cfg.InMemoryDbUpdateInterval)
@@ -229,11 +234,64 @@ func main() {
 		log.Sugar().Fatalf("error connecting to api redis cache: %v", err)
 	}
 
+	userRateLimitRedisCache := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
+		Password: cfg.RedisPassword,
+		DB:       5,
+	})
+
+	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := rateLimitRedisCache.Ping(ctx).Err(); err != nil {
+		log.Sugar().Fatalf("error connecting to user rate limit redis cache: %v", err)
+	}
+
+	userCostLimitRedisCache := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
+		Password: cfg.RedisPassword,
+		DB:       6,
+	})
+
+	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := costLimitRedisCache.Ping(ctx).Err(); err != nil {
+		log.Sugar().Fatalf("error connecting to user cost limit redis cache: %v", err)
+	}
+
+	userCostRedisStorage := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
+		Password: cfg.RedisPassword,
+		DB:       7,
+	})
+
+	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := apiRedisCache.Ping(ctx).Err(); err != nil {
+		log.Sugar().Fatalf("error connecting to user cost redis cache: %v", err)
+	}
+
+	userAccessRedisCache := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
+		Password: cfg.RedisPassword,
+		DB:       8,
+	})
+
+	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := costRedisStorage.Ping(ctx).Err(); err != nil {
+		log.Sugar().Fatalf("error connecting to user access redis storage: %v", err)
+	}
+
 	rateLimitCache := redisStorage.NewCache(rateLimitRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 	costLimitCache := redisStorage.NewCache(costLimitRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 	costStorage := redisStorage.NewStore(costRedisStorage, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 	apiCache := redisStorage.NewCache(apiRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 	accessCache := redisStorage.NewAccessCache(accessRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
+
+	userRateLimitCache := redisStorage.NewCache(userRateLimitRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
+	userCostLimitCache := redisStorage.NewCache(userCostLimitRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
+	userCostStorage := redisStorage.NewStore(userCostRedisStorage, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
+	userAccessCache := redisStorage.NewAccessCache(userAccessRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 
 	m := manager.NewManager(store, costLimitCache, rateLimitCache, accessCache)
 	krm := manager.NewReportingManager(costStorage, store, store)
@@ -271,8 +329,10 @@ func main() {
 	die := deepinfra.NewCostEstimator()
 
 	v := validator.NewValidator(costLimitCache, rateLimitCache, costStorage)
-	rec := recorder.NewRecorder(costStorage, costLimitCache, ce, store)
-	rlm := manager.NewRateLimitManager(rateLimitCache)
+	uv := validator.NewUserValidator(userCostLimitCache, userRateLimitCache, userCostStorage)
+
+	rec := recorder.NewRecorder(costStorage, userCostStorage, costLimitCache, userCostLimitCache, ce, store)
+	rlm := manager.NewRateLimitManager(rateLimitCache, userRateLimitCache)
 	a := auth.NewAuthenticator(psm, memStore, rm, store)
 
 	c := cache.NewCache(apiCache)
@@ -281,7 +341,7 @@ func main() {
 	eventMessageChan := make(chan message.Message)
 	messageBus.Subscribe("event", eventMessageChan)
 
-	handler := message.NewHandler(rec, log, ace, ce, vllme, aoe, v, m, rlm, accessCache)
+	handler := message.NewHandler(rec, log, ace, ce, vllme, aoe, v, uv, m, um, rlm, accessCache, userAccessCache)
 
 	eventConsumer := message.NewConsumer(eventMessageChan, log, 4, handler.HandleEventWithRequestAndResponse)
 	eventConsumer.StartEventMessageConsumers()
@@ -294,7 +354,7 @@ func main() {
 	scanner := pii.NewScanner(detector)
 	cd := custompolicy.NewOpenAiDetector(cfg.CustomPolicyDetectionTimeout, cfg.OpenAiApiKey)
 
-	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, c, m, rm, a, psm, cpm, store, memStore, ce, ace, aoe, v, rec, messageBus, rlm, cfg.ProxyTimeout, accessCache, pm, scanner, cd, die)
+	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, c, m, rm, a, psm, cpm, store, memStore, ce, ace, aoe, v, rec, messageBus, rlm, cfg.ProxyTimeout, accessCache, userAccessCache, pm, scanner, cd, die, um)
 	if err != nil {
 		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}
