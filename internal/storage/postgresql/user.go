@@ -30,9 +30,10 @@ func (s *Store) CreateUsersTable() error {
 		rate_limit_over_time INT,
 		rate_limit_unit VARCHAR(255),
 		ttl VARCHAR(255),
-		key_ids VARCHAR(255)[] NOT NULL DEFAULT ARRAY[]::VARCHAR(255)[],
+		key_ids VARCHAR(255)[],
 		allowed_paths JSONB,
-		allowed_models VARCHAR(255)[]
+		allowed_models VARCHAR(255)[],
+		user_id VARCHAR(255)
 	)`
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -134,6 +135,7 @@ func (s *Store) GetUsers(tags, keyIds, userIds []string, offset, limit int) ([]*
 			pq.Array(&u.KeyIds),
 			&data,
 			pq.Array(&u.AllowedModels),
+			&u.UserId,
 		); err != nil {
 			return nil, err
 		}
@@ -157,8 +159,8 @@ func (s *Store) GetUsers(tags, keyIds, userIds []string, offset, limit int) ([]*
 
 func (s *Store) CreateUser(u *user.User) (*user.User, error) {
 	query := `
-		INSERT INTO users (id, name, created_at, updated_at, tags, revoked, revoked_reason, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl, key_ids, allowed_paths, allowed_models)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+		INSERT INTO users (id, name, created_at, updated_at, tags, revoked, revoked_reason, cost_limit_in_usd, cost_limit_in_usd_over_time, cost_limit_in_usd_unit, rate_limit_over_time, rate_limit_unit, ttl, key_ids, allowed_paths, allowed_models, user_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 		RETURNING *;
 	`
 
@@ -184,6 +186,7 @@ func (s *Store) CreateUser(u *user.User) (*user.User, error) {
 		pq.Array(u.KeyIds),
 		rdata,
 		pq.Array(u.AllowedModels),
+		u.UserId,
 	}
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -209,6 +212,7 @@ func (s *Store) CreateUser(u *user.User) (*user.User, error) {
 		pq.Array(&created.KeyIds),
 		&data,
 		pq.Array(&created.AllowedModels),
+		&created.UserId,
 	); err != nil {
 		return nil, err
 	}
@@ -232,6 +236,12 @@ func (s *Store) UpdateUser(id string, uu *user.UpdateUser) (*user.User, error) {
 	counter := 2
 	values := []any{
 		id,
+	}
+
+	if len(uu.UserId) != 0 {
+		values = append(values, uu.UserId)
+		fields = append(fields, fmt.Sprintf("user_id = $%d", counter))
+		counter++
 	}
 
 	if len(uu.Name) != 0 {
@@ -348,6 +358,7 @@ func (s *Store) UpdateUser(id string, uu *user.UpdateUser) (*user.User, error) {
 		pq.Array(&updated.KeyIds),
 		&data,
 		pq.Array(&updated.AllowedModels),
+		&updated.UserId,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, internal_errors.NewNotFoundError(fmt.Sprintf("key not found for id: %s", id))
