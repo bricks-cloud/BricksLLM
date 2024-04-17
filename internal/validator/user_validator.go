@@ -46,17 +46,17 @@ func (v *UserValidator) Validate(u *user.User, promptCost float64) error {
 		return internal_errors.NewExpirationError("user expired", internal_errors.TtlExpiration)
 	}
 
-	err = v.validateRateLimitOverTime(u.UserId, u.RateLimitOverTime, u.RateLimitUnit)
+	err = v.validateRateLimitOverTime(u.Id, u.RateLimitOverTime, u.RateLimitUnit)
 	if err != nil {
 		return err
 	}
 
-	err = v.validateCostLimitOverTime(u.UserId, u.CostLimitInUsdOverTime, u.CostLimitInUsdUnit)
+	err = v.validateCostLimitOverTime(u.Id, u.CostLimitInUsdOverTime, u.CostLimitInUsdUnit)
 	if err != nil {
 		return err
 	}
 
-	err = v.validateCostLimit(u.UserId, u.CostLimitInUsd)
+	err = v.validateCostLimit(u.Id, u.CostLimitInUsd)
 	if err != nil {
 		return err
 	}
