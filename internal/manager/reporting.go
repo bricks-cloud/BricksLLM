@@ -21,6 +21,7 @@ type eventStorage interface {
 	GetAggregatedEventByDayDataPoints(start, end int64, keyIds []string) ([]*event.DataPoint, error)
 	GetUserIds(keyId string) ([]string, error)
 	GetCustomIds(keyId string) ([]string, error)
+	GetTopKeyDataPoints(start, end int64, tags []string, limit, offset int) ([]*event.KeyDataPoint, error)
 }
 
 type ReportingManager struct {
@@ -66,6 +67,21 @@ func (rm *ReportingManager) GetAggregatedEventByDayReporting(e *event.ReportingR
 	}
 
 	return &event.ReportingResponse{
+		DataPoints: dataPoints,
+	}, nil
+}
+
+func (rm *ReportingManager) GetTopKeyReporting(r *event.KeyReportingRequest) (*event.KeyReportingResponse, error) {
+	if r == nil {
+		return nil, internal_errors.NewValidationError("key reporting requst cannot be nil")
+	}
+
+	dataPoints, err := rm.es.GetTopKeyDataPoints(r.Start, r.End, r.Tags, r.Limit, r.Offset)
+	if err != nil {
+		return nil, err
+	}
+
+	return &event.KeyReportingResponse{
 		DataPoints: dataPoints,
 	}, nil
 }

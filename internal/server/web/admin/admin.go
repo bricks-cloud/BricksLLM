@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -32,12 +31,14 @@ type ProviderSettingsManager interface {
 
 type KeyManager interface {
 	GetKeys(tags, keyIds []string, provider string) ([]*key.ResponseKey, error)
+	GetKeysV2(tags, keyIds []string, revoked *bool, limit, offset int) ([]*key.ResponseKey, error)
 	UpdateKey(id string, key *key.UpdateKey) (*key.ResponseKey, error)
 	CreateKey(key *key.RequestKey) (*key.ResponseKey, error)
 	DeleteKey(id string) error
 }
 
 type KeyReportingManager interface {
+	GetTopKeyReporting(r *event.KeyReportingRequest) (*event.KeyReportingResponse, error)
 	GetKeyReporting(keyId string) (*key.KeyReporting, error)
 	GetEvents(userId, customId string, keyIds []string, start int64, end int64) ([]*event.Event, error)
 	GetEventReporting(e *event.ReportingRequest) (*event.ReportingResponse, error)
@@ -74,6 +75,7 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 
 	router.GET("/api/health", getGetHealthCheckHandler())
 
+	router.POST("/api/v2/key-management/keys", getGetKeysV2Handler(m, log, prod))
 	router.GET("/api/key-management/keys", getGetKeysHandler(m, log, prod))
 	router.PUT("/api/key-management/keys", getCreateKeyHandler(m, log, prod))
 	router.PATCH("/api/key-management/keys/:id", getUpdateKeyHandler(m, log, prod))
@@ -84,6 +86,8 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 	router.POST("/api/reporting/events-by-day", getGetEventMetricsByDayHandler(krm, log, prod))
 	router.GET("/api/events", getGetEventsHandler(krm, log, prod))
 	router.GET("/api/reporting/user-ids", getGetUserIdsHandler(krm, log, prod))
+	router.POST("/api/reporting/top-keys", getGetTopKeysMetricsHandler(krm, log, prod))
+
 	router.GET("/api/reporting/custom-ids", getGetCustomIdsHandler(krm, log, prod))
 
 	router.PUT("/api/provider-settings", getCreateProviderSettingHandler(psm, log, prod))
@@ -180,6 +184,7 @@ func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc
 		provider := c.Query("provider")
 
 		path := "/api/key-management/keys"
+
 		if len(tags) == 0 && len(tag) == 0 && len(provider) == 0 && len(keyIds) == 0 {
 			c.JSON(http.StatusBadRequest, &ErrorResponse{
 				Type:     "/errors/missing-filteres",
@@ -220,6 +225,76 @@ func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc
 		}
 
 		stats.Incr("bricksllm.admin.get_get_keys_handler.success", nil, 1)
+		c.JSON(http.StatusOK, keys)
+	}
+}
+
+func getGetKeysV2Handler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		stats.Incr("bricksllm.admin.get_get_keys_v2_handler.requests", nil, 1)
+
+		start := time.Now()
+		defer func() {
+			dur := time.Since(start)
+			stats.Timing("bricksllm.admin.get_get_keys_v2_handler.latency", dur, nil, 1)
+		}()
+
+		path := "/api/key-management/keys"
+		if c == nil || c.Request == nil {
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/empty-context",
+				Title:    "context is empty error",
+				Status:   http.StatusInternalServerError,
+				Detail:   "gin context is empty",
+				Instance: path,
+			})
+			return
+		}
+
+		cid := c.GetString(correlationId)
+		data, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			logError(log, "error when reading get keys request body", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/request-body-read",
+				Title:    "get key request body reader error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		request := &key.KeyRequest{}
+		err = json.Unmarshal(data, request)
+		if err != nil {
+			logError(log, "error when unmarshalling get key request body", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/json-unmarshal",
+				Title:    "json unmarshaller error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		keys, err := m.GetKeysV2(request.Tags, request.KeyIds, request.Revoked, request.Limit, request.Offset)
+		if err != nil {
+			stats.Incr("bricksllm.admin.get_get_keys_v2_handler.get_keys_v2_err", nil, 1)
+
+			logError(log, "error when getting keys", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/key-manager",
+				Title:    "getting keys errored out",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		stats.Incr("bricksllm.admin.get_get_keys_v2_handler.success", nil, 1)
 		c.JSON(http.StatusOK, keys)
 	}
 }
@@ -722,204 +797,6 @@ func getDeleteKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 type notFoundError interface {
 	Error() string
 	NotFound()
-}
-
-func validateEventReportingRequest(r *event.ReportingRequest) bool {
-	if r.Start == 0 || r.End == 0 || r.Increment <= 0 {
-		return false
-	}
-
-	if r.Start >= r.End {
-		return false
-	}
-
-	return true
-}
-
-func validateEventReportingByDayRequest(r *event.ReportingRequest) bool {
-	if r.Start == 0 || r.End == 0 {
-		return false
-	}
-
-	if r.Start >= r.End {
-		return false
-	}
-
-	return true
-}
-
-func getGetEventMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		stats.Incr("bricksllm.admin.get_get_event_metrics.requests", nil, 1)
-
-		start := time.Now()
-		defer func() {
-			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_get_event_metrics.latency", dur, nil, 1)
-		}()
-
-		path := "/api/reporting/events"
-
-		if c == nil || c.Request == nil {
-			c.JSON(http.StatusInternalServerError, &ErrorResponse{
-				Type:     "/errors/empty-context",
-				Title:    "context is empty error",
-				Status:   http.StatusInternalServerError,
-				Detail:   "gin context is empty",
-				Instance: path,
-			})
-			return
-		}
-
-		cid := c.GetString(correlationId)
-		data, err := io.ReadAll(c.Request.Body)
-		if err != nil {
-			logError(log, "error when reading event reporting request body", prod, cid, err)
-			c.JSON(http.StatusInternalServerError, &ErrorResponse{
-				Type:     "/errors/request-body-read",
-				Title:    "request body reader error",
-				Status:   http.StatusInternalServerError,
-				Detail:   err.Error(),
-				Instance: path,
-			})
-			return
-		}
-
-		request := &event.ReportingRequest{}
-		err = json.Unmarshal(data, request)
-		if err != nil {
-			logError(log, "error when unmarshalling event reporting request body", prod, cid, err)
-			c.JSON(http.StatusInternalServerError, &ErrorResponse{
-				Type:     "/errors/json-unmarshal",
-				Title:    "json unmarshaller error",
-				Status:   http.StatusInternalServerError,
-				Detail:   err.Error(),
-				Instance: path,
-			})
-			return
-		}
-
-		if !validateEventReportingRequest(request) {
-			stats.Incr("bricksllm.admin.get_get_event_metrics.request_not_valid", nil, 1)
-
-			err = fmt.Errorf("event reporting request %+v is not valid", request)
-			logError(log, "invalid reporting request", prod, cid, err)
-			c.JSON(http.StatusInternalServerError, &ErrorResponse{
-				Type:     "/errors/invalid-reporting-request",
-				Title:    "invalid reporting request",
-				Status:   http.StatusBadRequest,
-				Detail:   err.Error(),
-				Instance: path,
-			})
-			return
-		}
-
-		reportingResponse, err := m.GetEventReporting(request)
-		if err != nil {
-			stats.Incr("bricksllm.admin.get_get_event_metrics.get_event_reporting_error", nil, 1)
-
-			logError(log, "error when getting event reporting", prod, cid, err)
-			c.JSON(http.StatusInternalServerError, &ErrorResponse{
-				Type:     "/errors/event-reporting-manager",
-				Title:    "event reporting error",
-				Status:   http.StatusInternalServerError,
-				Detail:   err.Error(),
-				Instance: path,
-			})
-			return
-		}
-
-		stats.Incr("bricksllm.admin.get_get_event_metrics.success", nil, 1)
-
-		c.JSON(http.StatusOK, reportingResponse)
-	}
-}
-
-func getGetEventMetricsByDayHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		stats.Incr("bricksllm.admin.get_get_event_metrics_by_day.requests", nil, 1)
-
-		start := time.Now()
-		defer func() {
-			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_get_event_metrics_by_day.latency", dur, nil, 1)
-		}()
-
-		path := "/api/reporting/events-by-day"
-
-		if c == nil || c.Request == nil {
-			c.JSON(http.StatusInternalServerError, &ErrorResponse{
-				Type:     "/errors/empty-context",
-				Title:    "context is empty error",
-				Status:   http.StatusInternalServerError,
-				Detail:   "gin context is empty",
-				Instance: path,
-			})
-			return
-		}
-
-		cid := c.GetString(correlationId)
-		data, err := io.ReadAll(c.Request.Body)
-		if err != nil {
-			logError(log, "error when reading event by day reporting request body", prod, cid, err)
-			c.JSON(http.StatusInternalServerError, &ErrorResponse{
-				Type:     "/errors/request-body-read",
-				Title:    "request body reader error",
-				Status:   http.StatusInternalServerError,
-				Detail:   err.Error(),
-				Instance: path,
-			})
-			return
-		}
-
-		request := &event.ReportingRequest{}
-		err = json.Unmarshal(data, request)
-		if err != nil {
-			logError(log, "error when unmarshalling event by day reporting request body", prod, cid, err)
-			c.JSON(http.StatusInternalServerError, &ErrorResponse{
-				Type:     "/errors/json-unmarshal",
-				Title:    "json unmarshaller error",
-				Status:   http.StatusInternalServerError,
-				Detail:   err.Error(),
-				Instance: path,
-			})
-			return
-		}
-
-		if !validateEventReportingByDayRequest(request) {
-			stats.Incr("bricksllm.admin.get_get_event_metrics_by_day.request_not_valid", nil, 1)
-
-			err = fmt.Errorf("event reporting request %+v is not valid", request)
-			logError(log, "invalid reporting request", prod, cid, err)
-			c.JSON(http.StatusInternalServerError, &ErrorResponse{
-				Type:     "/errors/invalid-reporting-request",
-				Title:    "invalid reporting request",
-				Status:   http.StatusBadRequest,
-				Detail:   err.Error(),
-				Instance: path,
-			})
-			return
-		}
-
-		reportingResponse, err := m.GetAggregatedEventByDayReporting(request)
-		if err != nil {
-			stats.Incr("bricksllm.admin.get_get_event_metrics_by_day.get_aggregated_event_by_day_reporting", nil, 1)
-
-			logError(log, "error when getting event by day reporting", prod, cid, err)
-			c.JSON(http.StatusInternalServerError, &ErrorResponse{
-				Type:     "/errors/event-reporting-manager",
-				Title:    "event reporting error",
-				Status:   http.StatusInternalServerError,
-				Detail:   err.Error(),
-				Instance: path,
-			})
-			return
-		}
-
-		stats.Incr("bricksllm.admin.get_get_event_metrics_by_day.success", nil, 1)
-
-		c.JSON(http.StatusOK, reportingResponse)
-	}
 }
 
 func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {

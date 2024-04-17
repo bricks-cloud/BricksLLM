@@ -60,7 +60,7 @@ func (s *Store) CreateCreatedAtIndexForUsers() error {
 	return nil
 }
 
-func (s *Store) GetUsers(tags, keyIds, userIds []string, offset int, limit int) ([]*user.User, error) {
+func (s *Store) GetUsers(tags, keyIds, userIds []string, offset, limit int) ([]*user.User, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 

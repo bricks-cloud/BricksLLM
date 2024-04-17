@@ -68,6 +68,21 @@ func (s *Store) AlterKeysTable() error {
 	return nil
 }
 
+func (s *Store) CreateCreateAtIndexForKeys() error {
+	createIndexQuery := `
+	CREATE INDEX IF NOT EXISTS created_at_idx ON keys(created_at);
+	`
+
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+	_, err := s.db.ExecContext(ctxTimeout, createIndexQuery)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *Store) GetKeys(tags, keyIds []string, provider string) ([]*key.ResponseKey, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
@@ -117,6 +132,109 @@ func (s *Store) GetKeys(tags, keyIds []string, provider string) ([]*key.Response
 			ON keys_table.setting_id = provider_settings_table.id
 			OR provider_settings_table.id = ANY(keys_table.setting_ids);
 		`, selectionQuery, index)
+	}
+
+	rows, err := s.db.QueryContext(ctxTimeout, query, args...)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, internal_errors.NewNotFoundError("keys are not found")
+		}
+
+		return nil, err
+	}
+	defer rows.Close()
+
+	keys := []*key.ResponseKey{}
+	for rows.Next() {
+		var k key.ResponseKey
+		var settingId sql.NullString
+		var data []byte
+		if err := rows.Scan(
+			&k.Name,
+			&k.CreatedAt,
+			&k.UpdatedAt,
+			pq.Array(&k.Tags),
+			&k.Revoked,
+			&k.KeyId,
+			&k.Key,
+			&k.RevokedReason,
+			&k.CostLimitInUsd,
+			&k.CostLimitInUsdOverTime,
+			&k.CostLimitInUsdUnit,
+			&k.RateLimitOverTime,
+			&k.RateLimitUnit,
+			&k.Ttl,
+			&settingId,
+			&data,
+			pq.Array(&k.SettingIds),
+			&k.ShouldLogRequest,
+			&k.ShouldLogResponse,
+			&k.RotationEnabled,
+			&k.PolicyId,
+			&k.IsKeyNotHashed,
+		); err != nil {
+			return nil, err
+		}
+
+		pk := &k
+		pk.SettingId = settingId.String
+
+		if len(data) != 0 {
+			pathConfigs := []key.PathConfig{}
+			if err := json.Unmarshal(data, &pathConfigs); err != nil {
+				return nil, err
+			}
+
+			pk.AllowedPaths = pathConfigs
+		}
+
+		keys = append(keys, pk)
+	}
+
+	return keys, nil
+}
+
+func (s *Store) GetKeysV2(tags, keyIds []string, revoked *bool, limit, offset int) ([]*key.ResponseKey, error) {
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	args := []any{}
+
+	query := "SELECT * FROM keys"
+
+	index := 1
+
+	if len(tags) != 0 || len(keyIds) != 0 || revoked != nil {
+		query += " WHERE "
+	}
+
+	if len(tags) != 0 {
+		args = append(args, pq.Array(tags))
+		index += 1
+		query += "tags @> $1"
+	}
+
+	if len(keyIds) != 0 {
+		if index > 1 {
+			query += " AND "
+		}
+
+		args = append(args, pq.Array(keyIds))
+		query += fmt.Sprintf("key_id = ANY($%d)", index)
+		index += 1
+	}
+
+	if revoked != nil {
+		if index > 1 {
+			query += " AND "
+		}
+
+		args = append(args, *revoked)
+		query += fmt.Sprintf("revoked = $%d", index)
+	}
+
+	if limit != 0 {
+		query += fmt.Sprintf(" ORDER BY created_at DESC OFFSET %d LIMIT %d", offset, limit)
 	}
 
 	rows, err := s.db.QueryContext(ctxTimeout, query, args...)

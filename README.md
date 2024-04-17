@@ -226,6 +226,7 @@ Fields of KeyConfiguration
 > | shouldLogResponse | `bool` | `true` | Should response be stored. |
 > | rotationEnabled | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
 > | policyId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Policy id associated with the key. |
+> | isKeyNotHashed | `bool` | `false` | Flag controls whether or not the key should be hashed. |
 
 </details>
 
@@ -264,6 +265,8 @@ PathConfig
 > | shouldLogResponse | optional | `bool` | `true` | Should response be stored. |
 > | rotationEnabled | optional | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
 > | policyId | optional | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Policy id associated with the key. |
+> | isKeyNotHashed | optional | `bool` | `false` | Flag controls whether or not the key should be hashed. |
+
 
 
 ##### Error Response
@@ -304,6 +307,7 @@ PathConfig
 > | shouldLogResponse | `bool` | `true` | Should response be stored. |
 > | rotationEnabled | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
 > | policyId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Policy id associated with the key. |
+> | isKeyNotHashed | `bool` | `false` | Flag controls whether or not the key should be hashed. |
 
 </details>
 
@@ -345,6 +349,7 @@ PathConfig
 > | shouldLogResponse | optional | `bool` | `true` | Should response be stored. |
 > | rotationEnabled | optional | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
 > | policyId | optional | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Policy id associated with the key. |
+> | isKeyNotHashed | optional | `bool` | `false` | Flag controls whether or not the key should be hashed. |
 
 ##### Error Response
 
@@ -383,6 +388,7 @@ PathConfig
 > | shouldLogResponse | `bool` | `true` | Should response be stored. |
 > | rotationEnabled | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
 > | policyId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Policy id associated with the key. |
+> | isKeyNotHashed | `bool` | `false` | Flag controls whether or not the key should be hashed. |
 
 </details>
 

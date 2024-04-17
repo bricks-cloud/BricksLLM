@@ -86,6 +86,11 @@ func main() {
 		log.Sugar().Fatalf("error altering keys table: %v", err)
 	}
 
+	err = store.CreateCreateAtIndexForKeys()
+	if err != nil {
+		log.Sugar().Fatalf("error create create at index for keys: %v", err)
+	}
+
 	err = store.CreateEventsTable()
 	if err != nil {
 		log.Sugar().Fatalf("error creating events table: %v", err)
