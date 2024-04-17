@@ -48,12 +48,12 @@ func (v *Validator) Validate(k *key.ResponseKey, promptCost float64) error {
 		return internal_errors.NewValidationError("api key revoked")
 	}
 
-	parsed, err := time.ParseDuration(k.Ttl)
+	parsed, _ := time.ParseDuration(k.Ttl)
 	if !v.validateTtl(k.CreatedAt, parsed) {
 		return internal_errors.NewExpirationError("api key expired", internal_errors.TtlExpiration)
 	}
 
-	err = v.validateRateLimitOverTime(k.KeyId, k.RateLimitOverTime, k.RateLimitUnit)
+	err := v.validateRateLimitOverTime(k.KeyId, k.RateLimitOverTime, k.RateLimitUnit)
 	if err != nil {
 		return err
 	}
