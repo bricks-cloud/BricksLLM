@@ -96,7 +96,7 @@ func (s *Store) GetUsers(tags, keyIds, userIds []string, offset, limit int) ([]*
 		}
 
 		args = append(args, pq.Array(userIds))
-		query += fmt.Sprintf("id = ANY($%d)", index)
+		query += fmt.Sprintf("user_id = ANY($%d)", index)
 		index += 1
 	}
 
@@ -333,7 +333,7 @@ func (s *Store) UpdateUser(id string, uu *user.UpdateUser) (*user.User, error) {
 		counter++
 	}
 
-	query := fmt.Sprintf("UPDATE users SET %s WHERE id = $1 RETURNING *;", strings.Join(fields, ","))
+	query := fmt.Sprintf("UPDATE users SET %s WHERE user_id = $1 RETURNING *;", strings.Join(fields, ","))
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()

@@ -32,10 +32,6 @@ type User struct {
 func (u *User) Validate() error {
 	invalid := []string{}
 
-	if len(u.UserId) == 0 {
-		invalid = append(invalid, "userId")
-	}
-
 	for _, tag := range u.Tags {
 		if len(tag) == 0 {
 			invalid = append(invalid, "tags")

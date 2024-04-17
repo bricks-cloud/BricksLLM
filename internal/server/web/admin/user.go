@@ -33,7 +33,7 @@ func getGetUsersHandler(m UserManager, log *zap.Logger, prod bool) gin.HandlerFu
 
 		tags := c.QueryArray("tags")
 		keyIds := c.QueryArray("keyIds")
-		userIds := c.QueryArray("ids")
+		userIds := c.QueryArray("userIds")
 
 		offset := 0
 		offsetStr, ok := c.GetQuery("offset")
