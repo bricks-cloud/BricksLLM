@@ -12,6 +12,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
 	"github.com/bricks-cloud/bricksllm/internal/provider/vllm"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/user"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 
@@ -55,16 +56,30 @@ type validator interface {
 	Validate(k *key.ResponseKey, promptCost float64) error
 }
 
+type userValidator interface {
+	Validate(u *user.User, promptCost float64) error
+}
+
 type keyManager interface {
 	GetKeys(tags, keyIds []string, provider string) ([]*key.ResponseKey, error)
 	UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, error)
 }
 
+type userManager interface {
+	GetUsers(tags, keyIds, userIds []string, offset int, limit int) ([]*user.User, error)
+	UpdateUser(id string, uu *user.UpdateUser) (*user.User, error)
+}
+
 type rateLimitManager interface {
 	Increment(keyId string, timeUnit key.TimeUnit) error
+	IncrementUser(id string, timeUnit key.TimeUnit) error
 }
 
 type accessCache interface {
+	Set(key string, timeUnit key.TimeUnit) error
+}
+
+type userAccessCache interface {
 	Set(key string, timeUnit key.TimeUnit) error
 }
 
@@ -76,12 +91,15 @@ type Handler struct {
 	vllme    vllmEstimator
 	aze      azureEstimator
 	v        validator
+	uv       userValidator
 	km       keyManager
+	um       userManager
 	rlm      rateLimitManager
 	ac       accessCache
+	uac      userAccessCache
 }
 
-func NewHandler(r recorder, log *zap.Logger, ae anthropicEstimator, e estimator, vllme vllmEstimator, aze azureEstimator, v validator, km keyManager, rlm rateLimitManager, ac accessCache) *Handler {
+func NewHandler(r recorder, log *zap.Logger, ae anthropicEstimator, e estimator, vllme vllmEstimator, aze azureEstimator, v validator, uv userValidator, km keyManager, um userManager, rlm rateLimitManager, ac accessCache, uac accessCache) *Handler {
 	return &Handler{
 		recorder: r,
 		log:      log,
@@ -90,7 +108,9 @@ func NewHandler(r recorder, log *zap.Logger, ae anthropicEstimator, e estimator,
 		vllme:    vllme,
 		aze:      aze,
 		v:        v,
+		uv:       uv,
 		km:       km,
+		um:       um,
 		rlm:      rlm,
 		ac:       ac,
 	}
@@ -235,6 +255,59 @@ func (h *Handler) handleValidationResult(kc *key.ResponseKey, cost float64) erro
 	return nil
 }
 
+func (h *Handler) handleUserValidationResult(u *user.User, cost float64) error {
+	err := h.uv.Validate(u, cost)
+
+	if err != nil {
+		stats.Incr("bricksllm.message.handler.handle_user_validation_result.validate_error", nil, 1)
+
+		if _, ok := err.(expirationError); ok {
+			stats.Incr("bricksllm.message.handler.handle_user_validation_result.expiraton_error", nil, 1)
+
+			truePtr := true
+			_, err = h.um.UpdateUser(u.Id, &user.UpdateUser{
+				Revoked:       &truePtr,
+				RevokedReason: key.RevokedReasonExpired,
+			})
+
+			if err != nil {
+				stats.Incr("bricksllm.message.handler.handle_user_validation_result.update_user_error", nil, 1)
+				return err
+			}
+
+			return nil
+		}
+
+		if _, ok := err.(rateLimitError); ok {
+			stats.Incr("bricksllm.message.handler.handle_user_validation_result.rate_limit_error", nil, 1)
+
+			err = h.uac.Set(u.Id, u.RateLimitUnit)
+			if err != nil {
+				stats.Incr("bricksllm.message.handler.handle_user_validation_result.set_rate_limit_error", nil, 1)
+				return err
+			}
+
+			return nil
+		}
+
+		if _, ok := err.(costLimitError); ok {
+			stats.Incr("bricksllm.message.handler.handle_user_validation_result.cost_limit_error", nil, 1)
+
+			err = h.uac.Set(u.Id, u.CostLimitInUsdUnit)
+			if err != nil {
+				stats.Incr("bricksllm.message.handler.handle_user_validation_result.set_cost_limit_error", nil, 1)
+				return err
+			}
+
+			return nil
+		}
+
+		return err
+	}
+
+	return nil
+}
+
 func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 	e, ok := m.Data.(*event.EventWithRequestAndContent)
 	if !ok {
@@ -250,12 +323,32 @@ func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 			h.log.Debug("error when decorating event", zap.Error(err))
 		}
 
+		var u *user.User
+
 		if e.Event.CostInUsd != 0 {
 			micros := int64(e.Event.CostInUsd * 1000000)
 			err = h.recorder.RecordKeySpend(e.Event.KeyId, micros, e.Key.CostLimitInUsdUnit)
 			if err != nil {
 				stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.record_key_spend_error", nil, 1)
 				h.log.Debug("error when recording key spend", zap.Error(err))
+			}
+
+			if len(e.Event.UserId) != 0 {
+				us, err := h.um.GetUsers(e.Key.Tags, nil, []string{e.Event.UserId}, 0, 0)
+				if err != nil {
+					stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.get_users_error", nil, 1)
+					h.log.Debug("error when getting users", zap.Error(err))
+				}
+
+				if len(us) == 1 {
+					u = us[0]
+
+					err = h.recorder.RecordUserSpend(u.Id, micros, u.CostLimitInUsdUnit)
+					if err != nil {
+						stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.record_user_spend_error", nil, 1)
+						h.log.Debug("error when recording user spend", zap.Error(err))
+					}
+				}
 			}
 		}
 
@@ -267,11 +360,26 @@ func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 			}
 		}
 
+		if u != nil {
+			if err := h.rlm.IncrementUser(u.Id, u.RateLimitUnit); err != nil {
+				stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.rate_limit_increment_user_error", nil, 1)
+
+				h.log.Debug("error when incrementing rate limit", zap.Error(err))
+			}
+
+			err = h.handleUserValidationResult(u, e.Event.CostInUsd)
+			if err != nil {
+				stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.handle_user_validation_result_error", nil, 1)
+				h.log.Debug("error when handling user validation result", zap.Error(err))
+			}
+		}
+
 		err = h.handleValidationResult(e.Key, e.Event.CostInUsd)
 		if err != nil {
 			stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.handle_validation_result_error", nil, 1)
 			h.log.Debug("error when handling validation result", zap.Error(err))
 		}
+
 	}
 
 	start := time.Now()
