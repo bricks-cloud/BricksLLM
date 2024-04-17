@@ -1,6 +1,8 @@
 package manager
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
@@ -12,6 +14,7 @@ type UserStorage interface {
 	GetUsers(tags, keyIds, userIds []string, offset int, limit int) ([]*user.User, error)
 	CreateUser(u *user.User) (*user.User, error)
 	UpdateUser(id string, uu *user.UpdateUser) (*user.User, error)
+	UpdateUserViaTagsAndUserId(tags []string, uid string, uu *user.UpdateUser) (*user.User, error)
 }
 
 type UserManager struct {
@@ -35,12 +38,23 @@ func (m *UserManager) CreateUser(u *user.User) (*user.User, error) {
 	u.UpdatedAt = time.Now().Unix()
 	u.Id = util.NewUuid()
 
-	if len(u.UserId) == 0 {
-		u.UserId = util.NewUuid()
-	}
-
 	if err := u.Validate(); err != nil {
 		return nil, err
+	}
+
+	if len(u.UserId) != 0 {
+		existing, err := m.us.GetUsers(u.Tags, nil, []string{u.UserId}, 0, 0)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(existing) != 0 {
+			return nil, internal_errors.NewValidationError(fmt.Sprintf("user id exists for tags: [%s]", strings.Join(u.Tags, ",")))
+		}
+	}
+
+	if len(u.UserId) == 0 {
+		u.UserId = util.NewUuid()
 	}
 
 	if len(u.KeyIds) != 0 {
@@ -76,4 +90,25 @@ func (m *UserManager) UpdateUser(id string, uu *user.UpdateUser) (*user.User, er
 	}
 
 	return m.us.UpdateUser(id, uu)
+}
+
+func (m *UserManager) UpdateUserViaTagsAndUserId(tags []string, uid string, uu *user.UpdateUser) (*user.User, error) {
+	uu.UpdatedAt = time.Now().Unix()
+
+	if err := uu.Validate(); err != nil {
+		return nil, err
+	}
+
+	if uu.KeyIds != nil && len(uu.KeyIds) != 0 {
+		existing, err := m.ks.GetKeys(nil, uu.KeyIds, "")
+		if err != nil {
+			return nil, err
+		}
+
+		if len(existing) == 0 {
+			return nil, internal_errors.NewNotFoundError("keys are not found")
+		}
+	}
+
+	return m.us.UpdateUserViaTagsAndUserId(tags, uid, uu)
 }
