@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
+	"github.com/lib/pq"
 )
 
 func (s *Store) CreateEventsByDayTable() error {
@@ -138,6 +139,63 @@ func (s *Store) GetUserIds(keyId string) ([]string, error) {
 	}
 
 	return result, nil
+}
+
+func (s *Store) GetTopKeyDataPoints(start, end int64, tags []string, limit, offset int) ([]*event.KeyDataPoint, error) {
+	args := []any{}
+	condition := ""
+	if len(tags) > 0 {
+		condition = "AND tags @> $1"
+		args = append(args, pq.Array(tags))
+	}
+
+	query := fmt.Sprintf(`
+	SELECT 
+		key_id,
+		SUM(cost_in_usd) AS "CostInUsd"
+	FROM events
+	WHERE (key_id = '') IS FALSE AND created_at >= %d AND created_at < %d %s
+	GROUP BY key_id`, start, end, condition)
+
+	if limit != 0 {
+		query += fmt.Sprintf(`
+		ORDER BY "CostInUsd" DESC
+		LIMIT %d OFFSET %d;
+	`, limit, offset)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	data := []*event.KeyDataPoint{}
+	for rows.Next() {
+		var e event.KeyDataPoint
+		var keyId sql.NullString
+
+		additional := []any{
+			&keyId,
+			&e.CostInUsd,
+		}
+
+		if err := rows.Scan(
+			additional...,
+		); err != nil {
+			return nil, err
+		}
+
+		pe := &e
+		pe.KeyId = keyId.String
+
+		data = append(data, pe)
+	}
+
+	return data, nil
 }
 
 func (s *Store) GetAggregatedEventByDayDataPoints(start, end int64, keyIds []string) ([]*event.DataPoint, error) {
