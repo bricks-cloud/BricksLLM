@@ -108,6 +108,7 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 
 	router.POST("/api/users", getCreateUserHandler(um, log, prod))
 	router.PATCH("/api/users/:id", getUpdateUserHandler(um, log, prod))
+	router.PATCH("/api/users", getUpdateUserViaTagsAndUserIdHandler(um, log, prod))
 	router.GET("/api/users", getGetUsersHandler(um, log, prod))
 
 	srv := &http.Server{

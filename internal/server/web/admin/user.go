@@ -17,6 +17,7 @@ type UserManager interface {
 	GetUsers(tags, keyIds, userIds []string, offset int, limit int) ([]*user.User, error)
 	CreateUser(u *user.User) (*user.User, error)
 	UpdateUser(id string, uu *user.UpdateUser) (*user.User, error)
+	UpdateUserViaTagsAndUserId(tags []string, uid string, uu *user.UpdateUser) (*user.User, error)
 }
 
 func getGetUsersHandler(m UserManager, log *zap.Logger, prod bool) gin.HandlerFunc {
@@ -204,7 +205,7 @@ func getUpdateUserHandler(m UserManager, log *zap.Logger, prod bool) gin.Handler
 			stats.Timing("bricksllm.admin.get_update_user_handler.latency", dur, nil, 1)
 		}()
 
-		path := "/api/users"
+		path := "/api/users/:id"
 		if c == nil || c.Request == nil {
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/empty-context",
@@ -231,7 +232,7 @@ func getUpdateUserHandler(m UserManager, log *zap.Logger, prod bool) gin.Handler
 		cid := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading key creation request body", prod, cid, err)
+			logError(log, "error when reading update user request body", prod, cid, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "request body reader error",
@@ -291,6 +292,108 @@ func getUpdateUserHandler(m UserManager, log *zap.Logger, prod bool) gin.Handler
 		}
 
 		stats.Incr("bricksllm.admin.get_update_user_handler.success", nil, 1)
+
+		c.JSON(http.StatusOK, resk)
+	}
+}
+
+func getUpdateUserViaTagsAndUserIdHandler(m UserManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		stats.Incr("bricksllm.admin.get_update_user_via_tags_and_user_id_handler.requests", nil, 1)
+
+		start := time.Now()
+		defer func() {
+			dur := time.Since(start)
+			stats.Timing("bricksllm.admin.get_update_user_via_tags_and_user_id_handler.latency", dur, nil, 1)
+		}()
+
+		path := "/api/users"
+		if c == nil || c.Request == nil {
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/empty-context",
+				Title:    "context is empty error",
+				Status:   http.StatusInternalServerError,
+				Detail:   "gin context is empty",
+				Instance: path,
+			})
+			return
+		}
+
+		uid := c.Query("userId")
+		if len(uid) == 0 {
+			c.JSON(http.StatusBadRequest, &ErrorResponse{
+				Type:     "/errors/missing-user-id",
+				Title:    "missing user id",
+				Status:   http.StatusBadRequest,
+				Detail:   "query param tags is empty",
+				Instance: path,
+			})
+			return
+		}
+
+		cid := c.GetString(correlationId)
+		data, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			logError(log, "error when reading update user via tags and user id request body", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/request-body-read",
+				Title:    "request body reader error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		uu := &user.UpdateUser{}
+		err = json.Unmarshal(data, uu)
+		if err != nil {
+			logError(log, "error when unmarshalling update user via tags and user id body", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/json-unmarshal",
+				Title:    "json unmarshaller error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		resk, err := m.UpdateUserViaTagsAndUserId(c.QueryArray("tags"), uid, uu)
+		if err != nil {
+			errType := "internal"
+
+			defer func() {
+				stats.Incr("bricksllm.admin.get_update_user_via_tags_and_user_id_handler.create_key_error", []string{
+					"error_type:" + errType,
+				}, 1)
+			}()
+
+			if _, ok := err.(validationError); ok {
+				errType = "validation"
+
+				c.JSON(http.StatusBadRequest, &ErrorResponse{
+					Type:     "/errors/validation",
+					Title:    "update user validation failed",
+					Status:   http.StatusBadRequest,
+					Detail:   err.Error(),
+					Instance: path,
+				})
+				return
+			}
+
+			logError(log, "error when updating user", prod, cid, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/user-manager",
+				Title:    "update user error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		stats.Incr("bricksllm.admin.get_update_user_via_tags_and_user_id_handler.success", nil, 1)
 
 		c.JSON(http.StatusOK, resk)
 	}
