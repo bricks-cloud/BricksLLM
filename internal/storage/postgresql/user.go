@@ -61,6 +61,21 @@ func (s *Store) CreateCreatedAtIndexForUsers() error {
 	return nil
 }
 
+func (s *Store) CreateUserIdIndexForUsers() error {
+	createIndexQuery := `
+	CREATE INDEX IF NOT EXISTS user_id_idx ON users(user_id);
+	`
+
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+	_, err := s.db.ExecContext(ctxTimeout, createIndexQuery)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *Store) GetUsers(tags, keyIds, userIds []string, offset, limit int) ([]*user.User, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
@@ -238,12 +253,6 @@ func (s *Store) UpdateUser(id string, uu *user.UpdateUser) (*user.User, error) {
 		id,
 	}
 
-	if len(uu.UserId) != 0 {
-		values = append(values, uu.UserId)
-		fields = append(fields, fmt.Sprintf("user_id = $%d", counter))
-		counter++
-	}
-
 	if len(uu.Name) != 0 {
 		values = append(values, uu.Name)
 		fields = append(fields, fmt.Sprintf("name = $%d", counter))
@@ -253,12 +262,6 @@ func (s *Store) UpdateUser(id string, uu *user.UpdateUser) (*user.User, error) {
 	if uu.UpdatedAt != 0 {
 		values = append(values, uu.UpdatedAt)
 		fields = append(fields, fmt.Sprintf("updated_at = $%d", counter))
-		counter++
-	}
-
-	if len(uu.Tags) != 0 {
-		values = append(values, pq.Array(uu.Tags))
-		fields = append(fields, fmt.Sprintf("tags = $%d", counter))
 		counter++
 	}
 
@@ -333,7 +336,7 @@ func (s *Store) UpdateUser(id string, uu *user.UpdateUser) (*user.User, error) {
 		counter++
 	}
 
-	query := fmt.Sprintf("UPDATE users SET %s WHERE user_id = $1 RETURNING *;", strings.Join(fields, ","))
+	query := fmt.Sprintf("UPDATE users SET %s WHERE id = $1 RETURNING *;", strings.Join(fields, ","))
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()
@@ -362,6 +365,151 @@ func (s *Store) UpdateUser(id string, uu *user.UpdateUser) (*user.User, error) {
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, internal_errors.NewNotFoundError(fmt.Sprintf("key not found for id: %s", id))
+		}
+		return nil, err
+	}
+
+	pu := &updated
+
+	if len(data) != 0 {
+		pathConfigs := []key.PathConfig{}
+		if err := json.Unmarshal(data, &pathConfigs); err != nil {
+			return nil, err
+		}
+
+		updated.AllowedPaths = pathConfigs
+	}
+
+	return pu, nil
+}
+
+func (s *Store) UpdateUserViaTagsAndUserId(tags []string, uid string, uu *user.UpdateUser) (*user.User, error) {
+	fields := []string{}
+
+	values := []any{
+		uid,
+	}
+
+	selectionQuery := ""
+	if len(tags) != 0 {
+		selectionQuery += "AND tags @> $2"
+		values = append(values, pq.Array(tags))
+	}
+
+	counter := len(values) + 1
+
+	if len(uu.Name) != 0 {
+		values = append(values, uu.Name)
+		fields = append(fields, fmt.Sprintf("name = $%d", counter))
+		counter++
+	}
+
+	if uu.UpdatedAt != 0 {
+		values = append(values, uu.UpdatedAt)
+		fields = append(fields, fmt.Sprintf("updated_at = $%d", counter))
+		counter++
+	}
+
+	if uu.Revoked != nil {
+		if *uu.Revoked && len(uu.RevokedReason) != 0 {
+			values = append(values, uu.RevokedReason)
+			fields = append(fields, fmt.Sprintf("revoked_reason = $%d", counter))
+			counter++
+		}
+
+		if !*uu.Revoked {
+			values = append(values, "")
+			fields = append(fields, fmt.Sprintf("revoked_reason = $%d", counter))
+			counter++
+		}
+
+		values = append(values, uu.Revoked)
+		fields = append(fields, fmt.Sprintf("revoked = $%d", counter))
+		counter++
+	}
+
+	if uu.CostLimitInUsd != nil {
+		values = append(values, *uu.CostLimitInUsd)
+		fields = append(fields, fmt.Sprintf("cost_limit_in_usd = $%d", counter))
+		counter++
+	}
+
+	if uu.CostLimitInUsdOverTime != nil {
+		values = append(values, *uu.CostLimitInUsdOverTime)
+		fields = append(fields, fmt.Sprintf("cost_limit_in_usd_over_time = $%d", counter))
+		counter++
+	}
+
+	if uu.CostLimitInUsdUnit != nil {
+		values = append(values, *uu.CostLimitInUsdUnit)
+		fields = append(fields, fmt.Sprintf("cost_limit_in_usd_unit = $%d", counter))
+		counter++
+	}
+
+	if uu.RateLimitOverTime != nil {
+		values = append(values, *uu.RateLimitOverTime)
+		fields = append(fields, fmt.Sprintf("rate_limit_over_time = $%d", counter))
+		counter++
+	}
+
+	if uu.RateLimitUnit != nil {
+		values = append(values, *uu.RateLimitUnit)
+		fields = append(fields, fmt.Sprintf("rate_limit_unit = $%d", counter))
+		counter++
+	}
+
+	if uu.AllowedPaths != nil {
+		data, err := json.Marshal(uu.AllowedPaths)
+		if err != nil {
+			return nil, err
+		}
+
+		values = append(values, data)
+		fields = append(fields, fmt.Sprintf("allowed_paths = $%d", counter))
+		counter++
+	}
+
+	if uu.KeyIds != nil {
+		values = append(values, pq.Array(uu.KeyIds))
+		fields = append(fields, fmt.Sprintf("key_ids = $%d", counter))
+		counter++
+	}
+
+	if uu.AllowedModels != nil {
+		values = append(values, pq.Array(uu.AllowedModels))
+		fields = append(fields, fmt.Sprintf("allowed_models = $%d", counter))
+		counter++
+	}
+
+	query := fmt.Sprintf("UPDATE users SET %s WHERE user_id = $1 %s RETURNING *;", strings.Join(fields, ","), selectionQuery)
+
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+
+	var updated user.User
+
+	var data []byte
+	if err := s.db.QueryRowContext(ctxTimeout, query, values...).Scan(
+		&updated.Id,
+		&updated.Name,
+		&updated.CreatedAt,
+		&updated.UpdatedAt,
+		pq.Array(&updated.Tags),
+		&updated.Revoked,
+		&updated.RevokedReason,
+		&updated.CostLimitInUsd,
+		&updated.CostLimitInUsdOverTime,
+		&updated.CostLimitInUsdUnit,
+		&updated.RateLimitOverTime,
+		&updated.RateLimitUnit,
+		&updated.Ttl,
+		pq.Array(&updated.KeyIds),
+		&data,
+		pq.Array(&updated.AllowedModels),
+		&updated.UserId,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, internal_errors.NewNotFoundError(fmt.Sprintf("key not found for user id: %s tags: [%s]", uid, strings.Join(tags, ",")))
 		}
 		return nil, err
 	}
