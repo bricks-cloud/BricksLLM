@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/lib/pq"
@@ -141,12 +142,19 @@ func (s *Store) GetUserIds(keyId string) ([]string, error) {
 	return result, nil
 }
 
-func (s *Store) GetTopKeyDataPoints(start, end int64, tags []string, limit, offset int) ([]*event.KeyDataPoint, error) {
+func (s *Store) GetTopKeyDataPoints(start, end int64, tags, keyIds []string, order string, limit, offset int) ([]*event.KeyDataPoint, error) {
 	args := []any{}
 	condition := ""
+	index := 1
 	if len(tags) > 0 {
-		condition = "AND tags @> $1"
+		condition = fmt.Sprintf("AND tags @> $%d", index)
 		args = append(args, pq.Array(tags))
+		index++
+	}
+
+	if len(keyIds) > 0 {
+		condition = fmt.Sprintf("AND key_id = ANY($%d)", index)
+		args = append(args, pq.Array(keyIds))
 	}
 
 	query := fmt.Sprintf(`
@@ -157,11 +165,16 @@ func (s *Store) GetTopKeyDataPoints(start, end int64, tags []string, limit, offs
 	WHERE (key_id = '') IS FALSE AND created_at >= %d AND created_at < %d %s
 	GROUP BY key_id`, start, end, condition)
 
+	qorder := "DESC"
+	if len(order) != 0 && strings.ToUpper(order) == "ASC" {
+		qorder = "ASC"
+	}
+
 	if limit != 0 {
 		query += fmt.Sprintf(`
-		ORDER BY "CostInUsd" DESC
+		ORDER BY "CostInUsd" %s
 		LIMIT %d OFFSET %d;
-	`, limit, offset)
+	`, qorder, limit, offset)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), s.rt)

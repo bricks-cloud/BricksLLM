@@ -1,6 +1,8 @@
 package manager
 
 import (
+	"strings"
+
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
@@ -21,7 +23,7 @@ type eventStorage interface {
 	GetAggregatedEventByDayDataPoints(start, end int64, keyIds []string) ([]*event.DataPoint, error)
 	GetUserIds(keyId string) ([]string, error)
 	GetCustomIds(keyId string) ([]string, error)
-	GetTopKeyDataPoints(start, end int64, tags []string, limit, offset int) ([]*event.KeyDataPoint, error)
+	GetTopKeyDataPoints(start, end int64, tags, keyIds []string, order string, limit, offset int) ([]*event.KeyDataPoint, error)
 }
 
 type ReportingManager struct {
@@ -76,7 +78,23 @@ func (rm *ReportingManager) GetTopKeyReporting(r *event.KeyReportingRequest) (*e
 		return nil, internal_errors.NewValidationError("key reporting requst cannot be nil")
 	}
 
-	dataPoints, err := rm.es.GetTopKeyDataPoints(r.Start, r.End, r.Tags, r.Limit, r.Offset)
+	for _, tag := range r.Tags {
+		if len(tag) == 0 {
+			return nil, internal_errors.NewValidationError("key reporting requst tag cannot be empty")
+		}
+	}
+
+	for _, kid := range r.KeyIds {
+		if len(kid) == 0 {
+			return nil, internal_errors.NewValidationError("key reporting requst key id cannot be empty")
+		}
+	}
+
+	if strings.ToUpper(r.Order) != "DESC" && strings.ToUpper(r.Order) != "ASC" {
+		return nil, internal_errors.NewValidationError("key reporting request order can only be desc or asc")
+	}
+
+	dataPoints, err := rm.es.GetTopKeyDataPoints(r.Start, r.End, r.Tags, r.KeyIds, r.Order, r.Limit, r.Offset)
 	if err != nil {
 		return nil, err
 	}
