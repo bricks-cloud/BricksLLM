@@ -18,6 +18,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/provider/vllm"
 	"github.com/bricks-cloud/bricksllm/internal/route"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/user"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
@@ -28,6 +29,10 @@ import (
 
 type keyMemStorage interface {
 	GetKey(hash string) *key.ResponseKey
+}
+
+type userManager interface {
+	GetUsers(tags, keyIds, userIds []string, offset int, limit int) ([]*user.User, error)
 }
 
 type keyStorage interface {
@@ -73,6 +78,10 @@ type rateLimitManager interface {
 
 type accessCache interface {
 	GetAccessStatus(key string) bool
+}
+
+type userAccessCache interface {
+	GetAccessStatus(userId string) bool
 }
 
 func JSON(c *gin.Context, code int, message string) {
@@ -144,7 +153,7 @@ type CustomPolicyDetector interface {
 	Detect(input []string, requirements []string) (bool, error)
 }
 
-func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManager, a authenticator, prod, private bool, log *zap.Logger, pub publisher, prefix string, ac accessCache, client http.Client, scanner Scanner, cd CustomPolicyDetector) gin.HandlerFunc {
+func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManager, a authenticator, prod, private bool, log *zap.Logger, pub publisher, prefix string, ac accessCache, uac userAccessCache, client http.Client, scanner Scanner, cd CustomPolicyDetector, um userManager) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] request is empty")
@@ -951,6 +960,34 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			JSON(c, http.StatusTooManyRequests, "[BricksLLM] too many requests")
 			c.Abort()
 			return
+		}
+
+		if len(userId) != 0 {
+			us, err := um.GetUsers(kc.Tags, nil, []string{userId}, 0, 0)
+			if err != nil {
+				stats.Incr("bricksllm.proxy.get_middleware.get_users_error", nil, 1)
+				logError(log, "error when getting users", prod, cid, err)
+			}
+
+			if len(us) == 1 {
+				if us[0].Revoked {
+					stats.Incr("bricksllm.proxy.get_middleware.user_revoked", nil, 1)
+					JSON(c, http.StatusUnauthorized, fmt.Sprintf("[BricksLLM] user is revoked: %s", userId))
+					c.Abort()
+					return
+				}
+
+				if uac.GetAccessStatus(us[0].Id) {
+					stats.Incr("bricksllm.proxy.get_middleware.user_rate_limited", nil, 1)
+					JSON(c, http.StatusTooManyRequests, fmt.Sprintf("[BricksLLM] too many requests for user: %s", userId))
+					c.Abort()
+					return
+				}
+			}
+
+			if len(us) > 1 {
+				stats.Incr("bricksllm.proxy.get_middleware.get_multiple_users_error", nil, 1)
+			}
 		}
 
 		if p != nil {

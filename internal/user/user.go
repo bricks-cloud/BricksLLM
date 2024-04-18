@@ -134,7 +134,6 @@ func (u *User) Validate() error {
 type UpdateUser struct {
 	Name                   string           `json:"name"`
 	UpdatedAt              int64            `json:"updatedAt"`
-	Tags                   []string         `json:"tags"`
 	KeyIds                 []string         `json:"keyIds"`
 	Revoked                *bool            `json:"revoked"`
 	RevokedReason          string           `json:"revokedReason"`
@@ -145,18 +144,10 @@ type UpdateUser struct {
 	RateLimitUnit          *key.TimeUnit    `json:"rateLimitUnit"`
 	AllowedPaths           []key.PathConfig `json:"allowedPaths"`
 	AllowedModels          []string         `json:"allowedModels"`
-	UserId                 string           `json:"userId"`
 }
 
 func (uu *UpdateUser) Validate() error {
 	invalid := []string{}
-
-	for _, tag := range uu.Tags {
-		if len(tag) == 0 {
-			invalid = append(invalid, "tags")
-			break
-		}
-	}
 
 	for _, kid := range uu.KeyIds {
 		if len(kid) == 0 {
