@@ -11,6 +11,8 @@ type KeyReportingResponse struct {
 
 type KeyReportingRequest struct {
 	Tags   []string `json:"tags"`
+	Order  string   `json:"order"`
+	KeyIds []string `json:"keyIds"`
 	Start  int64    `json:"start"`
 	End    int64    `json:"end"`
 	Limit  int      `json:"limit"`
