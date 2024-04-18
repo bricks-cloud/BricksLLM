@@ -113,6 +113,7 @@ func NewHandler(r recorder, log *zap.Logger, ae anthropicEstimator, e estimator,
 		um:       um,
 		rlm:      rlm,
 		ac:       ac,
+		uac:      uac,
 	}
 }
 
@@ -361,10 +362,12 @@ func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 		}
 
 		if u != nil {
-			if err := h.rlm.IncrementUser(u.Id, u.RateLimitUnit); err != nil {
-				stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.rate_limit_increment_user_error", nil, 1)
+			if len(u.RateLimitUnit) != 0 {
+				if err := h.rlm.IncrementUser(u.Id, u.RateLimitUnit); err != nil {
+					stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.rate_limit_increment_user_error", nil, 1)
 
-				h.log.Debug("error when incrementing rate limit", zap.Error(err))
+					h.log.Debug("error when incrementing rate limit", zap.Error(err))
+				}
 			}
 
 			err = h.handleUserValidationResult(u, e.Event.CostInUsd)
