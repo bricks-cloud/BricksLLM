@@ -259,6 +259,12 @@ func (s *Store) UpdateUser(id string, uu *user.UpdateUser) (*user.User, error) {
 		counter++
 	}
 
+	if uu.Ttl != nil {
+		values = append(values, *uu.Ttl)
+		fields = append(fields, fmt.Sprintf("ttl = $%d", counter))
+		counter++
+	}
+
 	if uu.UpdatedAt != 0 {
 		values = append(values, uu.UpdatedAt)
 		fields = append(fields, fmt.Sprintf("updated_at = $%d", counter))

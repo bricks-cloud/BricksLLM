@@ -977,6 +977,21 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 					return
 				}
 
+				model := c.GetString("model")
+				if len(us[0].AllowedModels) != 0 && !contains(us[0].AllowedModels, model) {
+					stats.Incr("bricksllm.proxy.get_middleware.user_requested_model_not_allowed", nil, 1)
+					JSON(c, http.StatusForbidden, fmt.Sprintf("[BricksLLM] model: %s forbidden for user: %s", model, userId))
+					c.Abort()
+					return
+				}
+
+				if len(us[0].AllowedPaths) != 0 && !containsPath(us[0].AllowedPaths, c.FullPath(), c.Request.Method) {
+					stats.Incr("bricksllm.proxy.get_middleware.user_requested_path_not_allowed", nil, 1)
+					JSON(c, http.StatusForbidden, fmt.Sprintf("[BricksLLM] path: %s forbidden for user: %s", c.FullPath(), userId))
+					c.Abort()
+					return
+				}
+
 				if uac.GetAccessStatus(us[0].Id) {
 					stats.Incr("bricksllm.proxy.get_middleware.user_rate_limited", nil, 1)
 					JSON(c, http.StatusTooManyRequests, fmt.Sprintf("[BricksLLM] too many requests for user: %s", userId))

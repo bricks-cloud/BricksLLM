@@ -144,6 +144,7 @@ type UpdateUser struct {
 	RateLimitUnit          *key.TimeUnit    `json:"rateLimitUnit"`
 	AllowedPaths           []key.PathConfig `json:"allowedPaths"`
 	AllowedModels          []string         `json:"allowedModels"`
+	Ttl                    *string          `json:"ttl"`
 }
 
 func (uu *UpdateUser) Validate() error {
@@ -158,6 +159,13 @@ func (uu *UpdateUser) Validate() error {
 
 	if uu.CostLimitInUsd != nil && *uu.CostLimitInUsd < 0 {
 		invalid = append(invalid, "costLimitInUsd")
+	}
+
+	if uu.Ttl != nil && len(*uu.Ttl) != 0 {
+		_, err := time.ParseDuration(*uu.Ttl)
+		if err != nil {
+			invalid = append(invalid, "ttl")
+		}
 	}
 
 	if uu.UpdatedAt <= 0 {

@@ -37,16 +37,12 @@ func (v *UserValidator) Validate(u *user.User, promptCost float64) error {
 		return internal_errors.NewValidationError("user revoked")
 	}
 
-	parsed, err := time.ParseDuration(u.Ttl)
-	if err != nil {
-		return err
-	}
-
+	parsed, _ := time.ParseDuration(u.Ttl)
 	if !v.validateTtl(u.CreatedAt, parsed) {
 		return internal_errors.NewExpirationError("user expired", internal_errors.TtlExpiration)
 	}
 
-	err = v.validateRateLimitOverTime(u.Id, u.RateLimitOverTime, u.RateLimitUnit)
+	err := v.validateRateLimitOverTime(u.Id, u.RateLimitOverTime, u.RateLimitUnit)
 	if err != nil {
 		return err
 	}
