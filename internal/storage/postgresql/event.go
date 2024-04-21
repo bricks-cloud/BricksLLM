@@ -158,12 +158,23 @@ func (s *Store) GetTopKeyDataPoints(start, end int64, tags, keyIds []string, ord
 	}
 
 	query := fmt.Sprintf(`
-	SELECT 
+	WITH keys_table AS
+	(
+			SELECT key_id FROM keys WHERE created_at >= %d AND created_at < %d
+	),top_keys_table AS 
+	(
+		SELECT 
 		key_id,
 		SUM(cost_in_usd) AS "CostInUsd"
 	FROM events
 	WHERE (key_id = '') IS FALSE AND created_at >= %d AND created_at < %d %s
-	GROUP BY key_id`, start, end, condition)
+	GROUP BY key_id
+	)
+	SELECT keys_table.key_id, COALESCE(top_keys_table."CostInUsd", 0) AS cost_in_usd
+	FROM keys_table
+	LEFT JOIN top_keys_table
+	ON top_keys_table.key_id = keys_table.key_id
+`, start, end, start, end, condition)
 
 	qorder := "DESC"
 	if len(order) != 0 && strings.ToUpper(order) == "ASC" {
@@ -172,7 +183,7 @@ func (s *Store) GetTopKeyDataPoints(start, end int64, tags, keyIds []string, ord
 
 	if limit != 0 {
 		query += fmt.Sprintf(`
-		ORDER BY "CostInUsd" %s
+		ORDER BY cost_in_usd %s
 		LIMIT %d OFFSET %d;
 	`, qorder, limit, offset)
 	}
