@@ -142,19 +142,62 @@ func (s *Store) GetUserIds(keyId string) ([]string, error) {
 	return result, nil
 }
 
-func (s *Store) GetTopKeyDataPoints(start, end int64, tags, keyIds []string, order string, limit, offset int) ([]*event.KeyDataPoint, error) {
+func (s *Store) GetTopKeyDataPoints(start, end int64, tags, keyIds []string, order string, limit, offset int, name string, revoked *bool) ([]*event.KeyDataPoint, error) {
 	args := []any{}
 	condition := ""
+	condition2 := ""
+
 	index := 1
 	if len(tags) > 0 {
-		condition = fmt.Sprintf("AND tags @> $%d", index)
+		condition += fmt.Sprintf("AND tags @> $%d", index)
+
 		args = append(args, pq.Array(tags))
 		index++
 	}
 
 	if len(keyIds) > 0 {
 		condition += fmt.Sprintf(" AND key_id = ANY($%d)", index)
+
 		args = append(args, pq.Array(keyIds))
+	}
+
+	if len(name) > 0 {
+		condition += fmt.Sprintf(" AND LOWER(name) LIKE LOWER('%%%s%%')", name)
+	}
+
+	if revoked != nil {
+		bools := "False"
+		if *revoked {
+			bools = "True"
+		}
+
+		condition += fmt.Sprintf(" AND revoked = %s", bools)
+	}
+
+	if len(tags) > 0 {
+		condition2 += fmt.Sprintf("AND keys.tags @> $%d", index)
+
+		args = append(args, pq.Array(tags))
+		index++
+	}
+
+	if len(keyIds) > 0 {
+		condition2 += fmt.Sprintf(" AND keys.key_id = ANY($%d)", index)
+
+		args = append(args, pq.Array(keyIds))
+	}
+
+	if len(name) > 0 {
+		condition2 += fmt.Sprintf(" AND LOWER(keys.name) LIKE LOWER('%%%s%%')", name)
+	}
+
+	if revoked != nil {
+		bools := "False"
+		if *revoked {
+			bools = "True"
+		}
+
+		condition2 += fmt.Sprintf(" AND keys.revoked = %s", bools)
 	}
 
 	query := fmt.Sprintf(`
@@ -164,17 +207,25 @@ func (s *Store) GetTopKeyDataPoints(start, end int64, tags, keyIds []string, ord
 	),top_keys_table AS 
 	(
 		SELECT 
-		key_id,
+		events.key_id,
 		SUM(cost_in_usd) AS "CostInUsd"
-	FROM events
-	WHERE (key_id = '') IS FALSE AND created_at >= %d AND created_at < %d %s
-	GROUP BY key_id
+		FROM events
+		LEFT JOIN keys
+		ON keys.key_id = events.key_id
+		WHERE (events.key_id = '') IS FALSE AND events.created_at >= %d AND events.created_at < %d %s
+		GROUP BY events.key_id
 	)
-	SELECT keys_table.key_id, COALESCE(top_keys_table."CostInUsd", 0) AS cost_in_usd
-	FROM keys_table
-	LEFT JOIN top_keys_table
-	ON top_keys_table.key_id = keys_table.key_id
-`, start, end, condition, start, end, condition)
+	SELECT CASE
+			WHEN top_keys_table.key_id IS NOT NULL THEN top_keys_table.key_id
+			ELSE keys_table.key_id
+		END 
+		AS key_id
+  , COALESCE(top_keys_table."CostInUsd", 0) AS cost_in_usd
+		FROM keys_table
+		FULL JOIN top_keys_table
+		ON top_keys_table.key_id = keys_table.key_id 
+
+`, start, end, condition, start, end, condition2)
 
 	qorder := "DESC"
 	if len(order) != 0 && strings.ToUpper(order) == "ASC" {

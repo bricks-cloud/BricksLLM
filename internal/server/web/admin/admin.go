@@ -31,7 +31,7 @@ type ProviderSettingsManager interface {
 
 type KeyManager interface {
 	GetKeys(tags, keyIds []string, provider string) ([]*key.ResponseKey, error)
-	GetKeysV2(tags, keyIds []string, revoked *bool, limit, offset int) ([]*key.ResponseKey, error)
+	GetKeysV2(tags, keyIds []string, revoked *bool, limit, offset int, name, order string) ([]*key.ResponseKey, error)
 	UpdateKey(id string, key *key.UpdateKey) (*key.ResponseKey, error)
 	CreateKey(key *key.RequestKey) (*key.ResponseKey, error)
 	DeleteKey(id string) error
@@ -280,9 +280,27 @@ func getGetKeysV2Handler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 			return
 		}
 
-		keys, err := m.GetKeysV2(request.Tags, request.KeyIds, request.Revoked, request.Limit, request.Offset)
+		keys, err := m.GetKeysV2(request.Tags, request.KeyIds, request.Revoked, request.Limit, request.Offset, request.Name, request.Order)
 		if err != nil {
-			stats.Incr("bricksllm.admin.get_get_keys_v2_handler.get_keys_v2_err", nil, 1)
+			errType := "internal"
+
+			defer func() {
+				stats.Incr("bricksllm.admin.get_get_keys_v2_handler.get_keys_v2_err", []string{
+					"error_type:" + errType,
+				}, 1)
+			}()
+
+			if _, ok := err.(validationError); ok {
+				errType = "validation"
+				c.JSON(http.StatusBadRequest, &ErrorResponse{
+					Type:     "/errors/validation",
+					Title:    "get keys request validation failed",
+					Status:   http.StatusBadRequest,
+					Detail:   err.Error(),
+					Instance: path,
+				})
+				return
+			}
 
 			logError(log, "error when getting keys", prod, cid, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{

@@ -154,6 +154,9 @@ docker pull luyuanxin1995/bricksllm:1.4.0
 > | `STATS_PROVIDER`         | optional | This value can only be datadog. Required for integration with Datadog.  |
 > | `PROXY_TIMEOUT`         | optional | Timeout for proxy HTTP requests. | `600s` |
 > | `NUMBER_OF_EVENT_MESSAGE_CONSUMERS`         | optional | Number of event message consumers that help handle counting tokens and inserting event into db.  | `3` |
+> | `AWS_SECRET_ACCESS_KEY`         | optional | It is for PII detection feature.  | `5s` |
+> | `AWS_ACCESS_KEY_ID`         | optional | It is for using PII detection feature.  | `5s` |
+> | `AMAZON_REGION`         | optional | Region for AWS.  | `us-west-2` |
 > | `AMAZON_REQUEST_TIMEOUT`         | optional | Timeout for amazon requests.  | `5s` |
 > | `AMAZON_CONNECTION_TIMEOUT`         | optional | Timeout for amazon connection.  | `10s` |
 > | `AWS_SECRET_ACCESS_KEY`         | optional | Required for PII detection features.  |
