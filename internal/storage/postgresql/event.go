@@ -179,13 +179,15 @@ func (s *Store) GetTopKeyDataPoints(start, end int64, tags, keyIds []string, ord
 	qorder := "DESC"
 	if len(order) != 0 && strings.ToUpper(order) == "ASC" {
 		qorder = "ASC"
+		query += fmt.Sprintf(`
+		ORDER BY cost_in_usd %s
+	`, qorder)
 	}
 
 	if limit != 0 {
 		query += fmt.Sprintf(`
-		ORDER BY cost_in_usd %s
 		LIMIT %d OFFSET %d;
-	`, qorder, limit, offset)
+	`, limit, offset)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), s.rt)
