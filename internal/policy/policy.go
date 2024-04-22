@@ -602,7 +602,8 @@ func (p *Policy) scan(input []string, scanner Scanner, cd CustomPolicyDetector, 
 						if result.Action != Block && result.Action != AllowButWarn {
 							result.Action = AllowButRedact
 						}
-						old := replaced[entity.BeginOffset:entity.EndOffset]
+
+						old := detection.Input[entity.BeginOffset:entity.EndOffset]
 						replaced = strings.ReplaceAll(replaced, old, "***")
 					}
 				}
