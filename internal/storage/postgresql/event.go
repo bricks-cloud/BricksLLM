@@ -191,10 +191,6 @@ func (s *Store) GetTopKeyDataPoints(start, end int64, tags, keyIds []string, ord
 	ctx, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
-	for _, t := range args {
-		fmt.Println(t)
-	}
-
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
