@@ -1,3 +1,7 @@
+## 1.18.2 - 2024-04-22
+### Fixed
+- Fixed PII detection bug
+
 ## 1.18.1 - 2024-04-21
 ### Added
 - Added new env variable for setting AWS region `AMAZON_REGION`
