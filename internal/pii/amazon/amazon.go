@@ -83,11 +83,13 @@ func (c *Client) Detect(input []string) (*pii.Result, error) {
 			detection.Input = t
 
 			for _, detected := range r.Entities {
-				entities = append(entities, &pii.Entity{
-					BeginOffset: int(*detected.BeginOffset),
-					EndOffset:   int(*detected.EndOffset),
-					Type:        string(detected.Type),
-				})
+				if detected.BeginOffset != nil && detected.EndOffset != nil {
+					entities = append(entities, &pii.Entity{
+						BeginOffset: int(*detected.BeginOffset),
+						EndOffset:   int(*detected.EndOffset),
+						Type:        string(detected.Type),
+					})
+				}
 			}
 
 			detection.Entities = entities
