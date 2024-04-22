@@ -15,7 +15,7 @@ import (
 
 type Storage interface {
 	GetKeys(tags, keyIds []string, provider string) ([]*key.ResponseKey, error)
-	GetKeysV2(tags, keyIds []string, revoked *bool, limit, offset int, name, order string) ([]*key.ResponseKey, error)
+	GetKeysV2(tags, keyIds []string, revoked *bool, limit, offset int, name, order string, returnCount bool) (*key.GetKeysResponse, error)
 	UpdateKey(id string, key *key.UpdateKey) (*key.ResponseKey, error)
 	CreateKey(key *key.RequestKey) (*key.ResponseKey, error)
 	DeleteKey(id string) error
@@ -53,12 +53,12 @@ func NewManager(s Storage, clc costLimitCache, rlc rateLimitCache, ac accessCach
 	}
 }
 
-func (m *Manager) GetKeysV2(tags, keyIds []string, revoked *bool, limit, offset int, name, order string) ([]*key.ResponseKey, error) {
+func (m *Manager) GetKeysV2(tags, keyIds []string, revoked *bool, limit, offset int, name, order string, returnCount bool) (*key.GetKeysResponse, error) {
 	if len(order) != 0 && strings.ToUpper(order) != "DESC" && strings.ToUpper(order) != "ASC" {
 		return nil, internal_errors.NewValidationError("get keys request order can only be desc or asc")
 	}
 
-	return m.s.GetKeysV2(tags, keyIds, revoked, limit, offset, name, order)
+	return m.s.GetKeysV2(tags, keyIds, revoked, limit, offset, name, order, returnCount)
 }
 
 func (m *Manager) GetKeys(tags, keyIds []string, provider string) ([]*key.ResponseKey, error) {
