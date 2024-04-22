@@ -3,6 +3,7 @@
 ## Getting Started
 This guide shows you how to create API keys for vLLM integration. Let's say you want to create API for accessing the model ```facebook/opt-125m```.
 
+
 ### Step 1 - Create a provider
 ```bash
 curl -X PUT http://localhost:8001/api/provider-settings \
@@ -15,7 +16,7 @@ curl -X PUT http://localhost:8001/api/provider-settings \
           }
       }'   
 ```
-Copy the `id` from the response.
+Copy the `id` from the response. `YOUR_VLLM_DEPLOYMENT_URL` should not have `/` at the end.
 
 ### Step 2 - Create a Bricks API key
 Use `id` from the previous step as `settingId` to create a key with a rate limit of 2 req/min and a spend limit of 25 cents.
