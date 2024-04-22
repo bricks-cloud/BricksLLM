@@ -29,6 +29,7 @@ type Config struct {
 	NumberOfEventMessageConsumers int           `env:"NUMBER_OF_EVENT_MESSAGE_CONSUMERS" envDefault:"3"`
 	OpenAiApiKey                  string        `env:"OPENAI_API_KEY"`
 	CustomPolicyDetectionTimeout  time.Duration `env:"CUSTOM_POLICY_DETECTION_TIMEOUT" envDefault:"10m"`
+	AmazonRegion                  string        `env:"AMAZON_REGION" envDefault:"us-west-2"`
 	AmazonRequestTimeout          time.Duration `env:"AMAZON_REQUEST_TIMEOUT" envDefault:"5s"`
 	AmazonConnectionTimeout       time.Duration `env:"AMAZON_CONNECTION_TIMEOUT" envDefault:"10s"`
 }

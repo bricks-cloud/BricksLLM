@@ -20,11 +20,11 @@ type Client struct {
 	log    *zap.Logger
 }
 
-func NewClient(rt time.Duration, ct time.Duration, log *zap.Logger) (*Client, error) {
+func NewClient(rt time.Duration, ct time.Duration, log *zap.Logger, region string) (*Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), ct)
 	defer cancel()
 
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion("us-west-2"))
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
 	if err != nil {
 		return nil, err
 	}

@@ -346,7 +346,7 @@ func main() {
 	eventConsumer := message.NewConsumer(eventMessageChan, log, 4, handler.HandleEventWithRequestAndResponse)
 	eventConsumer.StartEventMessageConsumers()
 
-	detector, err := amazon.NewClient(cfg.AmazonRequestTimeout, cfg.AmazonConnectionTimeout, log)
+	detector, err := amazon.NewClient(cfg.AmazonRequestTimeout, cfg.AmazonConnectionTimeout, log, cfg.AmazonRegion)
 	if err != nil {
 		log.Sugar().Infof("error when connecting to amazon: %v", err)
 	}
