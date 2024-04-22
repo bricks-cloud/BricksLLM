@@ -1,6 +1,11 @@
 ## 1.18.1 - 2024-04-21
 ### Added
 - Added new env variable for setting AWS region `AMAZON_REGION`
+- Added new `name` and `order` filters to get keys V2 API
+- Added new `name` and `revoked` filters to top keys API
+
+### Fixed
+- Fixed top keys API for not returning keys with no spend
 
 ## 1.18.0 - 2024-04-17
 ### Added
