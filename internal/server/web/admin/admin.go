@@ -31,7 +31,7 @@ type ProviderSettingsManager interface {
 
 type KeyManager interface {
 	GetKeys(tags, keyIds []string, provider string) ([]*key.ResponseKey, error)
-	GetKeysV2(tags, keyIds []string, revoked *bool, limit, offset int, name, order string) ([]*key.ResponseKey, error)
+	GetKeysV2(tags, keyIds []string, revoked *bool, limit, offset int, name, order string, returnCount bool) (*key.GetKeysResponse, error)
 	UpdateKey(id string, key *key.UpdateKey) (*key.ResponseKey, error)
 	CreateKey(key *key.RequestKey) (*key.ResponseKey, error)
 	DeleteKey(id string) error
@@ -280,7 +280,7 @@ func getGetKeysV2Handler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 			return
 		}
 
-		keys, err := m.GetKeysV2(request.Tags, request.KeyIds, request.Revoked, request.Limit, request.Offset, request.Name, request.Order)
+		keys, err := m.GetKeysV2(request.Tags, request.KeyIds, request.Revoked, request.Limit, request.Offset, request.Name, request.Order, request.ReturnCount)
 		if err != nil {
 			errType := "internal"
 

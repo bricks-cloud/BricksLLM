@@ -194,11 +194,13 @@ func (s *Store) GetKeys(tags, keyIds []string, provider string) ([]*key.Response
 	return keys, nil
 }
 
-func (s *Store) GetKeysV2(tags, keyIds []string, revoked *bool, limit, offset int, name, order string) ([]*key.ResponseKey, error) {
+func (s *Store) GetKeysV2(tags, keyIds []string, revoked *bool, limit, offset int, name, order string, returnCount bool) (*key.GetKeysResponse, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
 	args := []any{}
+
+	countQuery := "SELECT COUNT(*) FROM keys"
 
 	query := "SELECT * FROM keys"
 
@@ -206,39 +208,47 @@ func (s *Store) GetKeysV2(tags, keyIds []string, revoked *bool, limit, offset in
 
 	if len(tags) != 0 || len(keyIds) != 0 || revoked != nil || len(name) != 0 {
 		query += " WHERE "
+		countQuery += " WHERE "
 	}
 
 	if len(tags) != 0 {
 		args = append(args, pq.Array(tags))
 		index += 1
 		query += "tags @> $1"
+		countQuery += "tags @> $1"
 	}
 
 	if len(keyIds) != 0 {
 		if index > 1 {
 			query += " AND "
+			countQuery += " AND "
 		}
 
 		args = append(args, pq.Array(keyIds))
 		query += fmt.Sprintf("key_id = ANY($%d)", index)
+		countQuery += fmt.Sprintf("key_id = ANY($%d)", index)
 		index += 1
 	}
 
 	if revoked != nil {
 		if index > 1 {
 			query += " AND "
+			countQuery += " AND "
 		}
 
 		args = append(args, *revoked)
 		query += fmt.Sprintf("revoked = $%d", index)
+		countQuery += fmt.Sprintf("revoked = $%d", index)
 	}
 
 	if len(name) != 0 {
 		if index > 1 {
 			query += " AND "
+			countQuery += " AND "
 		}
 
 		query += fmt.Sprintf("LOWER(name) LIKE LOWER('%%%s%%')", name)
+		countQuery += fmt.Sprintf("LOWER(name) LIKE LOWER('%%%s%%')", name)
 	}
 
 	qorder := "DESC"
@@ -254,10 +264,6 @@ func (s *Store) GetKeysV2(tags, keyIds []string, revoked *bool, limit, offset in
 
 	rows, err := s.db.QueryContext(ctxTimeout, query, args...)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, internal_errors.NewNotFoundError("keys are not found")
-		}
-
 		return nil, err
 	}
 	defer rows.Close()
@@ -309,7 +315,32 @@ func (s *Store) GetKeysV2(tags, keyIds []string, revoked *bool, limit, offset in
 		keys = append(keys, pk)
 	}
 
-	return keys, nil
+	result := &key.GetKeysResponse{
+		Keys: keys,
+	}
+
+	if returnCount {
+		rows, err := s.db.QueryContext(ctxTimeout, countQuery, args...)
+		if err != nil {
+			return nil, err
+		}
+
+		defer rows.Close()
+
+		for rows.Next() {
+			count := 0
+
+			if err := rows.Scan(
+				&count,
+			); err != nil {
+				return nil, err
+			}
+
+			result.Count = count
+		}
+	}
+
+	return result, nil
 }
 
 func (s *Store) GetKeyByHash(hash string) (*key.ResponseKey, error) {
