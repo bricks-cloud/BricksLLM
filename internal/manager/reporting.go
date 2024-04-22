@@ -90,7 +90,7 @@ func (rm *ReportingManager) GetTopKeyReporting(r *event.KeyReportingRequest) (*e
 		}
 	}
 
-	if strings.ToUpper(r.Order) != "DESC" && strings.ToUpper(r.Order) != "ASC" {
+	if len(r.Order) != 0 && strings.ToUpper(r.Order) != "DESC" && strings.ToUpper(r.Order) != "ASC" {
 		return nil, internal_errors.NewValidationError("key reporting request order can only be desc or asc")
 	}
 

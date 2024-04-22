@@ -160,7 +160,7 @@ func (s *Store) GetTopKeyDataPoints(start, end int64, tags, keyIds []string, ord
 	query := fmt.Sprintf(`
 	WITH keys_table AS
 	(
-			SELECT key_id FROM keys WHERE created_at >= %d AND created_at < %d
+			SELECT key_id FROM keys WHERE created_at >= %d AND created_at < %d %s
 	),top_keys_table AS 
 	(
 		SELECT 
@@ -174,7 +174,7 @@ func (s *Store) GetTopKeyDataPoints(start, end int64, tags, keyIds []string, ord
 	FROM keys_table
 	LEFT JOIN top_keys_table
 	ON top_keys_table.key_id = keys_table.key_id
-`, start, end, start, end, condition)
+`, start, end, condition, start, end, condition)
 
 	qorder := "DESC"
 	if len(order) != 0 && strings.ToUpper(order) == "ASC" {
