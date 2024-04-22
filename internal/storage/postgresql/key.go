@@ -194,7 +194,7 @@ func (s *Store) GetKeys(tags, keyIds []string, provider string) ([]*key.Response
 	return keys, nil
 }
 
-func (s *Store) GetKeysV2(tags, keyIds []string, revoked *bool, limit, offset int) ([]*key.ResponseKey, error) {
+func (s *Store) GetKeysV2(tags, keyIds []string, revoked *bool, limit, offset int, name, order string) ([]*key.ResponseKey, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
@@ -204,7 +204,7 @@ func (s *Store) GetKeysV2(tags, keyIds []string, revoked *bool, limit, offset in
 
 	index := 1
 
-	if len(tags) != 0 || len(keyIds) != 0 || revoked != nil {
+	if len(tags) != 0 || len(keyIds) != 0 || revoked != nil || len(name) != 0 {
 		query += " WHERE "
 	}
 
@@ -233,8 +233,23 @@ func (s *Store) GetKeysV2(tags, keyIds []string, revoked *bool, limit, offset in
 		query += fmt.Sprintf("revoked = $%d", index)
 	}
 
+	if len(name) != 0 {
+		if index > 1 {
+			query += " AND "
+		}
+
+		query += fmt.Sprintf("LOWER(name) LIKE LOWER('%%%s%%')", name)
+	}
+
+	qorder := "DESC"
+	if strings.ToLower(order) == "asc" {
+		qorder = "ASC"
+	}
+
+	query += fmt.Sprintf(" ORDER BY created_at %s ", qorder)
+
 	if limit != 0 {
-		query += fmt.Sprintf(" ORDER BY created_at DESC OFFSET %d LIMIT %d", offset, limit)
+		query += fmt.Sprintf("OFFSET %d LIMIT %d", offset, limit)
 	}
 
 	rows, err := s.db.QueryContext(ctxTimeout, query, args...)
