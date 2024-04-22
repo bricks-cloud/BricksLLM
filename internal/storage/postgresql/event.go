@@ -159,6 +159,7 @@ func (s *Store) GetTopKeyDataPoints(start, end int64, tags, keyIds []string, ord
 		condition += fmt.Sprintf(" AND key_id = ANY($%d)", index)
 
 		args = append(args, pq.Array(keyIds))
+		index++
 	}
 
 	if len(name) > 0 {
