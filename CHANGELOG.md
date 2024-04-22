@@ -1,5 +1,15 @@
-## 1.18.0 - 2024-04-11
+## 1.18.1 - 2024-04-21
 ### Added
+- Added new env variable for setting AWS region `AMAZON_REGION`
+
+## 1.18.0 - 2024-04-17
+### Added
+- Added a new API `/api/v2/key-management/keys` for retrieving keys
+- Added a new API `/api/reporting/top-keys` for retrieving key IDs sorted by spend
+- Added a new API `/api/users` for cerating a user
+- Added a new API `/api/users/:id` for updating a user via user ID 
+- Added a new API `/api/users` for updating a user via tags and user ID
+- Added a new API `/api/users` for getting users
 
 ## 1.17.0 - 2024-04-11
 ### Added
