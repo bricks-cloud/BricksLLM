@@ -23,7 +23,7 @@ type eventStorage interface {
 	GetAggregatedEventByDayDataPoints(start, end int64, keyIds []string) ([]*event.DataPoint, error)
 	GetUserIds(keyId string) ([]string, error)
 	GetCustomIds(keyId string) ([]string, error)
-	GetTopKeyDataPoints(start, end int64, tags, keyIds []string, order string, limit, offset int) ([]*event.KeyDataPoint, error)
+	GetTopKeyDataPoints(start, end int64, tags, keyIds []string, order string, limit, offset int, name string, revoked *bool) ([]*event.KeyDataPoint, error)
 }
 
 type ReportingManager struct {
@@ -94,7 +94,7 @@ func (rm *ReportingManager) GetTopKeyReporting(r *event.KeyReportingRequest) (*e
 		return nil, internal_errors.NewValidationError("key reporting request order can only be desc or asc")
 	}
 
-	dataPoints, err := rm.es.GetTopKeyDataPoints(r.Start, r.End, r.Tags, r.KeyIds, r.Order, r.Limit, r.Offset)
+	dataPoints, err := rm.es.GetTopKeyDataPoints(r.Start, r.End, r.Tags, r.KeyIds, r.Order, r.Limit, r.Offset, r.Name, r.Revoked)
 	if err != nil {
 		return nil, err
 	}
