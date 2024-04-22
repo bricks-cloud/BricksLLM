@@ -1,7 +1,7 @@
 # PII filtering Guide
 
 ## Getting Started
-This guide shows you how to create API keys that blocks requests that contains certain PIIs. Let's say you want to block http requests to OpenAI that contains `name` and `address`. Since the PII detection feature is powered by AWS's ML features, `AWS_SECRET_ACCESS_KEY` and `AWS_ACCESS_KEY_ID` are needed before starting BricksLLM.
+This guide shows you how to create API keys that blocks requests that contains certain PIIs. Let's say you want to block http requests to OpenAI that contains `name` and `address`. Since the PII detection feature is powered by AWS's Comprehend, `AWS_SECRET_ACCESS_KEY`, `AWS_ACCESS_KEY_ID` and `AMAZON_REGION` are needed before starting BricksLLM. Alternatively, you can also read [this](https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials) to set up authentication via AWS IAM as well.
 
 ### Step 0 - Set up AWS credentials as env variables
 ```bash
@@ -13,6 +13,7 @@ If you are running bricks using docker, you should update the env variables to i
     environment:
       - AWS_SECRET_ACCESS_KEY=YOUR_AWS_SECRET_ACCESS_KEY
       - AWS_ACCESS_KEY_ID=YOUR_AWS_ACCESS_KEY_ID
+      - AMAZON_REGION=us-west-2
 ```
 
 ### Step 1 - Start BricksLLM
