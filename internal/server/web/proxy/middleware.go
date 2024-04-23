@@ -1022,6 +1022,10 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			data, err := json.Marshal(policyInput)
 			if err == nil {
 				c.Request.Body = io.NopCloser(bytes.NewReader(data))
+
+				if kc.ShouldLogRequest {
+					requestBytes = data
+				}
 			}
 		}
 
