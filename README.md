@@ -178,7 +178,6 @@ The configuration server runs on Port `8001`.
 This endpoint is set up for retrieving key configurations using a query param called tag.
 
 ##### Query Parameters
-
 > | name   |  type      | data type      | description                                          |
 > |--------|------------|----------------|------------------------------------------------------|
 > | `tag` |  optional   | `string`         | Identifier attached to a key configuration                  |
@@ -201,27 +200,28 @@ This endpoint is set up for retrieving key configurations using a query param ca
 > | instance         | `string` | /api/key-management/keys            |
 
 ##### Response
-
 > | Response Body |
 > |---------------|
 > | `[]KeyConfiguration` |
 
-Fields of KeyConfiguration
+```
+KeyConfiguration
+```
 > | Field | type | example                      | description |
 > |---------------|-----------------------------------|-|-|
 > | name | `string` | spike's developer key | Name of the API key. |
-> | createdAt | `int64` | 1257894000 | Key configuration creation time in unix.  |
-> | updatedAt | `int64` | 1257894000 | Key configuration update time in unix.  |
+> | createdAt | `int64` | `1257894000` | Key configuration creation time in unix.  |
+> | updatedAt | `int64` | `1257894000` | Key configuration update time in unix.  |
 > | revoked | `boolean` | true | Indicator for whether the key is revoked.  |
 > | revokedReason | `string` | The key has expired | Reason for why the key is revoked.  |
 > | tags | `[]string` | ["org-tag-12345"]             | Identifiers associated with the key. |
-> | keyId | `string` | 550e8400-e29b-41d4-a716-446655440000 | Unique identifier for the key.  |
+> | keyId | `string` | `550e8400-e29b-41d4-a716-446655440000` | Unique identifier for the key.  |
 > | costLimitInUsd | `float64` | `5.5` | Total spend limit of the API key.
 > | costLimitInUsdOverTime | `float64` | `2` | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
-> | costLimitInUsdUnit | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`m`, `h`, `d`, `mo`].      |
+> | costLimitInUsdUnit | `enum` | `d`                       | Time unit for costLimitInUsdOverTime. Possible values are [`m`, `h`, `d`, `mo`].      |
 > | rateLimitOverTime | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
-> | rateLimitUnit | `string` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
-> | ttl | `string` | 2d | time to live. Available units are [`s`, `m`, `h`] |
+> | rateLimitUnit | `string` | `m`                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+> | ttl | `string` | `24h` | time to live. Available units are [`s`, `m`, `h`] |
 > | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", "method": "POST"}]` | Allowed paths that can be accessed using the key. |
 > | settingId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This field is DEPERCATED. Use `settingIds` field instead.  |
 > | settingIds | `string` | `[98daa3ae-961d-4253-bf6a-322a32fdca3d]` | Setting ids associated with the key. |
@@ -231,6 +231,70 @@ Fields of KeyConfiguration
 > | policyId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Policy id associated with the key. |
 > | isKeyNotHashed | `bool` | `false` | Flag controls whether or not the key should be hashed. |
 
+</details>
+
+<details>
+  <summary>Get keys V2: <code>POST</code> <code><b>/api/v2/key-management/keys</b></code></summary>
+
+##### Description
+This endpoint is set up for retrieving key configurations using a query param called tag.
+
+##### Request
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | keyIds | optional | `[]string` | `["98daa3ae-961d-4253-bf6a-322a32fdca3d"]` | Array of key IDs. |
+> | tags | optional | `[]string` | `["org-tag-12345"]`            | Identifiers associated with keys. |
+> | name | optional | `string` | `key` | Filter keys by the substring match on the `name` field. |
+> | revoked | optional | `bool` | `false` | Filters keys by `revoked` status.  |
+> | limit | optional | `int` | `5` | Pagination limit. |
+> | offset | optional | `int` | `5` | Pagination offset.
+> | order | optional | `string` | `asc` | `asc` and `desc` are the two available values.   |
+> | returnCount | optional | `bool` | `true`                       | Flag that controls whether the response should contain total key counts.      |
+
+##### Error Response
+
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `400`, `500`         | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | 400            |
+> | title         | `string` | request body reader error             |
+> | type         | `string` | /errors/request-body-read             |
+> | detail         | `string` | something is wrong            |
+> | instance         | `string` | /api/v2/key-management/keys            |
+
+##### Response
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | keys | `[]key` | Array of keys. |
+> | count | `int` | 123 | Total number of keys.  |
+
+###### key
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | name | `string` | spike's developer key | Name of the API key. |
+> | createdAt | `int64` | `1257894000` | Key configuration creation time in unix.  |
+> | updatedAt | `int64` | `1257894000` | Key configuration update time in unix.  |
+> | revoked | `boolean` | `true` | Indicator for whether the key is revoked.  |
+> | revokedReason | `string` | The key has expired | Reason for why the key is revoked.  |
+> | tags | `[]string` | `["org-tag-12345"]`           | Identifiers associated with the key. |
+> | keyId | `string` | 550e8400-e29b-41d4-a716-446655440000 | Unique identifier for the key.  |
+> | costLimitInUsd | `float64` | `5.5` | Total spend limit of the API key.
+> | costLimitInUsdOverTime | `float64` | `2` | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
+> | costLimitInUsdUnit | `enum` | `d`                       | Time unit for costLimitInUsdOverTime. Possible values are [`m`, `h`, `d`, `mo`].      |
+> | rateLimitOverTime | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitUnit | `string` | `m`                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+> | ttl | `string` | `24h` | time to live. Available units are [`s`, `m`, `h`] |
+> | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", method: "POST"}]` | Allowed paths that can be accessed using the key. |
+> | settingId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This field is DEPERCATED. Use `settingIds` field instead.  |
+> | settingIds | `string` | `[98daa3ae-961d-4253-bf6a-322a32fdca3d]` | Setting ids associated with the key. |
+> | shouldLogRequest | `bool` | `false` | Should request be stored. |
+> | shouldLogResponse | `bool` | `true` | Should response be stored. |
+> | rotationEnabled | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
+> | policyId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Policy id associated with the key. |
+> | isKeyNotHashed | `bool` | `false` | Flag controls whether or not the key should be hashed. |
 </details>
 
 
@@ -254,16 +318,16 @@ PathConfig
 > |---------------|-----------------------------------|-|-|-|
 > | name | required | `string` | spike's developer key | Name of the API key. |
 > | tags | optional | `[]string` | `["org-tag-12345"] `            | Identifiers associated with the key. |
-> | key | required | `string` | abcdef12345 | API key. |
-> | settingId | depercated | `string` | 98daa3ae-961d-4253-bf6a-322a32fdca3d | This field is DEPERCATED. Use `settingIds` field instead.  |
-> | settingIds | required | `string` | 98daa3ae-961d-4253-bf6a-322a32fdca3d | Setting ids associated with the key. |
+> | key | required | `string` | `abcdef12345` | API key. |
+> | settingId | depercated | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This field is DEPERCATED. Use `settingIds` field instead.  |
+> | settingIds | required | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Setting ids associated with the key. |
 > | costLimitInUsd | optional | `float64` | `5.5` | Total spend limit of the API key.
 > | costLimitInUsdOverTime | optional | `float64` | `2` | Total spend within period of time. This field is required if `costLimitInUsdUnit` is specified.   |
 > | costLimitInUsdUnit | optional | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`m`, `h`, `d`, `mo`].      |
-> | rateLimitOverTime | optional | `int` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitOverTime | optional | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | optional | `enum` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
-> | ttl | optional | `string` | 2d | time to live. Available units are [`s`, `m`, `h`]. |
-> | allowedPaths | optional | `[]PathConfig` | 2d | Pathes allowed for access. |
+> | ttl | optional | `string` | `24h` | time to live. Available units are [`s`, `m`, `h`]. |
+> | allowedPaths | optional | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", method: "POST"}]` | Paths allowed for access. |
 > | shouldLogRequest | optional | `bool` | `false` | Should request be stored. |
 > | shouldLogResponse | optional | `bool` | `true` | Should response be stored. |
 > | rotationEnabled | optional | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
@@ -347,7 +411,7 @@ PathConfig
 > | costLimitInUsdUnit | optional | `enum` | `d`                       | Time unit for costLimitInUsdOverTime. Possible values are [`m`, `h`, `d`, `mo`].      |
 > | rateLimitOverTime | optional | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
 > | rateLimitUnit | optional | `string` | `m`                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
-> | allowedPaths | optional | `[{ "path": "/api/providers/openai/v1/chat/completions", "method": "POST"}]` | `` | Pathes allowed for access. |
+> | allowedPaths | optional | `[{ "path": "/api/providers/openai/v1/chat/completions", "method": "POST"}]` | `` | Paths allowed for access. |
 > | shouldLogRequest | optional | `bool` | `false` | Should request be stored. |
 > | shouldLogResponse | optional | `bool` | `true` | Should response be stored. |
 > | rotationEnabled | optional | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
@@ -367,6 +431,65 @@ PathConfig
 > | type         | `string` | /errors/request-body-read             |
 > | detail         | `string` | something is wrong            |
 > | instance         | `string` | /api/key-management/keys            |
+
+##### Response
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | name | `string` | spike's developer key | Name of the API key. |
+> | createdAt | `int64` | `1257894000` | Key configuration creation time in unix.  |
+> | updatedAt | `int64` | `1257894000` | Key configuration update time in unix.  |
+> | revoked | `boolean` | `true` | Indicator for whether the key is revoked.  |
+> | revokedReason | `string` | The key has expired | Reason for why the key is revoked.  |
+> | tags | `[]string` | `["org-tag-12345"]`           | Identifiers associated with the key. |
+> | keyId | `string` | 550e8400-e29b-41d4-a716-446655440000 | Unique identifier for the key.  |
+> | costLimitInUsd | `float64` | `5.5` | Total spend limit of the API key.
+> | costLimitInUsdOverTime | `float64` | `2` | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
+> | costLimitInUsdUnit | `enum` | `d`                       | Time unit for costLimitInUsdOverTime. Possible values are [`m`, `h`, `d`, `mo`].      |
+> | rateLimitOverTime | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitUnit | `string` | `m`                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+> | ttl | `string` | `2d` | time to live. Available units are [`s`, `m`, `h`] |
+> | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", method: "POST"}]` | Allowed paths that can be accessed using the key. |
+> | settingId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This field is DEPERCATED. Use `settingIds` field instead.  |
+> | settingIds | `string` | `[98daa3ae-961d-4253-bf6a-322a32fdca3d]` | Setting ids associated with the key. |
+> | shouldLogRequest | `bool` | `false` | Should request be stored. |
+> | shouldLogResponse | `bool` | `true` | Should response be stored. |
+> | rotationEnabled | `bool` | `false` | Should key rotate setting used to access third party endpoints in order to circumvent rate limits. |
+> | policyId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Policy id associated with the key. |
+> | isKeyNotHashed | `bool` | `false` | Flag controls whether or not the key should be hashed. |
+
+</details>
+
+<details>
+  <summary>Get top spending key Ids: <code>POST</code> <code><b>/api/reporting/top-keys</b></code></summary>
+
+##### Description
+This endpoint is set up for getting a list of key ids ordered by spend.
+
+##### Request
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | start | required | `int64` | `1257894000` | Start unix timestamp. |
+> | end | required | `int64` | `1257894000` | End unix timestamp  |
+> | keyIds | optional | `[]string` | `["98daa3ae-961d-4253-bf6a-322a32fdca3d"]` | Array of key IDs. |
+> | tags | optional | `[]string` | `["org-tag-12345"]`            | Identifiers associated with keys. |
+> | name | optional | `string` | `key` | Filter keys by the substring match on the `name` field. |
+> | revoked | optional | `bool` | `false` | Filters keys by `revoked` status.  |
+> | limit | optional | `int` | `5` | Pagination limit. |
+> | offset | optional | `int` | `5` | Pagination offset.
+> | order | optional | `string` | `asc` | `asc` and `desc` are the two available values.   |
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `400`, `500`         | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | 400            |
+> | title         | `string` | request body reader error             |
+> | type         | `string` | /errors/request-body-read             |
+> | detail         | `string` | something is wrong            |
+> | instance         | `string` | /api/reporting/top-keys            |
 
 ##### Response
 > | Field | type | example                      | description |
@@ -439,7 +562,6 @@ This endpoint is creating a provider setting.
 > | id | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This value is a unique identifier. |
 > | name | `string` | `YOUR_PROVIDER_SETTING_NAME` | Provider setting name. |
 > | allowedModels | `[]string` | `["text-embedding-ada-002"]` | Allowed models for this provider setting. |
-
 </details>
 
 
@@ -799,7 +921,6 @@ This endpoint is for creating a policy.
 > | tags | `[]string` | `["org-111"]`  | Tags attached to policies. |
 > | config | `config` | `{"rules": { "address": "block" }}` | PII detection rules. |
 > | regexConfig | `regexConfig` | `{"rules": [{"definition": "[2-9]\|[12]\d\|3[0-6]", "action": "block"}]}` | Regular expression rules. |
-
 </details>
 
 
@@ -858,8 +979,6 @@ This endpoint is for updating a policy.
 > | tags | `[]string` | `["org-111"]`  | Tags attached to policies. |
 > | config | `config` | `{"rules": { "address": "block" }}` | PII detection rules. |
 > | regexConfig | `regexConfig` | `{"rules": [{"definition": "[2-9]\|[12]\d\|3[0-6]", "action": "block"}]}` | Regular expression rules. |
-
-
 </details>
 
 
@@ -1151,6 +1270,275 @@ This endpoint is for getting custom ids given a key id.
 ```
 []string
 ```
+</details>
+
+<details>
+  <summary>Create a user: <code>POST</code> <code><b>/api/users</b></code></summary>
+
+##### Description
+This endpoint is creating a user.
+
+##### Query Parameters
+> | name   |  type      | data type      | description                                          |
+> |--------|------------|----------------|------------------------------------------------------|
+> | `tag` |  optional   | `string`         | Identifier attached to a key configuration                  |
+> | `tags` |  optional  | `[]string`         | Identifiers attached to a key configuration                  |
+> | `provider` |  optional  | `string`         | Provider attached to a key provider configuration. Its value can only be `openai`.
+> | `keyIds` |  optional  | `[]string`         | Unique identifiers for keys.
+
+##### Request
+```
+PathConfig
+```
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | path | required | `string` | /api/providers/openai/v1/chat/completion | Allowed path |
+> | method | required | `string` | POST | HTTP Method
+
+
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | name | required | `string` | spike's developer key | Name of the API key. |
+> | tags | optional | `[]string` | `["org-tag-12345"] `            | Identifiers associated with the key. |
+> | keyIds | optional | `[]string` | `["98daa3ae-961d-4253-bf6a-322a32fdca3d"]` | Setting ids associated with the key. |
+> | costLimitInUsd | optional | `float64` | `5.5` | Total spend limit of the API key.
+> | costLimitInUsdOverTime | optional | `float64` | `2` | Total spend within period of time. This field is required if `costLimitInUsdUnit` is specified.   |
+> | costLimitInUsdUnit | optional | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`m`, `h`, `d`, `mo`].      |
+> | rateLimitOverTime | optional | `int` | 2 | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitUnit | optional | `enum` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+> | ttl | optional | `string` | 2d | time to live. Available units are [`s`, `m`, `h`]. |
+> | allowedPaths | optional | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", "method": "POST"}]` | List of paths that can be accessed by the user. |
+> | allowedModels | optional | `[]string` | `["gpt-4"]` | List of models that can be accessed by the user. |
+> | userId | optional | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Client defined user ID. |
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `400`, `500`         | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `400`            |
+> | title         | `string` | request body reader error             |
+> | type         | `string` | /errors/request-body-read             |
+> | detail         | `string` | something is wrong            |
+> | instance         | `string` | /api/users           |
+
+##### Response
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | id | `string` | `550e8400-e29b-41d4-a716-446655440000` | Id of the user object. |
+> | name | `string` | spike's developer key | Name of the user. |
+> | createdAt | `int64` | 1257894000 | UserKey configuration creation time in unix.  |
+> | updatedAt | `int64` | 1257894000 | User configuration update time in unix.  |
+> | tags | `[]string` | ["org-tag-12345"]             | Identifiers associated with the user. |
+> | keyIds | `[]string` | `["550e8400-e29b-41d4-a716-446655440000"]` | Array of key IDs.  |
+> | revoked | `boolean` | true | Indicator for whether the user is revoked.  |
+> | revokedReason | `string` | The key has expired | Reason for why the user is revoked.  |
+> | costLimitInUsd | `float64` | `5.5` | Total spend limit of the user.
+> | costLimitInUsdOverTime | `float64` | `2` | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
+> | costLimitInUsdUnit | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`m`, `h`, `d`, `mo`].      |
+> | rateLimitOverTime | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitUnit | `string` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+> | ttl | `string` | `24h` | time to live. Available units are [`s`, `m`, `h`] |
+> | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", "method": "POST"}]` | List of paths that can be accessed by the user. |
+> | allowedModels | `[]string` | `["gpt-4"]` | List of models that can be accessed by the user.  |
+> | userId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Client defined user id. |
+</details>
+
+<details>
+  <summary>Update a user via id: <code>PATCH</code> <code><b>/api/users/:id</b></code></summary>
+
+##### Description
+This endpoint is updating a user via id.
+
+##### Request
+```
+PathConfig
+```
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | path | required | `string` | /api/providers/openai/v1/chat/completion | Allowed path |
+> | method | required | `string` | POST | HTTP Method
+
+
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | name | required | `string` | `spike` | Name of the user. |
+> | keyIds | optional | `[]string` | `["98daa3ae-961d-4253-bf6a-322a32fdca3d"]` | Keys ids associated with the user. |
+> | costLimitInUsd | optional | `float64` | `5.5` | Total spend limit of the user.
+> | revoked | optional | `boolean` | `true` | Indicator for whether the user is revoked.  |
+> | revokedReason | optional | `string` | `expired` | Reason for why the user is revoked.  |
+> | costLimitInUsdOverTime | optional | `float64` | `2` | Total spend within period of time. This field is required if `costLimitInUsdUnit` is specified.   |
+> | costLimitInUsdUnit | optional | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`m`, `h`, `d`, `mo`].      |
+> | rateLimitOverTime | optional | `int` | 2 | Rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitUnit | optional | `enum` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+> | ttl | optional | `string` | `24h` | time to live. Available units are [`s`, `m`, `h`]. |
+> | allowedPaths | optional | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", "method": "POST"}]` | List of paths that can be accessed by the user. |
+> | allowedModels | optional | `[]string` | `["gpt-4"]` | List of models that can be accessed by the user. |
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `400`, `500`         | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `400`            |
+> | title         | `string` | request body reader error             |
+> | type         | `string` | /errors/request-body-read             |
+> | detail         | `string` | something is wrong            |
+> | instance         | `string` | /api/users           |
+
+##### Response
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | id | `string` | `550e8400-e29b-41d4-a716-446655440000` | Id of the user object. |
+> | name | `string` | `spike` | Name of the user. |
+> | createdAt | `int64` | 1257894000 | User configuration creation time in unix.  |
+> | updatedAt | `int64` | 1257894000 | User configuration update time in unix.  |
+> | tags | `[]string` | ["org-tag-12345"]             | Identifiers associated with the user. |
+> | keyIds | `[]string` | `["550e8400-e29b-41d4-a716-446655440000"]` | Array of key IDs.  |
+> | revoked | `boolean` | `true` | Indicator for whether the user is revoked.  |
+> | revokedReason | `string` | `expired` | Reason for why the user is revoked.  |
+> | costLimitInUsd | `float64` | `5.5` | Total spend limit of the user.
+> | costLimitInUsdOverTime | `float64` | `2` | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
+> | costLimitInUsdUnit | `enum` | `d`                       | Time unit for costLimitInUsdOverTime. Possible values are [`m`, `h`, `d`, `mo`].      |
+> | rateLimitOverTime | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitUnit | `string` | `m`                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+> | ttl | `string` | `24h` | time to live. Available units are [`s`, `m`, `h`] |
+> | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", "method": "POST"}]` | List of paths that can be accessed by the user. |
+> | allowedModels | `[]string` | `["gpt-4"]` | List of models that can be accessed by the user.  |
+> | userId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Client defined user id. |
+</details>
+
+<details>
+  <summary>Update a user via tags and user id: <code>PATCH</code> <code><b>/api/users</b></code></summary>
+
+##### Description
+This endpoint is updating a user via tags and id.
+
+##### Query Parameters
+> | name   |  type      | data type      | description                                          |
+> |--------|------------|----------------|------------------------------------------------------|
+> | `userId` |  optional   | `string`         | User identifier.                  |
+> | `tags` |  optional  | `[]string`         | Array of identifiers associated with a user.             |
+
+##### Request
+```
+PathConfig
+```
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | path | required | `string` | /api/providers/openai/v1/chat/completion | Allowed path |
+> | method | required | `string` | POST | HTTP Method
+
+
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | name | required | `string` | `spike` | Name of the user. |
+> | keyIds | optional | `[]string` | `["98daa3ae-961d-4253-bf6a-322a32fdca3d"]` | Keys ids associated with the user. |
+> | costLimitInUsd | optional | `float64` | `5.5` | Total spend limit of the user.
+> | revoked | optional | `boolean` | `true` | Indicator for whether the user is revoked.  |
+> | revokedReason | optional | `string` | `expired` | Reason for why the user is revoked.  |
+> | costLimitInUsdOverTime | optional | `float64` | `2` | Total spend within period of time. This field is required if `costLimitInUsdUnit` is specified.   |
+> | costLimitInUsdUnit | optional | `enum` | d                       | Time unit for costLimitInUsdOverTime. Possible values are [`m`, `h`, `d`, `mo`].      |
+> | rateLimitOverTime | optional | `int` | 2 | Rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitUnit | optional | `enum` | m                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+> | ttl | optional | `string` | `24h` | time to live. Available units are [`s`, `m`, `h`]. |
+> | allowedPaths | optional | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", "method": "POST"}]` | List of paths that can be accessed by the user. |
+> | allowedModels | optional | `[]string` | `["gpt-4"]` | List of models that can be accessed by the user. |
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `400`, `500`         | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `400`            |
+> | title         | `string` | request body reader error             |
+> | type         | `string` | /errors/request-body-read             |
+> | detail         | `string` | something is wrong            |
+> | instance         | `string` | /api/users           |
+
+##### Response
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | id | `string` | `550e8400-e29b-41d4-a716-446655440000` | Id of the user object. |
+> | name | `string` | `spike` | Name of the user. |
+> | createdAt | `int64` | 1257894000 | User configuration creation time in unix.  |
+> | updatedAt | `int64` | 1257894000 | User configuration update time in unix.  |
+> | tags | `[]string` | ["org-tag-12345"]             | Identifiers associated with the user. |
+> | keyIds | `[]string` | `["550e8400-e29b-41d4-a716-446655440000"]` | Array of key IDs.  |
+> | revoked | `boolean` | `true` | Indicator for whether the user is revoked.  |
+> | revokedReason | `string` | `expired` | Reason for why the user is revoked.  |
+> | costLimitInUsd | `float64` | `5.5` | Total spend limit of the user.
+> | costLimitInUsdOverTime | `float64` | `2` | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
+> | costLimitInUsdUnit | `enum` | `d`                       | Time unit for costLimitInUsdOverTime. Possible values are [`m`, `h`, `d`, `mo`].      |
+> | rateLimitOverTime | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitUnit | `string` | `m`                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+> | ttl | `string` | `24h` | time to live. Available units are [`s`, `m`, `h`] |
+> | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", "method": "POST"}]` | List of paths that can be accessed by the user. |
+> | allowedModels | `[]string` | `["gpt-4"]` | List of models that can be accessed by the user.  |
+> | userId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Client defined user id. |
+</details>
+
+<details>
+  <summary>Get users: <code>GET</code> <code><b>/api/users</b></code></summary>
+
+##### Description
+This endpoint is retrieving users.
+
+##### Query Parameters
+> | name   |  type      | data type      | description                                          |
+> |--------|------------|----------------|------------------------------------------------------|
+> | `userIds` |  optional   | `[]string`         | Array of user identifiers.                  |
+> | `tags` |  optional  | `[]string`         | Array of identifiers associated with a user.             |
+> | `offset` |  optional  | `int`         | Pagination offset.             |
+> | `limit` |  optional  | `int`         | Pagination limit.             |
+> | `keyIds` |  optional  | `[]string`         | Array of key IDs associated with a user.             |
+
+##### Error Response
+> | http code     | content-type                      |
+> |---------------|-----------------------------------|
+> | `400`, `500`         | `application/json`                |
+
+> | Field     | type | example                      |
+> |---------------|-----------------------------------|-|
+> | status         | `int` | `400`            |
+> | title         | `string` | request body reader error             |
+> | type         | `string` | /errors/request-body-read             |
+> | detail         | `string` | something is wrong            |
+> | instance         | `string` | /api/users           |
+
+##### Response
+> | Response Body |
+> |---------------|
+> | `[]User` |
+
+```
+User
+```
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | id | `string` | `550e8400-e29b-41d4-a716-446655440000` | Id of the user object. |
+> | name | `string` | `spike` | Name of the user. |
+> | createdAt | `int64` | 1257894000 | User configuration creation time in unix.  |
+> | updatedAt | `int64` | 1257894000 | User configuration update time in unix.  |
+> | tags | `[]string` | ["org-tag-12345"]             | Identifiers associated with the user. |
+> | keyIds | `[]string` | `["550e8400-e29b-41d4-a716-446655440000"]` | Array of key IDs.  |
+> | revoked | `boolean` | `true` | Indicator for whether the user is revoked.  |
+> | revokedReason | `string` | `expired` | Reason for why the user is revoked.  |
+> | costLimitInUsd | `float64` | `5.5` | Total spend limit of the user.
+> | costLimitInUsdOverTime | `float64` | `2` | Total spend within period of time. This field is required if costLimitInUsdUnit is specified.   |
+> | costLimitInUsdUnit | `enum` | `d`                       | Time unit for costLimitInUsdOverTime. Possible values are [`m`, `h`, `d`, `mo`].      |
+> | rateLimitOverTime | `int` | `2` | rate limit over period of time. This field is required if rateLimitUnit is specified.    |
+> | rateLimitUnit | `string` | `m`                         |  Time unit for rateLimitOverTime. Possible values are [`h`, `m`, `s`, `d`]       |
+> | ttl | `string` | `24h` | time to live. Available units are [`s`, `m`, `h`] |
+> | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", "method": "POST"}]` | List of paths that can be accessed by the user. |
+> | allowedModels | `[]string` | `["gpt-4"]` | List of models that can be accessed by the user.  |
+> | userId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Client defined user id. |
 </details>
 
 ## OpenAI Proxy

@@ -1,3 +1,10 @@
+## 1.18.3 - 2024-04-22
+### Added
+- Added a new filter for retrieving the total number of keys for the get keys v2 API
+
+### Changed
+- Changed get keys V2 API response format
+
 ## 1.18.2 - 2024-04-22
 ### Fixed
 - Fixed PII detection bug
