@@ -502,11 +502,11 @@ func (s *Store) GetEventsV2(req *event.EventRequest) ([]*event.Event, error) {
 	}
 
 	if len(req.CostOrder) != 0 {
-		query += fmt.Sprintf(" ORDER BY cost_in_usd %s", strings.ToLower(req.CostOrder))
+		query += fmt.Sprintf(" ORDER BY cost_in_usd %s", strings.ToUpper(req.CostOrder))
 	}
 
 	if len(req.DateOrder) != 0 {
-		query += fmt.Sprintf(" ORDER BY created_at %s", strings.ToLower(req.DateOrder))
+		query += fmt.Sprintf(" ORDER BY created_at %s", strings.ToUpper(req.DateOrder))
 	}
 
 	if req.Limit != 0 {
