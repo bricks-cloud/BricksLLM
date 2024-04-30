@@ -106,6 +106,11 @@ type blockedError interface {
 	Blocked()
 }
 
+type warnedError interface {
+	Error() string
+	Warnings()
+}
+
 type publisher interface {
 	Publish(message.Message)
 }
@@ -235,6 +240,8 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				Request:              requestBytes,
 				Response:             responseBytes,
 				UserId:               userId,
+				PolicyId:             c.GetString("policyId"),
+				Action:               c.GetString("action"),
 			}
 
 			enrichedEvent.Event = evt
@@ -311,6 +318,8 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		}
 
 		p := pm.GetPolicyByIdFromMemdb(kc.PolicyId)
+
+		c.Set("policyId", kc.PolicyId)
 
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
@@ -1007,13 +1016,23 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 		if p != nil {
 			err := p.Filter(client, policyInput, scanner, cd, log)
+			if err == nil {
+				c.Set("action", "allowed")
+			}
+
 			if err != nil {
 				_, ok := err.(blockedError)
 				if ok {
+					c.Set("action", "blocked")
 					stats.Incr("bricksllm.proxy.get_middleware.request_blocked", nil, 1)
 					JSON(c, http.StatusForbidden, "[BricksLLM] request blocked")
 					c.Abort()
 					return
+				}
+
+				_, ok = err.(warnedError)
+				if ok {
+					c.Set("action", "warned")
 				}
 
 				logError(log, "error when filtering a request", prod, cid, err)
@@ -1022,6 +1041,10 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			data, err := json.Marshal(policyInput)
 			if err == nil {
 				c.Request.Body = io.NopCloser(bytes.NewReader(data))
+
+				if kc.ShouldLogRequest {
+					requestBytes = data
+				}
 			}
 		}
 

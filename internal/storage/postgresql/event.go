@@ -234,7 +234,7 @@ func (s *Store) GetTopKeyDataPoints(start, end int64, tags, keyIds []string, ord
 	}
 
 	query += fmt.Sprintf(`
-	ORDER BY cost_in_usd %s
+	ORDER BY cost_in_usd %s 
 `, qorder)
 
 	if limit != 0 {
@@ -470,4 +470,99 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds, cu
 	}
 
 	return data, nil
+}
+
+func (s *Store) GetEventsV2(req *event.EventRequest) ([]*event.Event, error) {
+	query := fmt.Sprintf(`
+		SELECT * FROM events WHERE created_at >= %d AND created_at < %d
+	`, req.Start, req.End)
+
+	if len(req.UserId) != 0 {
+		query += fmt.Sprintf(" AND user_id = '%s'", req.UserId)
+	}
+
+	if len(req.CustomId) != 0 {
+		query += fmt.Sprintf(" AND custom_id = '%s'", req.CustomId)
+	}
+
+	if len(req.KeyIds) != 0 {
+		query += fmt.Sprintf(" AND key_id = ANY('%s') ", sliceToSqlStringArray(req.KeyIds))
+	}
+
+	if len(req.Tags) != 0 {
+		query += fmt.Sprintf(" AND tags @> '%s'", sliceToSqlStringArray(req.Tags))
+	}
+
+	if len(req.PolicyId) != 0 {
+		query += fmt.Sprintf(" AND policy_id = '%s'", req.PolicyId)
+	}
+
+	if len(req.Action) != 0 {
+		query += fmt.Sprintf(" AND action = '%s'", req.Action)
+	}
+
+	if len(req.CostOrder) != 0 {
+		query += fmt.Sprintf(" ORDER BY cost_in_usd %s", strings.ToUpper(req.CostOrder))
+	}
+
+	if len(req.DateOrder) != 0 {
+		query += fmt.Sprintf(" ORDER BY created_at %s", strings.ToUpper(req.DateOrder))
+	}
+
+	if req.Limit != 0 {
+		query += fmt.Sprintf(` LIMIT %d OFFSET %d;`, req.Limit, req.Offset)
+	}
+
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	events := []*event.Event{}
+	rows, err := s.db.QueryContext(ctxTimeout, query)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return events, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var e event.Event
+		var path sql.NullString
+		var method sql.NullString
+		var customId sql.NullString
+
+		if err := rows.Scan(
+			&e.Id,
+			&e.CreatedAt,
+			pq.Array(&e.Tags),
+			&e.KeyId,
+			&e.CostInUsd,
+			&e.Provider,
+			&e.Model,
+			&e.Status,
+			&e.PromptTokenCount,
+			&e.CompletionTokenCount,
+			&e.LatencyInMs,
+			&path,
+			&method,
+			&customId,
+			&e.Request,
+			&e.Response,
+			&e.UserId,
+			&e.Action,
+			&e.PolicyId,
+		); err != nil {
+			return nil, err
+		}
+
+		pe := &e
+		pe.Path = path.String
+		pe.Method = method.String
+		pe.CustomId = customId.String
+
+		events = append(events, pe)
+	}
+
+	return events, nil
 }
