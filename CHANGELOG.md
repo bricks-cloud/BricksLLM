@@ -1,3 +1,7 @@
+## 1.19.0 - 2024-05-01
+### Added
+- Added v2 get events API
+
 ## 1.18.3 - 2024-04-22
 ### Added
 - Added a new filter for retrieving the total number of keys for the get keys v2 API
