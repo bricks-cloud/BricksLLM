@@ -41,6 +41,7 @@ type KeyReportingManager interface {
 	GetTopKeyReporting(r *event.KeyReportingRequest) (*event.KeyReportingResponse, error)
 	GetKeyReporting(keyId string) (*key.KeyReporting, error)
 	GetEvents(userId, customId string, keyIds []string, start int64, end int64) ([]*event.Event, error)
+	GetEventsV2(r *event.EventRequest) ([]*event.Event, error)
 	GetEventReporting(e *event.ReportingRequest) (*event.ReportingResponse, error)
 	GetAggregatedEventByDayReporting(e *event.ReportingRequest) (*event.ReportingResponse, error)
 	GetCustomIds(keyId string) ([]string, error)
@@ -85,6 +86,7 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 	router.POST("/api/reporting/events", getGetEventMetricsHandler(krm, log, prod))
 	router.POST("/api/reporting/events-by-day", getGetEventMetricsByDayHandler(krm, log, prod))
 	router.GET("/api/events", getGetEventsHandler(krm, log, prod))
+	router.POST("/api/v2/events", getGetEventsV2Handler(krm, log, prod))
 	router.GET("/api/reporting/user-ids", getGetUserIdsHandler(krm, log, prod))
 	router.POST("/api/reporting/top-keys", getGetTopKeysMetricsHandler(krm, log, prod))
 
@@ -128,6 +130,7 @@ func (as *AdminServer) Run() {
 		as.log.Info("admin server listening at 8001")
 		as.log.Info("PORT 8001 | GET   | /api/health is set up for health checking the admin server")
 		as.log.Info("PORT 8001 | GET   | /api/key-management/keys is set up for retrieving keys using a query param called tag")
+		as.log.Info("PORT 8001 | POST  | /api/v2/key-management/keys is set up for retrieving keys")
 		as.log.Info("PORT 8001 | PUT   | /api/key-management/keys is set up for creating a key")
 		as.log.Info("PORT 8001 | PATCH | /api/key-management/keys/:id is set up for updating a key using an id")
 		as.log.Info("PORT 8001 | GET   | /api/provider-settings is set up for getting provider settings")
@@ -135,6 +138,7 @@ func (as *AdminServer) Run() {
 		as.log.Info("PORT 8001 | PATCH | /api/provider-settings:id is set up for updating provider setting")
 		as.log.Info("PORT 8001 | POST  | /api/reporting/events is set up for retrieving api metrics")
 		as.log.Info("PORT 8001 | GET   | /api/events is set up for retrieving events")
+		as.log.Info("PORT 8001 | POST  | /api/v2/events is set up for retrieving events")
 		as.log.Info("PORT 8001 | POST  | /api/custom/providers is set up for creating a custom provider")
 		as.log.Info("PORT 8001 | GET   | /api/custom/providers is set up for retrieving all custom providers")
 		as.log.Info("PORT 8001 | PATCH | /api/custom/providers/:id is set up for updating a custom provider")
@@ -828,7 +832,7 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 			stats.Timing("bricksllm.admin.get_get_events_handler.latency", dur, nil, 1)
 		}()
 
-		path := "/api/reporting/events"
+		path := "/api/events"
 
 		if c == nil || c.Request == nil {
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
