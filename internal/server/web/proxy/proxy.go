@@ -282,6 +282,9 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 			return
 		}
 
+		// copy query params
+		req.URL.RawQuery = c.Request.URL.RawQuery
+
 		copyHttpHeaders(c.Request, req)
 
 		if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodPost {
