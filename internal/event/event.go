@@ -69,6 +69,27 @@ func (r *EventRequest) Validate() error {
 		}
 	}
 
+	for _, uid := range r.UserIds {
+		if len(uid) == 0 {
+			invalid = append(invalid, "userIds")
+			break
+		}
+	}
+
+	for _, cid := range r.CustomIds {
+		if len(cid) == 0 {
+			invalid = append(invalid, "customIds")
+			break
+		}
+	}
+
+	for _, pid := range r.PolicyIds {
+		if len(pid) == 0 {
+			invalid = append(invalid, "policyIds")
+			break
+		}
+	}
+
 	for _, tag := range r.Tags {
 		if len(tag) == 0 {
 			invalid = append(invalid, "tags")
