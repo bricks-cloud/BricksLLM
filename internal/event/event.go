@@ -29,20 +29,27 @@ type Event struct {
 	PolicyId             string   `json:"policyId"`
 }
 
+type EventResponse struct {
+	Events []*Event `json:"events"`
+	Count  int      `json:"count"`
+}
+
 type EventRequest struct {
-	UserId    string   `json:"userId"`
-	CustomId  string   `json:"customId"`
-	KeyIds    []string `json:"keyIds"`
-	Tags      []string `json:"tags"`
-	Start     int64    `json:"start"`
-	End       int64    `json:"end"`
-	Limit     int      `json:"limit"`
-	Offset    int      `json:"offset"`
-	Content   string   `json:"content"`
-	PolicyId  string   `json:"policyId"`
-	Action    string   `json:"action"`
-	CostOrder string   `json:"costOrder"`
-	DateOrder string   `json:"dateOrder"`
+	UserIds         []string `json:"userIds"`
+	CustomIds       []string `json:"customIds"`
+	KeyIds          []string `json:"keyIds"`
+	Tags            []string `json:"tags"`
+	Start           int64    `json:"start"`
+	End             int64    `json:"end"`
+	Limit           int      `json:"limit"`
+	Offset          int      `json:"offset"`
+	RequestContent  string   `json:"requestContent"`
+	ResponseContent string   `json:"responseContent"`
+	PolicyIds       []string `json:"policyIds"`
+	Actions         []string `json:"actions"`
+	CostOrder       string   `json:"costOrder"`
+	DateOrder       string   `json:"dateOrder"`
+	ReturnCount     bool     `json:"returnCount"`
 }
 
 func (r *EventRequest) Validate() error {
@@ -89,8 +96,10 @@ func (r *EventRequest) Validate() error {
 		return internal_errors.NewValidationError("cost order and date order cannot be both present")
 	}
 
-	if len(r.Action) != 0 && r.Action != "warned" && r.Action != "allowed" && r.Action != "blocked" {
-		return internal_errors.NewValidationError(fmt.Sprintf("action cannot be %s", r.Action))
+	for _, a := range r.Actions {
+		if a != "warned" && a != "allowed" && a != "blocked" {
+			return internal_errors.NewValidationError(fmt.Sprintf("action cannot be %s", a))
+		}
 	}
 
 	return nil

@@ -472,33 +472,43 @@ func (s *Store) GetEventDataPoints(start, end, increment int64, tags, keyIds, cu
 	return data, nil
 }
 
-func (s *Store) GetEventsV2(req *event.EventRequest) ([]*event.Event, error) {
+func (s *Store) GetEventsV2(req *event.EventRequest) (*event.EventResponse, error) {
 	query := fmt.Sprintf(`
 		SELECT * FROM events WHERE created_at >= %d AND created_at < %d
 	`, req.Start, req.End)
 
-	if len(req.UserId) != 0 {
-		query += fmt.Sprintf(" AND user_id = '%s'", req.UserId)
+	cquery := fmt.Sprintf(`
+	SELECT COUNT(*) FROM events WHERE created_at >= %d AND created_at < %d
+`, req.Start, req.End)
+
+	if len(req.UserIds) != 0 {
+		query += fmt.Sprintf(" AND user_id = ANY('%s')", sliceToSqlStringArray(req.UserIds))
+		cquery += fmt.Sprintf(" AND user_id = ANY('%s')", sliceToSqlStringArray(req.UserIds))
 	}
 
-	if len(req.CustomId) != 0 {
-		query += fmt.Sprintf(" AND custom_id = '%s'", req.CustomId)
+	if len(req.CustomIds) != 0 {
+		query += fmt.Sprintf(" AND custom_id = ANY('%s')", sliceToSqlStringArray(req.CustomIds))
+		cquery += fmt.Sprintf(" AND custom_id = ANY('%s')", sliceToSqlStringArray(req.CustomIds))
 	}
 
 	if len(req.KeyIds) != 0 {
-		query += fmt.Sprintf(" AND key_id = ANY('%s') ", sliceToSqlStringArray(req.KeyIds))
+		query += fmt.Sprintf(" AND key_id = ANY('%s')", sliceToSqlStringArray(req.KeyIds))
+		cquery += fmt.Sprintf(" AND key_id = ANY('%s')", sliceToSqlStringArray(req.KeyIds))
 	}
 
 	if len(req.Tags) != 0 {
 		query += fmt.Sprintf(" AND tags @> '%s'", sliceToSqlStringArray(req.Tags))
+		cquery += fmt.Sprintf(" AND tags @> '%s'", sliceToSqlStringArray(req.Tags))
 	}
 
-	if len(req.PolicyId) != 0 {
-		query += fmt.Sprintf(" AND policy_id = '%s'", req.PolicyId)
+	if len(req.PolicyIds) != 0 {
+		query += fmt.Sprintf(" AND policy_id = ANY('%s')", sliceToSqlStringArray(req.PolicyIds))
+		cquery += fmt.Sprintf(" AND policy_id = ANY('%s')", sliceToSqlStringArray(req.PolicyIds))
 	}
 
-	if len(req.Action) != 0 {
-		query += fmt.Sprintf(" AND action = '%s'", req.Action)
+	if len(req.Actions) != 0 {
+		query += fmt.Sprintf(" AND action = ANY('%s')", sliceToSqlStringArray(req.Actions))
+		cquery += fmt.Sprintf(" AND action = ANY('%s')", sliceToSqlStringArray(req.Actions))
 	}
 
 	if len(req.CostOrder) != 0 {
@@ -513,17 +523,32 @@ func (s *Store) GetEventsV2(req *event.EventRequest) ([]*event.Event, error) {
 		query += fmt.Sprintf(` LIMIT %d OFFSET %d;`, req.Limit, req.Offset)
 	}
 
+	qrContext, qrCancel := context.WithTimeout(context.Background(), s.rt)
+	defer qrCancel()
+
+	resp := &event.EventResponse{}
+
+	if req.ReturnCount {
+		count := 0
+		err := s.db.QueryRowContext(qrContext, cquery).Scan(&count)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return nil, err
+			}
+		}
+
+		resp.Count = count
+	}
+
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
 
 	events := []*event.Event{}
 	rows, err := s.db.QueryContext(ctxTimeout, query)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return events, nil
-		}
 		return nil, err
 	}
+
 	defer rows.Close()
 
 	for rows.Next() {
@@ -564,5 +589,7 @@ func (s *Store) GetEventsV2(req *event.EventRequest) ([]*event.Event, error) {
 		events = append(events, pe)
 	}
 
-	return events, nil
+	resp.Events = events
+
+	return resp, nil
 }

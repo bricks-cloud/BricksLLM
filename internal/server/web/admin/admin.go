@@ -41,7 +41,7 @@ type KeyReportingManager interface {
 	GetTopKeyReporting(r *event.KeyReportingRequest) (*event.KeyReportingResponse, error)
 	GetKeyReporting(keyId string) (*key.KeyReporting, error)
 	GetEvents(userId, customId string, keyIds []string, start int64, end int64) ([]*event.Event, error)
-	GetEventsV2(r *event.EventRequest) ([]*event.Event, error)
+	GetEventsV2(r *event.EventRequest) (*event.EventResponse, error)
 	GetEventReporting(e *event.ReportingRequest) (*event.ReportingResponse, error)
 	GetAggregatedEventByDayReporting(e *event.ReportingRequest) (*event.ReportingResponse, error)
 	GetCustomIds(keyId string) ([]string, error)

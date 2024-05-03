@@ -18,7 +18,7 @@ type keyStorage interface {
 
 type eventStorage interface {
 	GetEvents(userId, customId string, keyIds []string, start, end int64) ([]*event.Event, error)
-	GetEventsV2(req *event.EventRequest) ([]*event.Event, error)
+	GetEventsV2(req *event.EventRequest) (*event.EventResponse, error)
 	GetEventDataPoints(start, end, increment int64, tags, keyIds, customIds, userIds []string, filters []string) ([]*event.DataPoint, error)
 	GetLatencyPercentiles(start, end int64, tags, keyIds []string) ([]float64, error)
 	GetAggregatedEventByDayDataPoints(start, end int64, keyIds []string) ([]*event.DataPoint, error)
@@ -143,15 +143,15 @@ func (rm *ReportingManager) GetEvents(userId, customId string, keyIds []string, 
 	return events, nil
 }
 
-func (rm *ReportingManager) GetEventsV2(req *event.EventRequest) ([]*event.Event, error) {
+func (rm *ReportingManager) GetEventsV2(req *event.EventRequest) (*event.EventResponse, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
 
-	events, err := rm.es.GetEventsV2(req)
+	resp, err := rm.es.GetEventsV2(req)
 	if err != nil {
 		return nil, err
 	}
 
-	return events, nil
+	return resp, nil
 }
