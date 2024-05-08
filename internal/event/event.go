@@ -118,7 +118,7 @@ func (r *EventRequest) Validate() error {
 	}
 
 	for _, a := range r.Actions {
-		if a != "warned" && a != "allowed" && a != "blocked" {
+		if a != "warned" && a != "allowed" && a != "blocked" && a != "redacted" {
 			return internal_errors.NewValidationError(fmt.Sprintf("action cannot be %s", a))
 		}
 	}
