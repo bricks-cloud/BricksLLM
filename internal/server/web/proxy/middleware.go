@@ -111,6 +111,11 @@ type warnedError interface {
 	Warnings()
 }
 
+type redactedError interface {
+	Error() string
+	Redacted()
+}
+
 type publisher interface {
 	Publish(message.Message)
 }
@@ -1033,6 +1038,11 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				_, ok = err.(warnedError)
 				if ok {
 					c.Set("action", "warned")
+				}
+
+				_, ok = err.(redactedError)
+				if ok {
+					c.Set("action", "redacted")
 				}
 
 				logError(log, "error when filtering a request", prod, cid, err)
