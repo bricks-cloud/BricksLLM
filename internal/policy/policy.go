@@ -637,7 +637,6 @@ func (p *Policy) scan(input []string, scanner Scanner, cd CustomPolicyDetector, 
 
 						old := detection.Input[entity.BeginOffset:entity.EndOffset]
 						replaced = strings.ReplaceAll(replaced, old, "***")
-						fmt.Println("-----redacted with aws:" + replaced)
 					}
 				}
 
@@ -750,7 +749,6 @@ func (p *Policy) scan(input []string, scanner Scanner, cd CustomPolicyDetector, 
 					}
 
 					replaced = regex.ReplaceAllString(text, "***")
-					fmt.Println("-----redacted with regex:" + replaced)
 				}
 			}
 
