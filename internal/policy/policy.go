@@ -241,12 +241,12 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 				return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
 			}
 
-			if result.Action == AllowButRedact {
-				return internal_errors.NewRedactError("request redacted due to detected entities")
-			}
-
 			if len(result.Updated) == 1 {
 				converted.Input = result.Updated[0]
+			}
+
+			if result.Action == AllowButRedact {
+				return internal_errors.NewRedactError("request redacted due to detected entities")
 			}
 		} else if input, ok := converted.Input.(string); ok {
 			result, err := p.scan([]string{input}, scanner, cd, log)
@@ -262,12 +262,12 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 				return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
 			}
 
-			if result.Action == AllowButRedact {
-				return internal_errors.NewRedactError("request redacted due to detected entities")
-			}
-
 			if len(result.Updated) == 1 {
 				converted.Input = result.Updated[0]
+			}
+
+			if result.Action == AllowButRedact {
+				return internal_errors.NewRedactError("request redacted due to detected entities")
 			}
 		}
 
@@ -294,10 +294,6 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 			return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
 		}
 
-		if result.Action == AllowButRedact {
-			return internal_errors.NewRedactError("request redacted due to detected entities")
-		}
-
 		if len(result.Updated) != len(converted.Messages) {
 			return errors.New("updated contents length not consistent with existing content length")
 		}
@@ -314,6 +310,10 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 		}
 
 		converted.Messages = newMessages
+
+		if result.Action == AllowButRedact {
+			return internal_errors.NewRedactError("request redacted due to detected entities")
+		}
 
 		return nil
 	case *vllm.CompletionRequest:
@@ -332,12 +332,12 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 				return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
 			}
 
-			if result.Action == AllowButRedact {
-				return internal_errors.NewRedactError("request redacted due to detected entities")
-			}
-
 			if len(result.Updated) == 1 {
 				converted.Prompt = result.Updated[0]
+			}
+
+			if result.Action == AllowButRedact {
+				return internal_errors.NewRedactError("request redacted due to detected entities")
 			}
 
 		} else if input, ok := converted.Prompt.(string); ok {
@@ -354,13 +354,12 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 				return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
 			}
 
-			if result.Action == AllowButRedact {
-				return internal_errors.NewRedactError("request redacted due to detected entities")
-			}
-
-			// Book mark
 			if len(result.Updated) == 1 {
 				converted.Prompt = result.Updated[0]
+			}
+
+			if result.Action == AllowButRedact {
+				return internal_errors.NewRedactError("request redacted due to detected entities")
 			}
 		}
 
@@ -387,10 +386,6 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 			return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
 		}
 
-		if result.Action == AllowButRedact {
-			return internal_errors.NewRedactError("request redacted due to detected entities")
-		}
-
 		if len(result.Updated) != len(converted.Messages) {
 			return errors.New("updated contents length not consistent with existing content length")
 		}
@@ -407,6 +402,10 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 		}
 
 		converted.Messages = newMessages
+
+		if result.Action == AllowButRedact {
+			return internal_errors.NewRedactError("request redacted due to detected entities")
+		}
 
 		return nil
 
@@ -432,10 +431,6 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 			return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
 		}
 
-		if result.Action == AllowButRedact {
-			return internal_errors.NewRedactError("request redacted due to detected entities")
-		}
-
 		if len(result.Updated) != len(converted.Messages) {
 			return errors.New("updated contents length not consistent with existing content length")
 		}
@@ -448,6 +443,10 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 		}
 
 		converted.Messages = newMessages
+
+		if result.Action == AllowButRedact {
+			return internal_errors.NewRedactError("request redacted due to detected entities")
+		}
 
 		return nil
 
@@ -466,12 +465,12 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 			return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
 		}
 
-		if result.Action == AllowButRedact {
-			return internal_errors.NewRedactError("request redacted due to detected entities")
-		}
-
 		if len(result.Updated) == 1 {
 			converted.Prompt = result.Updated[0]
+		}
+
+		if result.Action == AllowButRedact {
+			return internal_errors.NewRedactError("request redacted due to detected entities")
 		}
 
 		return nil
