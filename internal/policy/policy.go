@@ -744,11 +744,13 @@ func (p *Policy) scan(input []string, scanner Scanner, cd CustomPolicyDetector, 
 						continue
 					}
 
-					if sr.Action != Block && sr.Action != AllowButWarn {
-						sr.Action = AllowButRedact
-					}
+					if regex.MatchString(text) {
+						replaced = regex.ReplaceAllString(text, "***")
 
-					replaced = regex.ReplaceAllString(text, "***")
+						if sr.Action != Block && sr.Action != AllowButWarn {
+							sr.Action = AllowButRedact
+						}
+					}
 				}
 			}
 
