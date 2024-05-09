@@ -244,6 +244,10 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 			if len(result.Updated) == 1 {
 				converted.Input = result.Updated[0]
 			}
+
+			if result.Action == AllowButRedact {
+				return internal_errors.NewRedactError("request redacted due to detected entities")
+			}
 		} else if input, ok := converted.Input.(string); ok {
 			result, err := p.scan([]string{input}, scanner, cd, log)
 			if err != nil {
@@ -260,6 +264,10 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 
 			if len(result.Updated) == 1 {
 				converted.Input = result.Updated[0]
+			}
+
+			if result.Action == AllowButRedact {
+				return internal_errors.NewRedactError("request redacted due to detected entities")
 			}
 		}
 
@@ -303,6 +311,10 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 
 		converted.Messages = newMessages
 
+		if result.Action == AllowButRedact {
+			return internal_errors.NewRedactError("request redacted due to detected entities")
+		}
+
 		return nil
 	case *vllm.CompletionRequest:
 		converted := input.(*vllm.CompletionRequest)
@@ -324,6 +336,10 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 				converted.Prompt = result.Updated[0]
 			}
 
+			if result.Action == AllowButRedact {
+				return internal_errors.NewRedactError("request redacted due to detected entities")
+			}
+
 		} else if input, ok := converted.Prompt.(string); ok {
 			result, err := p.scan([]string{input}, scanner, cd, log)
 			if err != nil {
@@ -340,6 +356,10 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 
 			if len(result.Updated) == 1 {
 				converted.Prompt = result.Updated[0]
+			}
+
+			if result.Action == AllowButRedact {
+				return internal_errors.NewRedactError("request redacted due to detected entities")
 			}
 		}
 
@@ -383,6 +403,10 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 
 		converted.Messages = newMessages
 
+		if result.Action == AllowButRedact {
+			return internal_errors.NewRedactError("request redacted due to detected entities")
+		}
+
 		return nil
 
 	case *anthropic.MessagesRequest:
@@ -420,6 +444,10 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 
 		converted.Messages = newMessages
 
+		if result.Action == AllowButRedact {
+			return internal_errors.NewRedactError("request redacted due to detected entities")
+		}
+
 		return nil
 
 	case *anthropic.CompletionRequest:
@@ -439,6 +467,10 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 
 		if len(result.Updated) == 1 {
 			converted.Prompt = result.Updated[0]
+		}
+
+		if result.Action == AllowButRedact {
+			return internal_errors.NewRedactError("request redacted due to detected entities")
 		}
 
 		return nil
