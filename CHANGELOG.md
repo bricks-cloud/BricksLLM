@@ -1,3 +1,7 @@
+## 1.23.1 - 2024-05-09
+### Added
+- Added support for `gpt-4o`
+
 ## 1.23.0 - 2024-05-09
 ### Fixed
 - Fixed policy bug where regex redaction rules run even when there isn't a match
