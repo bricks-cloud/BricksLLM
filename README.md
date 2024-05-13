@@ -766,6 +766,58 @@ Event
 </details>
 
 <details>
+  <summary>Get events V2: <code>GET</code> <code><b>/api/v2/events</b></code></summary>
+
+##### Description
+This endpoint retrieves a list of events based on provided filters.
+
+##### Request
+> | name              | type       | data type       | example               | description                                                     |
+> |-------------------|------------|-----------------|-----------------------|-----------------------------------------------------------------|
+> | `userIds`         | optional   | `[]string`      | `["user1", "user2"]`  | List of user IDs to filter events by specific users.            |
+> | `customIds`       | optional   | `[]string`      | `["id1", "id2"]`      | List of custom identifiers for filtering events.                |
+> | `keyIds`          | optional   | `[]string`      | `["key1", "key2"]`    | List of key IDs used to filter events.                          |
+> | `tags`            | optional   | `[]string`      | `["tag1", "tag2"]`    | List of tags associated with events for filtering.              |
+> | `start`           | required   | `int64`         | `1609459200`          | Start timestamp for filtering events.                           |
+> | `end`             | required   | `int64`         | `1612137600`          | End timestamp for filtering events.                             |
+> | `limit`           | optional   | `int`           | `100`                 | Maximum number of events to return.                             |
+> | `offset`          | optional   | `int`           | `0`                   | Offset for pagination.                                          |
+> | `policyIds`       | optional   | `[]string`      | `["policy1", "policy2"]` | List of policy IDs to filter events related to specific policies.|
+> | `actions`         | optional   | `[]string`      | `["allowed"]` | Values can include `allowed`, `redacted`, and `blocked`.                            |
+> | `costOrder`       | optional   | `string`        | `asc`               | Order by cost, specify `asc` or `desc`.                         |
+> | `dateOrder`       | optional   | `string`        | `desc`              | Order by date, specify 'asc' or 'desc'.                         |
+> | `returnCount`     | optional   | `bool`          | `true`                | Whether to return the count of events instead of event details. |
+
+##### Response
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | events | `[]Event` | `[]` | List of events.  |
+> | count | `int` | `20` | Total number of events returned.  |
+
+Event
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|
+> | id | `int64` | `1699933571` | Unique identifier associated with the event.  |
+> | created_at | `int64` | `1699933571` | Unix timestamp for creation time.  |
+> | tags | `int64` | `["YOUR_TAG"]` | Tags of the key. |
+> | key_id | `string` | `YOUR_KEY_ID` | Key Id associated with the proxy request. |
+> | cost_in_usd | `float64` | `0.0004` | Cost incured by the proxy request. |
+> | model | `string` | `gpt-4-1105-preview` | Model used in the proxy request. |
+> | provider | `string` | `openai` | Provider for the proxy request. |
+> | status | `int` | `200` | Http status. |
+> | prompt_token_count | `int` | `8` | Prompt token count of the proxy request. |
+> | completion_token_count | `int` | `16` | Completion token counts of the proxy request. |
+> | latency_in_ms | `int` | `160` | Provider setting name. |
+> | path | `string` | `/api/v1/chat/completion` | Provider setting name. |
+> | method | `string` | `POST` | Http method for the assoicated proxu request. |
+> | custom_id | `string` | `YOUR_CUSTOM_ID` | Custom Id passed by the user in the headers of proxy requests. |
+> | request | `[]byte` | `{}` | Request in bytes to providers. |
+> | custom_id | `string` | `YOUR_CUSTOM_ID` | Custom Id passed by the user in the headers of proxy requests. |
+> | response | `[]byte` | `{}` | Response in bytes from providers. |
+
+</details>
+
+<details>
   <summary>Create custom provider: <code>POST</code> <code><b>/api/custom/providers</b></code></summary>
 
 ##### Description
