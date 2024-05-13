@@ -1,3 +1,19 @@
+## 1.23.0 - 2024-05-09
+### Fixed
+- Fixed policy bug where regex redaction rules run even when there isn't a match
+
+## 1.22.0 - 2024-05-09
+### Added
+- Added `redacted` as an option for filters
+
+## 1.21.0 - 2024-05-06
+### Changed
+- Updated v2 events API to allow more array params such as `userIds` instead of `userId`
+
+## 1.20.0 - 2024-05-01
+### Added
+- Added v2 get events API
+
 ## 1.19.0 - 2024-05-01
 ### Added
 - Added v2 get events API
