@@ -15,8 +15,8 @@
 - Updated v2 events API to allow more array params such as `userIds` instead of `userId`
 
 ## 1.20.0 - 2024-05-01
-### Added
-- Added v2 get events API
+### Fixed
+- Fixed an issue with forwarding requests to OpenAI's Assistant APIs
 
 ## 1.19.0 - 2024-05-01
 ### Added
