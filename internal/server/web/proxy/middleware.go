@@ -1019,7 +1019,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			}
 		}
 
-		if p != nil {
+		if p != nil && policyInput != nil {
 			err := p.Filter(client, policyInput, scanner, cd, log)
 			if err == nil {
 				c.Set("action", "allowed")
