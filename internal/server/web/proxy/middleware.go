@@ -248,6 +248,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				UserId:               userId,
 				PolicyId:             c.GetString("policyId"),
 				Action:               c.GetString("action"),
+				RouteId:              c.GetString("routeId"),
 			}
 
 			enrichedEvent.Event = evt
@@ -451,6 +452,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			}
 
 			c.Set("route_config", rc)
+			c.Set("routeId", rc.Id)
 
 			if rc.ShouldRunEmbeddings() {
 				er := &goopenai.EmbeddingRequest{}
