@@ -3,6 +3,7 @@ package proxy
 import (
 	"encoding/json"
 
+	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	goopenai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -187,9 +188,10 @@ func logCancelARunRequest(log *zap.Logger, prod bool, cid, tid, rid string) {
 }
 
 func logCreateThreadAndRunRequest(log *zap.Logger, data []byte, prod, private bool, cid string) {
-	r := &goopenai.CreateThreadAndRunRequest{}
+	r := &openai.CreateThreadAndRunRequest{}
 	err := json.Unmarshal(data, r)
 	if err != nil {
+
 		logError(log, "error when unmarshalling create thread and run request", prod, cid, err)
 		return
 	}
@@ -198,14 +200,13 @@ func logCreateThreadAndRunRequest(log *zap.Logger, data []byte, prod, private bo
 		fields := []zapcore.Field{
 			zap.String(correlationId, cid),
 			zap.String("assistant_id", r.AssistantID),
-			zap.Any("thread", r.Thread),
 			zap.String("model", r.Model),
 			zap.Any("tools", r.Tools),
 			zap.Any("metadata", r.Metadata),
 		}
 
 		if !private {
-			fields = append(fields, zap.String("instructions", r.Instructions))
+			fields = append(fields, zap.String("instructions", r.Instructions), zap.Any("thread", r.Thread))
 		}
 
 		log.Info("openai create thread and run request", fields...)

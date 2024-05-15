@@ -3,13 +3,14 @@ package proxy
 import (
 	"encoding/json"
 
+	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	goopenai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 func logCreateMessageRequest(log *zap.Logger, data []byte, prod, private bool, cid string) {
-	mr := &goopenai.MessageRequest{}
+	mr := &openai.MessageRequest{}
 	err := json.Unmarshal(data, mr)
 	if err != nil {
 		logError(log, "error when unmarshalling create message request", prod, cid, err)
@@ -24,8 +25,8 @@ func logCreateMessageRequest(log *zap.Logger, data []byte, prod, private bool, c
 			zap.Any("metadata", mr.Metadata),
 		}
 
-		if !private && len(mr.Content) != 0 {
-			fields = append(fields, zap.String("content", mr.Content))
+		if !private {
+			fields = append(fields, zap.Any("content", mr.Content))
 		}
 
 		log.Info("openai create message request", fields...)

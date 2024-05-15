@@ -3,6 +3,7 @@ package proxy
 import (
 	"encoding/json"
 
+	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	goopenai "github.com/sashabaranov/go-openai"
 
 	"go.uber.org/zap"
@@ -10,7 +11,7 @@ import (
 )
 
 func logCreateThreadRequest(log *zap.Logger, data []byte, prod, private bool, cid string) {
-	tr := &goopenai.ThreadRequest{}
+	tr := &openai.ThreadRequest{}
 	err := json.Unmarshal(data, tr)
 	if err != nil {
 		logError(log, "error when unmarshalling create thread request", prod, cid, err)

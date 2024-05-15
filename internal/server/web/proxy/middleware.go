@@ -15,6 +15,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/message"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
+	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	"github.com/bricks-cloud/bricksllm/internal/provider/vllm"
 	"github.com/bricks-cloud/bricksllm/internal/route"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
@@ -822,6 +823,19 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 		if c.FullPath() == "/api/providers/openai/v1/assistants" && c.Request.Method == http.MethodPost {
 			logCreateAssistantRequest(log, body, prod, private, cid)
+
+			ar := &goopenai.AssistantRequest{}
+
+			err = json.Unmarshal(body, ar)
+			if err != nil {
+				logError(log, "error when unmarshalling assistant request", prod, cid, err)
+			}
+
+			if err == nil {
+				c.Set("model", ar.Model)
+
+				policyInput = ar
+			}
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id" && c.Request.Method == http.MethodGet {
@@ -858,6 +872,17 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 		if c.FullPath() == "/api/providers/openai/v1/threads" && c.Request.Method == http.MethodPost {
 			logCreateThreadRequest(log, body, prod, private, cid)
+
+			tr := &openai.ThreadRequest{}
+
+			err = json.Unmarshal(body, tr)
+			if err != nil {
+				logError(log, "error when unmarshalling create thread request", prod, cid, err)
+			}
+
+			if err == nil {
+				policyInput = tr
+			}
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodGet {
@@ -874,6 +899,16 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages" && c.Request.Method == http.MethodPost {
 			logCreateMessageRequest(log, body, prod, private, cid)
+
+			mr := &openai.MessageRequest{}
+			err := json.Unmarshal(body, mr)
+			if err != nil {
+				logError(log, "error when unmarshalling create message request", prod, cid, err)
+			}
+
+			if err == nil {
+				policyInput = mr
+			}
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id" && c.Request.Method == http.MethodGet {
@@ -898,6 +933,17 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs" && c.Request.Method == http.MethodPost {
 			logCreateRunRequest(log, body, prod, private, cid)
+
+			rr := &goopenai.RunRequest{}
+			err := json.Unmarshal(body, rr)
+			if err != nil {
+				logError(log, "error when unmarshalling create run request", prod, cid, err)
+			}
+
+			if err == nil {
+				c.Set("model", rr.Model)
+				policyInput = rr
+			}
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id" && c.Request.Method == http.MethodGet {
@@ -922,6 +968,17 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/runs" && c.Request.Method == http.MethodPost {
 			logCreateThreadAndRunRequest(log, body, prod, private, cid)
+
+			r := &openai.CreateThreadAndRunRequest{}
+			err := json.Unmarshal(body, r)
+			if err != nil {
+				logError(log, "error when unmarshalling create thread and run request", prod, cid, err)
+			}
+
+			if err == nil {
+				c.Set("model", r.Model)
+				policyInput = r
+			}
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps/:step_id" && c.Request.Method == http.MethodGet {

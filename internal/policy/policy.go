@@ -11,6 +11,7 @@ import (
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
 	"github.com/bricks-cloud/bricksllm/internal/pii"
 	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
+	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	"github.com/bricks-cloud/bricksllm/internal/provider/vllm"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"go.uber.org/zap"
@@ -109,6 +110,28 @@ type UpdatePolicy struct {
 	Config       *Config       `json:"config"`
 	RegexConfig  *RegexConfig  `json:"regexConfig"`
 	CustomConfig *CustomConfig `json:"customConfig"`
+}
+
+func extractTextContents(input any) []string {
+	contents := []string{}
+
+	if parts, ok := input.([]interface{}); ok {
+		for _, part := range parts {
+			if textPart, ok := part.(map[string]interface{}); ok {
+				tv, ok := textPart["text"].(string)
+
+				if ok {
+					contents = append(contents, tv)
+				}
+			}
+		}
+	}
+
+	if content, ok := input.(string); ok {
+		contents = append(contents, content)
+	}
+
+	return contents
 }
 
 func (p *UpdatePolicy) Validate() error {
@@ -468,6 +491,322 @@ func (p *Policy) Filter(client http.Client, input any, scanner Scanner, cd Custo
 		if len(result.Updated) == 1 {
 			converted.Prompt = result.Updated[0]
 		}
+
+		if result.Action == AllowButRedact {
+			return internal_errors.NewRedactError("request redacted due to detected entities")
+		}
+
+		return nil
+	case *goopenai.AssistantRequest:
+		converted := input.(*goopenai.AssistantRequest)
+
+		if converted.Instructions != nil {
+			result, err := p.scan([]string{*converted.Instructions}, scanner, cd, log)
+			if err != nil {
+				return err
+			}
+
+			if result.Action == Block {
+				return internal_errors.NewBlockedError("request blocked due to detected entities: " + join(result.BlockedEntities, result.BlockedRegexDefinitions, result.BlockedCustomDefinitions))
+			}
+
+			if result.Action == AllowButWarn {
+				return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
+			}
+
+			if len(result.Updated) == 1 {
+				converted.Instructions = &result.Updated[0]
+			}
+
+			if result.Action == AllowButRedact {
+				return internal_errors.NewRedactError("request redacted due to detected entities")
+			}
+		}
+
+		return nil
+	case *openai.ThreadRequest:
+		converted := input.(*openai.ThreadRequest)
+
+		newMessages := []openai.ThreadMessage{}
+		contents := []string{}
+
+		for _, message := range converted.Messages {
+			contents = append(contents, extractTextContents(message.Content)...)
+		}
+
+		result, err := p.scan(contents, scanner, cd, log)
+		if err != nil {
+			return err
+		}
+
+		if result.Action == Block {
+			return internal_errors.NewBlockedError("request blocked due to detected entities: " + join(result.BlockedEntities, result.BlockedRegexDefinitions, result.BlockedCustomDefinitions))
+		}
+
+		if result.Action == AllowButWarn {
+			return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
+		}
+
+		i := 0
+
+		for _, message := range converted.Messages {
+			if parts, ok := message.Content.([]any); ok {
+				contentParts := []any{}
+
+				for _, part := range parts {
+					if textPart, ok := part.(map[string]interface{}); ok {
+						updated := ""
+
+						_, tok := textPart["text"].(string)
+						typev, typeok := textPart["type"].(string)
+
+						if tok && typeok {
+							if i < len(result.Updated) {
+								updated = result.Updated[i]
+							}
+
+							i++
+
+							contentParts = append(contentParts, openai.TextContentPart{
+								Type: typev,
+								Text: updated,
+							})
+
+							continue
+						}
+
+						contentParts = append(contentParts, part)
+					}
+				}
+
+				newMessages = append(newMessages, openai.ThreadMessage{
+					Role:     message.Role,
+					Content:  contentParts,
+					FileIDs:  message.FileIDs,
+					Metadata: message.Metadata,
+				})
+				continue
+			}
+
+			if _, ok := message.Content.(string); ok {
+				if i < len(result.Updated) {
+					newMessages = append(newMessages, openai.ThreadMessage{
+						Role:     message.Role,
+						Content:  result.Updated[i],
+						FileIDs:  message.FileIDs,
+						Metadata: message.Metadata,
+					})
+				}
+
+				i++
+			}
+		}
+
+		converted.Messages = newMessages
+
+		if result.Action == AllowButRedact {
+			return internal_errors.NewRedactError("request redacted due to detected entities")
+		}
+
+		return nil
+	case *openai.MessageRequest:
+		converted := input.(*openai.MessageRequest)
+		contents := extractTextContents(converted.Content)
+
+		result, err := p.scan(contents, scanner, cd, log)
+		if err != nil {
+			return err
+		}
+
+		if result.Action == Block {
+			return internal_errors.NewBlockedError("request blocked due to detected entities: " + join(result.BlockedEntities, result.BlockedRegexDefinitions, result.BlockedCustomDefinitions))
+		}
+
+		if result.Action == AllowButWarn {
+			return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
+		}
+
+		i := 0
+		if parts, ok := converted.Content.([]any); ok {
+			contentParts := []any{}
+
+			for _, part := range parts {
+				if textPart, ok := part.(map[string]interface{}); ok {
+					updated := ""
+
+					_, tok := textPart["text"].(string)
+					typev, typeok := textPart["type"].(string)
+
+					if tok && typeok {
+						if i < len(result.Updated) {
+							updated = result.Updated[i]
+						}
+
+						i++
+
+						contentParts = append(contentParts, openai.TextContentPart{
+							Type: typev,
+							Text: updated,
+						})
+
+						continue
+					}
+
+					contentParts = append(contentParts, part)
+				}
+			}
+
+			converted.Content = contentParts
+		}
+
+		if _, ok := converted.Content.(string); ok {
+			if i < len(result.Updated) {
+				converted.Content = result.Updated[i]
+			}
+
+			i++
+		}
+
+		if result.Action == AllowButRedact {
+			return internal_errors.NewRedactError("request redacted due to detected entities")
+		}
+
+		return nil
+	case *goopenai.RunRequest:
+		converted := input.(*goopenai.RunRequest)
+
+		contents := []string{}
+		hasInstructions := false
+		if len(converted.Instructions) != 0 {
+			hasInstructions = true
+			contents = append(contents, converted.Instructions)
+		}
+
+		hasAdditionalInstructions := false
+		if len(converted.AdditionalInstructions) != 0 {
+			hasAdditionalInstructions = true
+			contents = append(contents, converted.AdditionalInstructions)
+		}
+
+		result, err := p.scan(contents, scanner, cd, log)
+		if err != nil {
+			return err
+		}
+
+		if result.Action == Block {
+			return internal_errors.NewBlockedError("request blocked due to detected entities: " + join(result.BlockedEntities, result.BlockedRegexDefinitions, result.BlockedCustomDefinitions))
+		}
+
+		if result.Action == AllowButWarn {
+			return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
+		}
+
+		if len(result.Updated) == 2 {
+			converted.Instructions = result.Updated[0]
+			converted.AdditionalInstructions = result.Updated[1]
+		}
+
+		if hasInstructions && len(result.Updated) == 1 {
+			converted.Instructions = result.Updated[0]
+		}
+
+		if hasAdditionalInstructions && len(result.Updated) == 1 {
+			converted.AdditionalInstructions = result.Updated[0]
+		}
+
+		if result.Action == AllowButRedact {
+			return internal_errors.NewRedactError("request redacted due to detected entities")
+		}
+
+		return nil
+	case *openai.CreateThreadAndRunRequest:
+		converted := input.(*openai.CreateThreadAndRunRequest)
+
+		newMessages := []openai.ThreadMessage{}
+		contents := []string{}
+
+		for _, message := range converted.Thread.Messages {
+			contents = append(contents, extractTextContents(message.Content)...)
+		}
+
+		if len(converted.Instructions) != 0 {
+			contents = append(contents, converted.Instructions)
+		}
+
+		result, err := p.scan(contents, scanner, cd, log)
+		if err != nil {
+			return err
+		}
+
+		if result.Action == Block {
+			return internal_errors.NewBlockedError("request blocked due to detected entities: " + join(result.BlockedEntities, result.BlockedRegexDefinitions, result.BlockedCustomDefinitions))
+		}
+
+		if result.Action == AllowButWarn {
+			return internal_errors.NewWarningError("request warned due to detected entities: " + join(result.WarnedEntities, result.WarnedRegexDefinitions, []string{}))
+		}
+
+		i := 0
+
+		for _, message := range converted.Thread.Messages {
+			if parts, ok := message.Content.([]any); ok {
+				contentParts := []any{}
+
+				for _, part := range parts {
+					if textPart, ok := part.(map[string]interface{}); ok {
+						updated := ""
+
+						_, tok := textPart["text"].(string)
+						typev, typeok := textPart["type"].(string)
+
+						if tok && typeok {
+							if i < len(result.Updated) {
+								updated = result.Updated[i]
+							}
+
+							i++
+
+							contentParts = append(contentParts, openai.TextContentPart{
+								Type: typev,
+								Text: updated,
+							})
+
+							continue
+						}
+
+						contentParts = append(contentParts, part)
+					}
+				}
+
+				newMessages = append(newMessages, openai.ThreadMessage{
+					Role:     message.Role,
+					Content:  contentParts,
+					FileIDs:  message.FileIDs,
+					Metadata: message.Metadata,
+				})
+				continue
+			}
+
+			if _, ok := message.Content.(string); ok {
+				if i < len(result.Updated) {
+					newMessages = append(newMessages, openai.ThreadMessage{
+						Role:     message.Role,
+						Content:  result.Updated[i],
+						FileIDs:  message.FileIDs,
+						Metadata: message.Metadata,
+					})
+				}
+
+				i++
+			}
+		}
+
+		converted.Thread.Messages = newMessages
+		if i < len(result.Updated) {
+			converted.Instructions = result.Updated[i]
+		}
+
+		log.Info("", zap.Any("", converted))
 
 		if result.Action == AllowButRedact {
 			return internal_errors.NewRedactError("request redacted due to detected entities")

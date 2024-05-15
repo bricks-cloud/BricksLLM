@@ -59,12 +59,12 @@ func (c *Client) Detect(input []string) (*pii.Result, error) {
 	var wg sync.WaitGroup
 
 	result := &pii.Result{
-		Detections: []*pii.Detection{},
+		Detections: make([]*pii.Detection, len(input)),
 	}
 
-	for _, text := range input {
+	for index, text := range input {
 		wg.Add(1)
-		go func(t string) {
+		go func(t string, i int) {
 			defer wg.Done()
 			detection := &pii.Detection{}
 			entities := []*pii.Entity{}
@@ -94,9 +94,9 @@ func (c *Client) Detect(input []string) (*pii.Result, error) {
 
 			detection.Entities = entities
 
-			result.Detections = append(result.Detections, detection)
+			result.Detections[i] = detection
 
-		}(text)
+		}(text, index)
 	}
 
 	wg.Wait()
