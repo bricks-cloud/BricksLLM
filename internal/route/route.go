@@ -12,10 +12,17 @@ import (
 	"time"
 
 	goopenai "github.com/sashabaranov/go-openai"
+	"go.uber.org/zap"
 
+	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 )
+
+type recorder interface {
+	RecordEvent(e *event.Event) error
+}
 
 type CacheConfig struct {
 	Enabled bool   `json:"enabled"`
@@ -77,7 +84,7 @@ func (r *Route) ShouldRunEmbeddings() bool {
 	return false
 }
 
-func (r *Route) RunSteps(req *Request) (*Response, error) {
+func (r *Route) RunSteps(req *Request, rec recorder, log *zap.Logger) (*Response, error) {
 	if len(r.Steps) == 0 {
 		return nil, errors.New("steps are empty")
 	}
@@ -110,6 +117,12 @@ func (r *Route) RunSteps(req *Request) (*Response, error) {
 	var lastErr error
 	stopStep := 0
 
+	totalRetries := 0
+	currentRetry := 0
+	for _, step := range r.Steps {
+		totalRetries += step.Retries
+	}
+
 	for idx, step := range r.Steps {
 		resourceName := ""
 
@@ -138,6 +151,33 @@ func (r *Route) RunSteps(req *Request) (*Response, error) {
 		}
 
 		for retries > 0 {
+			currentRetry++
+
+			evt := &event.Event{
+				Id:            util.NewUuid(),
+				CreatedAt:     time.Now().Unix(),
+				Provider:      step.Provider,
+				Method:        req.Forwarded.Method,
+				Path:          req.Forwarded.URL.Path,
+				Model:         step.Model,
+				Action:        req.Action,
+				Response:      []byte(`{}`),
+				CustomId:      req.Forwarded.Header.Get("X-CUSTOM-EVENT-ID"),
+				UserId:        req.UserId,
+				PolicyId:      req.PolicyId,
+				RouteId:       r.Id,
+				CorrelationId: req.CorrelationId,
+			}
+
+			if req.Key != nil {
+				evt.KeyId = req.Key.KeyId
+				evt.Tags = req.Key.Tags
+
+				if req.Key.ShouldLogRequest {
+					evt.Request = req.Request
+				}
+			}
+
 			url := buildRequestUrl(step.Provider, r.ShouldRunEmbeddings(), resourceName, step.Params)
 
 			if len(url) == 0 {
@@ -210,6 +250,18 @@ func (r *Route) RunSteps(req *Request) (*Response, error) {
 			lastErr = err
 			stopStep = idx
 
+			evt.LatencyInMs = int(time.Since(req.Start).Milliseconds())
+			evt.Status = res.StatusCode
+
+			if res.StatusCode != http.StatusOK && currentRetry != totalRetries {
+				go func(input *event.Event) {
+					err := rec.RecordEvent(input)
+					if err != nil {
+						log.Debug("error when recording event", zap.Error(err))
+					}
+				}(evt)
+			}
+
 			if err != nil {
 				retries -= 1
 				continue
@@ -249,10 +301,18 @@ func (r *Route) RunSteps(req *Request) (*Response, error) {
 }
 
 type Request struct {
-	Settings  map[string]*provider.Setting
-	Key       *key.ResponseKey
-	Client    http.Client
-	Forwarded *http.Request
+	Settings      map[string]*provider.Setting
+	Key           *key.ResponseKey
+	Client        http.Client
+	Forwarded     *http.Request
+	Start         time.Time
+	CustomId      string
+	Request       []byte
+	Response      []byte
+	UserId        string
+	PolicyId      string
+	Action        string
+	CorrelationId string
 }
 
 func (r *Request) GetSettingValue(provider string, param string) (string, error) {
@@ -271,10 +331,11 @@ func (r *Request) GetSettingValue(provider string, param string) (string, error)
 }
 
 type Response struct {
-	Provider string
-	Model    string
-	Cancel   context.CancelFunc
-	Response *http.Response
+	Provider      string
+	Model         string
+	CorrelationId string
+	Cancel        context.CancelFunc
+	Response      *http.Response
 }
 
 func buildRequestUrl(provider string, runEmbeddings bool, resourceName string, params map[string]string) string {

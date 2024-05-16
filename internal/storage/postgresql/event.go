@@ -36,7 +36,7 @@ func (s *Store) CreateEventsByDayTable() error {
 
 func (s *Store) AlterEventsTable() error {
 	alterTableQuery := `
-		ALTER TABLE events ADD COLUMN IF NOT EXISTS path VARCHAR(255), ADD COLUMN IF NOT EXISTS method VARCHAR(255), ADD COLUMN IF NOT EXISTS custom_id VARCHAR(255), ADD COLUMN IF NOT EXISTS request JSONB, ADD COLUMN IF NOT EXISTS response JSONB, ADD COLUMN IF NOT EXISTS user_id VARCHAR(255) NOT NULL DEFAULT '', ADD COLUMN IF NOT EXISTS action VARCHAR(255) NOT NULL DEFAULT '', ADD COLUMN IF NOT EXISTS policy_id VARCHAR(255) NOT NULL DEFAULT '',  ADD COLUMN IF NOT EXISTS route_id VARCHAR(255) NOT NULL DEFAULT '';
+		ALTER TABLE events ADD COLUMN IF NOT EXISTS path VARCHAR(255), ADD COLUMN IF NOT EXISTS method VARCHAR(255), ADD COLUMN IF NOT EXISTS custom_id VARCHAR(255), ADD COLUMN IF NOT EXISTS request JSONB, ADD COLUMN IF NOT EXISTS response JSONB, ADD COLUMN IF NOT EXISTS user_id VARCHAR(255) NOT NULL DEFAULT '', ADD COLUMN IF NOT EXISTS action VARCHAR(255) NOT NULL DEFAULT '', ADD COLUMN IF NOT EXISTS policy_id VARCHAR(255) NOT NULL DEFAULT '',  ADD COLUMN IF NOT EXISTS route_id VARCHAR(255) NOT NULL DEFAULT '',  ADD COLUMN IF NOT EXISTS correlation_id VARCHAR(255) NOT NULL DEFAULT '';
 	`
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -611,8 +611,8 @@ func (s *Store) GetEventsV2(req *event.EventRequest) (*event.EventResponse, erro
 
 func (s *Store) InsertEvent(e *event.Event) error {
 	query := `
-		INSERT INTO events (event_id, created_at, tags, key_id, cost_in_usd, provider, model, status_code, prompt_token_count, completion_token_count, latency_in_ms, path, method, custom_id, request, response, user_id, action, policy_id, route_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+		INSERT INTO events (event_id, created_at, tags, key_id, cost_in_usd, provider, model, status_code, prompt_token_count, completion_token_count, latency_in_ms, path, method, custom_id, request, response, user_id, action, policy_id, route_id, correlation_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
 	`
 
 	values := []any{
@@ -636,6 +636,7 @@ func (s *Store) InsertEvent(e *event.Event) error {
 		e.Action,
 		e.PolicyId,
 		e.RouteId,
+		e.CorrelationId,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), s.wt)

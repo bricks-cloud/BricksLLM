@@ -147,6 +147,10 @@ func getProvider(c *gin.Context) string {
 		return c.Param("provider")
 	}
 
+	if strings.HasPrefix(c.FullPath(), "/api/routes/") {
+		return c.Param("provider")
+	}
+
 	return ""
 }
 
@@ -184,6 +188,8 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		c.Set(correlationId, cid)
 		start := time.Now()
 
+		c.Set("startTime", start)
+
 		enrichedEvent := &event.EventWithRequestAndContent{}
 		requestBytes := []byte(`{}`)
 		responseBytes := []byte(`{}`)
@@ -192,6 +198,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		var policyInput any = nil
 
 		customId := c.Request.Header.Get("X-CUSTOM-EVENT-ID")
+
 		defer func() {
 			dur := time.Since(start)
 			latency := int(dur.Milliseconds())
@@ -240,7 +247,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				PromptTokenCount:     c.GetInt("promptTokenCount"),
 				CompletionTokenCount: c.GetInt("completionTokenCount"),
 				LatencyInMs:          latency,
-				Path:                 c.FullPath(),
+				Path:                 c.Request.URL.Path,
 				Method:               c.Request.Method,
 				CustomId:             customId,
 				Request:              requestBytes,
@@ -249,6 +256,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				PolicyId:             c.GetString("policyId"),
 				Action:               c.GetString("action"),
 				RouteId:              c.GetString("routeId"),
+				CorrelationId:        cid,
 			}
 
 			enrichedEvent.Event = evt
@@ -336,6 +344,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 		if kc.ShouldLogRequest {
 			requestBytes = body
+			c.Set("requestBytes", requestBytes)
 		}
 
 		if c.Request.Method != http.MethodGet {
@@ -1036,6 +1045,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		}
 
 		if len(userId) != 0 {
+			c.Set("userId", userId)
 			us, err := um.GetUsers(kc.Tags, nil, []string{userId}, 0, 0)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_middleware.get_users_error", nil, 1)
@@ -1076,6 +1086,10 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			if len(us) > 1 {
 				stats.Incr("bricksllm.proxy.get_middleware.get_multiple_users_error", nil, 1)
 			}
+		}
+
+		if p != nil {
+			c.Set("policyId", p.Id)
 		}
 
 		if p != nil && policyInput != nil {

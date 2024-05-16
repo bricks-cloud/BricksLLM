@@ -28,6 +28,7 @@ type Event struct {
 	Action               string   `json:"action"`
 	PolicyId             string   `json:"policyId"`
 	RouteId              string   `json:"routeId"`
+	CorrelationId        string   `json:"correlationId"`
 }
 
 type EventResponse struct {

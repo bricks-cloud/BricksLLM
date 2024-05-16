@@ -44,7 +44,6 @@ type ProxyServer struct {
 }
 
 type recorder interface {
-	// RecordKeySpend(keyId string, micros int64, costLimitUnit key.TimeUnit) error
 	RecordEvent(e *event.Event) error
 }
 
@@ -188,7 +187,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	router.POST("/api/custom/providers/:provider/*wildcard", getCustomProviderHandler(prod, client, log, timeOut))
 
 	// custom route
-	router.POST("/api/routes/*route", getRouteHandler(prod, c, aoe, e, client, log))
+	router.POST("/api/routes/*route", getRouteHandler(prod, c, aoe, e, client, log, r))
 
 	srv := &http.Server{
 		Addr:    ":8002",

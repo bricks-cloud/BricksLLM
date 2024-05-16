@@ -27,7 +27,7 @@ type cache interface {
 	GetBytes(key string) ([]byte, error)
 }
 
-func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, client http.Client, log *zap.Logger) gin.HandlerFunc {
+func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, client http.Client, log *zap.Logger, rec recorder) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		trueStart := time.Now()
 
@@ -87,12 +87,27 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 
 		cid := c.GetString(correlationId)
 		start := time.Now()
-		runRes, err := rc.RunSteps(&route.Request{
-			Settings:  settingsMap,
-			Key:       kc,
-			Client:    client,
-			Forwarded: c.Request,
-		})
+
+		rreq := &route.Request{
+			Settings:      settingsMap,
+			Key:           kc,
+			Client:        client,
+			Forwarded:     c.Request,
+			CustomId:      c.GetString("customId"),
+			Start:         c.GetTime("startTime"),
+			UserId:        c.GetString("userId"),
+			PolicyId:      c.GetString("policyId"),
+			Action:        c.GetString("action"),
+			CorrelationId: cid,
+		}
+
+		val, exists := c.Get("requestBytes")
+		bs, bok := val.([]byte)
+		if exists && bok {
+			rreq.Request = bs
+		}
+
+		runRes, err := rc.RunSteps(rreq, rec, log)
 
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
@@ -111,6 +126,7 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 		defer runRes.Cancel()
 
 		c.Set("model", runRes.Model)
+		c.Set("provider", runRes.Provider)
 
 		res := runRes.Response
 		defer res.Body.Close()
