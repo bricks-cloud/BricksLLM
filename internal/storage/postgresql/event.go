@@ -592,6 +592,8 @@ func (s *Store) GetEventsV2(req *event.EventRequest) (*event.EventResponse, erro
 			&e.UserId,
 			&e.Action,
 			&e.PolicyId,
+			&e.RouteId,
+			&e.CorrelationId,
 		); err != nil {
 			return nil, err
 		}

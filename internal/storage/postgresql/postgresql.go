@@ -131,6 +131,8 @@ func (s *Store) GetEvents(userId string, customId string, keyIds []string, start
 			&e.UserId,
 			&e.Action,
 			&e.PolicyId,
+			&e.RouteId,
+			&e.CorrelationId,
 		); err != nil {
 			return nil, err
 		}
