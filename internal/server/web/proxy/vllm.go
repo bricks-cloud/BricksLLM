@@ -12,34 +12,36 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/provider/vllm"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	goopenai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-func getVllmCompletionsHandler(prod, private bool, client http.Client, log *zap.Logger, timeout time.Duration) gin.HandlerFunc {
+func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.proxy.get_vllm_completions_handler.requests", nil, 1)
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
 			return
 		}
 
-		cid := c.GetString(correlationId)
+		cid := c.GetString(logFiledNameCorrelationId)
 		url := c.GetString("vllmUrl")
 		if len(url) == 0 {
-			logError(log, "vllm url cannot be empty", prod, cid, errors.New("url is empty"))
+			logError(log, "vllm url cannot be empty", prod, errors.New("url is empty"))
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] vllm url is empty")
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url+"/v1/completions", c.Request.Body)
 		if err != nil {
-			logError(log, "error when creating vllm http request", prod, cid, err)
+			logError(log, "error when creating vllm http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create vllm http request")
 			return
 		}
@@ -58,7 +60,7 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, log *zap.
 		if err != nil {
 			stats.Incr("bricksllm.proxy.get_vllm_completions_handler.http_client_error", nil, 1)
 
-			logError(log, "error when sending http request to vllm", prod, cid, err)
+			logError(log, "error when sending http request to vllm", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send http request to vllm")
 			return
 		}
@@ -77,7 +79,7 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, log *zap.
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
-				logError(log, "error when reading vllm http completions response body", prod, cid, err)
+				logError(log, "error when reading vllm http completions response body", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read vllm response body")
 				return
 			}
@@ -88,7 +90,7 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, log *zap.
 
 			err = json.Unmarshal(bytes, cr)
 			if err != nil {
-				logError(log, "error when unmarshalling openai http chat completion response body", prod, cid, err)
+				logError(log, "error when unmarshalling openai http chat completion response body", prod, err)
 			}
 
 			if err == nil {
@@ -109,7 +111,7 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, log *zap.
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
-				logError(log, "error when reading vllm http chat completion response body", prod, cid, err)
+				logError(log, "error when reading vllm http chat completion response body", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read vllm response body")
 				return
 			}
@@ -117,7 +119,7 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, log *zap.
 			errorRes := &goopenai.ErrorResponse{}
 			err = json.Unmarshal(bytes, errorRes)
 			if err != nil {
-				logError(log, "error when unmarshalling openai chat completion error response body", prod, cid, err)
+				logError(log, "error when unmarshalling openai chat completion error response body", prod, err)
 			}
 
 			logOpenAiError(log, prod, cid, errorRes)
@@ -145,13 +147,13 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, log *zap.
 
 				if errors.Is(err, context.DeadlineExceeded) {
 					stats.Incr("bricksllm.proxy.get_vllm_completions_handler.context_deadline_exceeded_error", nil, 1)
-					logError(log, "context deadline exceeded when reading bytes from vllm completions response", prod, cid, err)
+					logError(log, "context deadline exceeded when reading bytes from vllm completions response", prod, err)
 
 					return false
 				}
 
 				stats.Incr("bricksllm.proxy.get_vllm_completions_handler.read_bytes_error", nil, 1)
-				logError(log, "error when reading bytes from vllm completions response", prod, cid, err)
+				logError(log, "error when reading bytes from vllm completions response", prod, err)
 
 				apiErr := &goopenai.ErrorResponse{
 					Error: &goopenai.APIError{
@@ -163,7 +165,7 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, log *zap.
 				bytes, err := json.Marshal(apiErr)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_vllm_completions_handler.json_marshal_error", nil, 1)
-					logError(log, "error when marshalling bytes for vllm streaming chat completion error response", prod, cid, err)
+					logError(log, "error when marshalling bytes for vllm streaming chat completion error response", prod, err)
 					return false
 				}
 
@@ -190,7 +192,7 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, log *zap.
 			err = json.Unmarshal(noPrefixLine, completionsStreamResp)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_vllm_completions_handler.completion_response_unmarshall_error", nil, 1)
-				logError(log, "error when unmarshalling vllm completions stream response", prod, cid, err)
+				logError(log, "error when unmarshalling vllm completions stream response", prod, err)
 			}
 
 			if err == nil {
@@ -211,7 +213,7 @@ func logVllmCompletionRequest(log *zap.Logger, cr *vllm.CompletionRequest, prod,
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("model", cr.Model),
 			zap.String("suffix", cr.Suffix),
 			zap.Int("max_tokens", cr.MaxTokens),
@@ -249,7 +251,7 @@ func logVllmCompletionRequest(log *zap.Logger, cr *vllm.CompletionRequest, prod,
 func logVllmChatCompletionRequest(log *zap.Logger, cr *vllm.ChatRequest, prod, private bool, cid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("model", cr.Model),
 			zap.Int("max_tokens", cr.MaxTokens),
 			zap.Float32("temperature", cr.Temperature),
@@ -320,7 +322,7 @@ func logVllmChatCompletionRequest(log *zap.Logger, cr *vllm.ChatRequest, prod, p
 func logVllmCompletionResponse(log *zap.Logger, cr *goopenai.CompletionResponse, prod, private bool, cid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", cr.ID),
 			zap.Int64("created", cr.Created),
 			zap.String("model", cr.Model),
@@ -348,28 +350,29 @@ func logVllmCompletionResponse(log *zap.Logger, cr *goopenai.CompletionResponse,
 	}
 }
 
-func getVllmChatCompletionsHandler(prod, private bool, client http.Client, log *zap.Logger, timeout time.Duration) gin.HandlerFunc {
+func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.requests", nil, 1)
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
 			return
 		}
 
-		cid := c.GetString(correlationId)
+		cid := c.GetString(logFiledNameCorrelationId)
 		url := c.GetString("vllmUrl")
 		if len(url) == 0 {
-			logError(log, "vllm url cannot be empty", prod, cid, errors.New("url is empty"))
+			logError(log, "vllm url cannot be empty", prod, errors.New("url is empty"))
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] vllm url is empty")
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url+"/v1/chat/completions", c.Request.Body)
 		if err != nil {
-			logError(log, "error when creating vllm chat completions http request", prod, cid, err)
+			logError(log, "error when creating vllm chat completions http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create vllm http request")
 			return
 		}
@@ -388,7 +391,7 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, log *
 		if err != nil {
 			stats.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.http_client_error", nil, 1)
 
-			logError(log, "error when sending http request to vllm", prod, cid, err)
+			logError(log, "error when sending http request to vllm", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send http request to vllm")
 			return
 		}
@@ -407,7 +410,7 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, log *
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
-				logError(log, "error when reading vllm chat completions response body", prod, cid, err)
+				logError(log, "error when reading vllm chat completions response body", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read vllm response body")
 				return
 			}
@@ -418,7 +421,7 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, log *
 
 			err = json.Unmarshal(bytes, chatRes)
 			if err != nil {
-				logError(log, "error when unmarshalling vllm chat completions response body", prod, cid, err)
+				logError(log, "error when unmarshalling vllm chat completions response body", prod, err)
 			}
 
 			if err == nil {
@@ -439,7 +442,7 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, log *
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
-				logError(log, "error when reading vllm chat completions response body", prod, cid, err)
+				logError(log, "error when reading vllm chat completions response body", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read vllm response body")
 				return
 			}
@@ -468,13 +471,13 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, log *
 
 				if errors.Is(err, context.DeadlineExceeded) {
 					stats.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.context_deadline_exceeded_error", nil, 1)
-					logError(log, "context deadline exceeded when reading bytes from vllm chat completions response", prod, cid, err)
+					logError(log, "context deadline exceeded when reading bytes from vllm chat completions response", prod, err)
 
 					return false
 				}
 
 				stats.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.read_bytes_error", nil, 1)
-				logError(log, "error when reading bytes from vllm chat completions response", prod, cid, err)
+				logError(log, "error when reading bytes from vllm chat completions response", prod, err)
 
 				apiErr := &goopenai.ErrorResponse{
 					Error: &goopenai.APIError{
@@ -486,7 +489,7 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, log *
 				bytes, err := json.Marshal(apiErr)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.json_marshal_error", nil, 1)
-					logError(log, "error when marshalling bytes for streaming vllm chat completions error response", prod, cid, err)
+					logError(log, "error when marshalling bytes for streaming vllm chat completions error response", prod, err)
 					return false
 				}
 
@@ -513,7 +516,7 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, log *
 			err = json.Unmarshal(noPrefixLine, chatCompletionStreamResp)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.completion_response_unmarshall_error", nil, 1)
-				logError(log, "error when unmarshalling vllm chat completions stream response", prod, cid, err)
+				logError(log, "error when unmarshalling vllm chat completions stream response", prod, err)
 			}
 
 			if err == nil {

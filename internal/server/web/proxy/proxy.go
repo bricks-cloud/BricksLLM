@@ -18,6 +18,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	goopenai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
@@ -33,10 +34,6 @@ type ProviderSettingsManager interface {
 type PoliciesManager interface {
 	GetPolicyByIdFromMemdb(id string) *policy.Policy
 }
-
-const (
-	correlationId string = "correlationId"
-)
 
 type ProxyServer struct {
 	server *http.Server
@@ -96,7 +93,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	router.POST("/api/health", getGetHealthCheckHandler())
 
 	// audios
-	router.POST("/api/providers/openai/v1/audio/speech", getSpeechHandler(prod, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/audio/speech", getSpeechHandler(prod, client, timeOut))
 	router.POST("/api/providers/openai/v1/audio/transcriptions", getTranscriptionsHandler(prod, client, log, timeOut, e))
 	router.POST("/api/providers/openai/v1/audio/translations", getTranslationsHandler(prod, client, log, timeOut, e))
 
@@ -107,84 +104,84 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	router.POST("/api/providers/openai/v1/embeddings", getEmbeddingHandler(prod, private, client, log, e, timeOut))
 
 	// moderations
-	router.POST("/api/providers/openai/v1/moderations", getPassThroughHandler(prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/moderations", getPassThroughHandler(prod, private, client, timeOut))
 
 	// models
-	router.GET("/api/providers/openai/v1/models", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/models/:model", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.DELETE("/api/providers/openai/v1/models/:model", getPassThroughHandler(prod, private, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/models", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/models/:model", getPassThroughHandler(prod, private, client, timeOut))
+	router.DELETE("/api/providers/openai/v1/models/:model", getPassThroughHandler(prod, private, client, timeOut))
 
 	// assistants
-	router.POST("/api/providers/openai/v1/assistants", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.DELETE("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/assistants", getPassThroughHandler(prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/assistants", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(prod, private, client, timeOut))
+	router.DELETE("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/assistants", getPassThroughHandler(prod, private, client, timeOut))
 
 	// assistant files
-	router.POST("/api/providers/openai/v1/assistants/:assistant_id/files", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/assistants/:assistant_id/files/:file_id", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.DELETE("/api/providers/openai/v1/assistants/:assistant_id/files/:file_id", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/assistants/:assistant_id/files", getPassThroughHandler(prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/assistants/:assistant_id/files", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/assistants/:assistant_id/files/:file_id", getPassThroughHandler(prod, private, client, timeOut))
+	router.DELETE("/api/providers/openai/v1/assistants/:assistant_id/files/:file_id", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/assistants/:assistant_id/files", getPassThroughHandler(prod, private, client, timeOut))
 
 	// threads
-	router.POST("/api/providers/openai/v1/threads", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.DELETE("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/threads", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(prod, private, client, timeOut))
+	router.DELETE("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(prod, private, client, timeOut))
 
 	// messages
-	router.POST("/api/providers/openai/v1/threads/:thread_id/messages", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/threads/:thread_id/messages/:message_id", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/messages", getPassThroughHandler(prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/messages", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id", getPassThroughHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/messages/:message_id", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/messages", getPassThroughHandler(prod, private, client, timeOut))
 
 	// message files
-	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files/:file_id", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files", getPassThroughHandler(prod, private, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files/:file_id", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files", getPassThroughHandler(prod, private, client, timeOut))
 
 	// runs
-	router.POST("/api/providers/openai/v1/threads/:thread_id/runs", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/runs", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/cancel", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/threads/runs", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps/:step_id", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps", getPassThroughHandler(prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/runs", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id", getPassThroughHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/runs", getPassThroughHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs", getPassThroughHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/cancel", getPassThroughHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/openai/v1/threads/runs", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps/:step_id", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps", getPassThroughHandler(prod, private, client, timeOut))
 
 	// files
-	router.GET("/api/providers/openai/v1/files", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/files", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.DELETE("/api/providers/openai/v1/files/:file_id", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/files/:file_id", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.GET("/api/providers/openai/v1/files/:file_id/content", getPassThroughHandler(prod, private, client, log, timeOut))
+	router.GET("/api/providers/openai/v1/files", getPassThroughHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/openai/v1/files", getPassThroughHandler(prod, private, client, timeOut))
+	router.DELETE("/api/providers/openai/v1/files/:file_id", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/files/:file_id", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/files/:file_id/content", getPassThroughHandler(prod, private, client, timeOut))
 
 	// images
-	router.POST("/api/providers/openai/v1/images/generations", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/images/edits", getPassThroughHandler(prod, private, client, log, timeOut))
-	router.POST("/api/providers/openai/v1/images/variations", getPassThroughHandler(prod, private, client, log, timeOut))
+	router.POST("/api/providers/openai/v1/images/generations", getPassThroughHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/openai/v1/images/edits", getPassThroughHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/openai/v1/images/variations", getPassThroughHandler(prod, private, client, timeOut))
 
 	// azure
 	router.POST("/api/providers/azure/openai/deployments/:deployment_id/chat/completions", getAzureChatCompletionHandler(prod, private, client, log, aoe, timeOut))
 	router.POST("/api/providers/azure/openai/deployments/:deployment_id/embeddings", getAzureEmbeddingsHandler(prod, private, client, log, aoe, timeOut))
 
 	// anthropic
-	router.POST("/api/providers/anthropic/v1/complete", getCompletionHandler(prod, private, client, log, timeOut))
+	router.POST("/api/providers/anthropic/v1/complete", getCompletionHandler(prod, private, client, timeOut))
 	router.POST("/api/providers/anthropic/v1/messages", getMessagesHandler(prod, private, client, log, ae, timeOut))
 
 	// vllm
-	router.POST("/api/providers/vllm/v1/chat/completions", getVllmChatCompletionsHandler(prod, private, client, log, timeOut))
-	router.POST("/api/providers/vllm/v1/completions", getVllmCompletionsHandler(prod, private, client, log, timeOut))
+	router.POST("/api/providers/vllm/v1/chat/completions", getVllmChatCompletionsHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/vllm/v1/completions", getVllmCompletionsHandler(prod, private, client, timeOut))
 
 	// deepinfra
-	router.POST("/api/providers/deepinfra/v1/chat/completions", getDeepinfraChatCompletionsHandler(prod, private, client, log, timeOut))
-	router.POST("/api/providers/deepinfra/v1/completions", getDeepinfraCompletionsHandler(prod, private, client, log, timeOut))
+	router.POST("/api/providers/deepinfra/v1/chat/completions", getDeepinfraChatCompletionsHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/deepinfra/v1/completions", getDeepinfraCompletionsHandler(prod, private, client, timeOut))
 	router.POST("/api/providers/deepinfra/v1/embeddings", getDeepinfraEmbeddingsHandler(prod, private, client, log, die, timeOut))
 
 	// custom provider
-	router.POST("/api/custom/providers/:provider/*wildcard", getCustomProviderHandler(prod, client, log, timeOut))
+	router.POST("/api/custom/providers/:provider/*wildcard", getCustomProviderHandler(prod, client, timeOut))
 
 	// custom route
 	router.POST("/api/routes/*route", getRouteHandler(prod, c, aoe, e, client, log, r))
@@ -248,8 +245,10 @@ func writeFieldToBuffer(fields []string, c *gin.Context, writer *multipart.Write
 	return nil
 }
 
-func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
+func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
+
 		tags := []string{
 			fmt.Sprintf("path:%s", c.FullPath()),
 		}
@@ -261,7 +260,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 			return
 		}
 
-		cid := c.GetString(correlationId)
+		cid := c.GetString(logFiledNameCorrelationId)
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
@@ -269,14 +268,14 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 		targetUrl, err := buildProxyUrl(c)
 		if err != nil {
 			stats.Incr("bricksllm.proxy.get_pass_through_handler.proxy_url_not_found", tags, 1)
-			logError(log, "error when building proxy url", prod, cid, err)
+			logError(log, "error when building proxy url", prod, err)
 			JSON(c, http.StatusNotFound, "[BricksLLM] cannot find corresponding proxy url")
 			return
 		}
 
 		req, err := http.NewRequestWithContext(ctx, c.Request.Method, targetUrl, c.Request.Body)
 		if err != nil {
-			logError(log, "error when creating openai http request", prod, cid, err)
+			logError(log, "error when creating openai http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai http request")
 			return
 		}
@@ -294,7 +293,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 			err := writer.WriteField("purpose", purpose)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_pass_through_handler.write_field_error", tags, 1)
-				logError(log, "error when writing field", prod, cid, err)
+				logError(log, "error when writing field", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot write field")
 				return
 			}
@@ -305,7 +304,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 			fieldWriter, err := writer.CreateFormFile("file", form.File.Filename)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_pass_through_handler.create_form_file_error", tags, 1)
-				logError(log, "error when creating form file", prod, cid, err)
+				logError(log, "error when creating form file", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create form file")
 				return
 			}
@@ -313,7 +312,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 			opened, err := form.File.Open()
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_pass_through_handler.open_file_error", tags, 1)
-				logError(log, "error when openning file", prod, cid, err)
+				logError(log, "error when openning file", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open file")
 				return
 			}
@@ -321,7 +320,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 			_, err = io.Copy(fieldWriter, opened)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_file_error", tags, 1)
-				logError(log, "error when copying file", prod, cid, err)
+				logError(log, "error when copying file", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy file")
 				return
 			}
@@ -347,7 +346,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 			}, c, writer, nil)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_pass_through_handler.write_field_to_buffer_error", tags, 1)
-				logError(log, "error when writing field to buffer", prod, cid, err)
+				logError(log, "error when writing field to buffer", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot write field to buffer")
 				return
 			}
@@ -359,7 +358,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 				fieldWriter, err := writer.CreateFormFile("image", form.Image.Filename)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_pass_through_handler.create_image_file_error", tags, 1)
-					logError(log, "error when creating form file", prod, cid, err)
+					logError(log, "error when creating form file", prod, err)
 					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create image file")
 					return
 				}
@@ -367,7 +366,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 				opened, err := form.Image.Open()
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_pass_through_handler.open_image_file_error", tags, 1)
-					logError(log, "error when openning file", prod, cid, err)
+					logError(log, "error when openning file", prod, err)
 					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open image file")
 					return
 				}
@@ -375,7 +374,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 				_, err = io.Copy(fieldWriter, opened)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_image_file_error", tags, 1)
-					logError(log, "error when copying image file", prod, cid, err)
+					logError(log, "error when copying image file", prod, err)
 					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy image file")
 					return
 				}
@@ -385,7 +384,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 				fieldWriter, err := writer.CreateFormFile("mask", form.Mask.Filename)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_pass_through_handler.create_mask_file_error", tags, 1)
-					logError(log, "error when creating form file", prod, cid, err)
+					logError(log, "error when creating form file", prod, err)
 					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create mask file")
 					return
 				}
@@ -393,7 +392,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 				opened, err := form.Image.Open()
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_pass_through_handler.open_mask_file_error", tags, 1)
-					logError(log, "error when openning file", prod, cid, err)
+					logError(log, "error when openning file", prod, err)
 					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open mask file")
 					return
 				}
@@ -401,7 +400,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 				_, err = io.Copy(fieldWriter, opened)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_mask_file_error", tags, 1)
-					logError(log, "error when copying mask file", prod, cid, err)
+					logError(log, "error when copying mask file", prod, err)
 					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy mask file")
 					return
 				}
@@ -427,7 +426,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 			}, c, writer, nil)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_pass_through_handler.write_field_to_buffer_error", tags, 1)
-				logError(log, "error when writing field to buffer", prod, cid, err)
+				logError(log, "error when writing field to buffer", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot write field to buffer")
 				return
 			}
@@ -439,7 +438,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 				fieldWriter, err := writer.CreateFormFile("image", form.Image.Filename)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_pass_through_handler.create_image_file_error", tags, 1)
-					logError(log, "error when creating form file", prod, cid, err)
+					logError(log, "error when creating form file", prod, err)
 					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create image file")
 					return
 				}
@@ -447,7 +446,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 				opened, err := form.Image.Open()
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_pass_through_handler.open_image_file_error", tags, 1)
-					logError(log, "error when openning file", prod, cid, err)
+					logError(log, "error when openning file", prod, err)
 					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open image file")
 					return
 				}
@@ -455,7 +454,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 				_, err = io.Copy(fieldWriter, opened)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_image_file_error", tags, 1)
-					logError(log, "error when copying file", prod, cid, err)
+					logError(log, "error when copying file", prod, err)
 					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy image file")
 					return
 				}
@@ -474,7 +473,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 		if err != nil {
 			stats.Incr("bricksllm.proxy.get_pass_through_handler.http_client_error", tags, 1)
 
-			logError(log, "error when sending pass through request to openai", prod, cid, err)
+			logError(log, "error when sending pass through request to openai", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send pass through request to openai")
 			return
 		}
@@ -485,7 +484,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 
 		bytes, err := io.ReadAll(res.Body)
 		if err != nil {
-			logError(log, "error when reading openai embedding response body", prod, cid, err)
+			logError(log, "error when reading openai embedding response body", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read openai pass through response body")
 			return
 		}
@@ -662,7 +661,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, log *zap.Logg
 			errorRes := &goopenai.ErrorResponse{}
 			err = json.Unmarshal(bytes, errorRes)
 			if err != nil {
-				logError(log, "error when unmarshalling openai pass through error response body", prod, cid, err)
+				logError(log, "error when unmarshalling openai pass through error response body", prod, err)
 			}
 
 			logOpenAiError(log, prod, cid, errorRes)
@@ -891,14 +890,14 @@ func getEmbeddingHandler(prod, private bool, client http.Client, log *zap.Logger
 		// 	return
 		// }
 
-		id := c.GetString(correlationId)
+		id := c.GetString(logFiledNameCorrelationId)
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, c.Request.Method, "https://api.openai.com/v1/embeddings", c.Request.Body)
 		if err != nil {
-			logError(log, "error when creating openai http request", prod, id, err)
+			logError(log, "error when creating openai http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai http request")
 			return
 		}
@@ -911,7 +910,7 @@ func getEmbeddingHandler(prod, private bool, client http.Client, log *zap.Logger
 		if err != nil {
 			stats.Incr("bricksllm.proxy.get_embedding_handler.http_client_error", nil, 1)
 
-			logError(log, "error when sending embedding request to openai", prod, id, err)
+			logError(log, "error when sending embedding request to openai", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send embedding request to openai")
 			return
 		}
@@ -922,7 +921,7 @@ func getEmbeddingHandler(prod, private bool, client http.Client, log *zap.Logger
 
 		bytes, err := io.ReadAll(res.Body)
 		if err != nil {
-			logError(log, "error when reading openai embedding response body", prod, id, err)
+			logError(log, "error when reading openai embedding response body", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read openai embedding response body")
 			return
 		}
@@ -940,14 +939,14 @@ func getEmbeddingHandler(prod, private bool, client http.Client, log *zap.Logger
 			if format == "base64" {
 				err = json.Unmarshal(bytes, base64ChatRes)
 				if err != nil {
-					logError(log, "error when unmarshalling openai base64 embedding response body", prod, id, err)
+					logError(log, "error when unmarshalling openai base64 embedding response body", prod, err)
 				}
 			}
 
 			if format != "base64" {
 				err = json.Unmarshal(bytes, chatRes)
 				if err != nil {
-					logError(log, "error when unmarshalling openai embedding response body", prod, id, err)
+					logError(log, "error when unmarshalling openai embedding response body", prod, err)
 				}
 			}
 
@@ -970,14 +969,14 @@ func getEmbeddingHandler(prod, private bool, client http.Client, log *zap.Logger
 				cost, err = e.EstimateEmbeddingsInputCost(model, totalTokens)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_embedding_handler.estimate_total_cost_error", nil, 1)
-					logError(log, "error when estimating openai cost for embedding", prod, id, err)
+					logError(log, "error when estimating openai cost for embedding", prod, err)
 				}
 
 				// micros := int64(cost * 1000000)
 				// err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
 				// if err != nil {
 				// 	stats.Incr("bricksllm.proxy.get_embedding_handler.record_key_spend_error", nil, 1)
-				// 	logError(log, "error when recording openai spend for embedding", prod, id, err)
+				// 	logError(log, "error when recording openai spend for embedding", prod, err)
 				// }
 			}
 		}
@@ -992,7 +991,7 @@ func getEmbeddingHandler(prod, private bool, client http.Client, log *zap.Logger
 			errorRes := &goopenai.ErrorResponse{}
 			err = json.Unmarshal(bytes, errorRes)
 			if err != nil {
-				logError(log, "error when unmarshalling openai embedding error response body", prod, id, err)
+				logError(log, "error when unmarshalling openai embedding error response body", prod, err)
 			}
 
 			logOpenAiError(log, prod, id, errorRes)
@@ -1122,7 +1121,7 @@ func logEmbeddingResponse(log *zap.Logger, prod, private bool, cid string, r *Em
 	if prod {
 		log.Info("openai embeddings response",
 			zap.Time("createdAt", time.Now()),
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.Object("response", zapcore.ObjectMarshalerFunc(
 				func(enc zapcore.ObjectEncoder) error {
 					enc.AddString("object", r.Object)
@@ -1171,7 +1170,7 @@ func logBase64EmbeddingResponse(log *zap.Logger, prod, private bool, cid string,
 	if prod {
 		log.Info("openai embeddings response",
 			zap.Time("createdAt", time.Now()),
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.Object("response", zapcore.ObjectMarshalerFunc(
 				func(enc zapcore.ObjectEncoder) error {
 					enc.AddString("object", r.Object)
@@ -1214,7 +1213,7 @@ func logChatCompletionResponse(log *zap.Logger, prod, private bool, cid string, 
 	if prod {
 		log.Info("openai chat completion response",
 			zap.Time("createdAt", time.Now()),
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.Object("response", zapcore.ObjectMarshalerFunc(
 				func(enc zapcore.ObjectEncoder) error {
 					enc.AddString("id", r.ID)
@@ -1264,7 +1263,7 @@ func logChatCompletionResponse(log *zap.Logger, prod, private bool, cid string, 
 func logEmbeddingRequest(log *zap.Logger, prod, private bool, id string, r *goopenai.EmbeddingRequest) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, id),
+			zap.String(logFiledNameCorrelationId, id),
 			zap.String("model", string(r.Model)),
 			zap.String("encoding_format", string(r.EncodingFormat)),
 			zap.String("user", r.User),
@@ -1282,7 +1281,7 @@ func logRequest(log *zap.Logger, prod, private bool, id string, r *goopenai.Chat
 	if prod {
 		log.Info("openai chat completion request",
 			zap.Time("createdAt", time.Now()),
-			zap.String(correlationId, id),
+			zap.String(logFiledNameCorrelationId, id),
 			zap.Object("request", zapcore.ObjectMarshalerFunc(
 				func(enc zapcore.ObjectEncoder) error {
 					enc.AddString("model", r.Model)
@@ -1419,20 +1418,19 @@ func logRequest(log *zap.Logger, prod, private bool, id string, r *goopenai.Chat
 
 func logOpenAiError(log *zap.Logger, prod bool, id string, errRes *goopenai.ErrorResponse) {
 	if prod {
-		log.Info("openai error response", zap.String(correlationId, id), zap.Any("error", errRes))
+		log.Info("openai error response", zap.String(logFiledNameCorrelationId, id), zap.Any("error", errRes))
 		return
 	}
 
 	log.Sugar().Infof("correlationId:%s | %s ", id, "openai error response")
 }
 
-func logError(log *zap.Logger, msg string, prod bool, id string, err error) {
+func logError(log *zap.Logger, msg string, prod bool, err error) {
 	if prod {
-		log.Debug(msg, zap.String(correlationId, id), zap.Error(err))
+		log.Debug(msg, zap.Error(err))
 		return
 	}
-
-	log.Sugar().Debugf("correlationId:%s | %s | %v", id, msg, err)
+	log.Debug(fmt.Sprintf("correlationId:%s | %s | %v", msg, err))
 }
 
 func (ps *ProxyServer) Shutdown(ctx context.Context) error {

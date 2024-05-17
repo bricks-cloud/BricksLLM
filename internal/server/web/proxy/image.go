@@ -11,7 +11,7 @@ import (
 func logCreateImageRequest(log *zap.Logger, ir *goopenai.ImageRequest, prod, private bool, cid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("model", ir.Model),
 			zap.Int("n", ir.N),
 			zap.String("quality", ir.Quality),
@@ -32,7 +32,7 @@ func logCreateImageRequest(log *zap.Logger, ir *goopenai.ImageRequest, prod, pri
 func logEditImageRequest(log *zap.Logger, prompt, model string, n int, size, responseFormat, user string, prod, private bool, cid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 		}
 
 		if !private && len(prompt) != 0 {
@@ -66,7 +66,7 @@ func logEditImageRequest(log *zap.Logger, prompt, model string, n int, size, res
 func logImageVariationsRequest(log *zap.Logger, model string, n int, size, responseFormat, user string, prod bool, cid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 		}
 
 		if len(model) != 0 {
@@ -97,13 +97,13 @@ func logImageResponse(log *zap.Logger, data []byte, prod, private bool, cid stri
 	ir := &goopenai.ImageResponse{}
 	err := json.Unmarshal(data, ir)
 	if err != nil {
-		logError(log, "error when unmarshalling image response", prod, cid, err)
+		logError(log, "error when unmarshalling image response", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.Int64("created", ir.Created),
 		}
 

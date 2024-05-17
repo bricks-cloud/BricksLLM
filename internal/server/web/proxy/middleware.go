@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,6 +27,10 @@ import (
 	"go.uber.org/zap"
 
 	goopenai "github.com/sashabaranov/go-openai"
+)
+
+const (
+	logFiledNameCorrelationId string = "correlationId"
 )
 
 type keyMemStorage interface {
@@ -185,7 +190,9 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		c.Writer = blw
 
 		cid := util.NewUuid()
-		c.Set(correlationId, cid)
+		c.Set(logFiledNameCorrelationId, cid)
+		logWithCid := log.With(zap.String(logFiledNameCorrelationId, cid))
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), "log", logWithCid))
 		start := time.Now()
 
 		c.Set("startTime", start)
@@ -204,7 +211,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			latency := int(dur.Milliseconds())
 
 			if !prod {
-				log.Sugar().Infof("%s | %d | %s | %s | %dms", prefix, c.Writer.Status(), c.Request.Method, c.FullPath(), latency)
+				logWithCid.Sugar().Infof("%s | %d | %s | %s | %dms", prefix, c.Writer.Status(), c.Request.Method, c.FullPath(), latency)
 			}
 
 			keyId := ""
@@ -220,8 +227,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			selectedProvider := getProvider(c)
 
 			if prod {
-				log.Info("response to proxy",
-					zap.String(correlationId, c.GetString(correlationId)),
+				logWithCid.Info("response to proxy",
 					zap.String("provider", selectedProvider),
 					zap.String("keyId", keyId),
 					zap.Int("code", c.Writer.Status()),
@@ -288,7 +294,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		_, ok := err.(notAuthorizedError)
 		if ok {
 			stats.Incr("bricksllm.proxy.get_middleware.authentication_error", nil, 1)
-			logError(log, "error when authenticating http requests", prod, cid, err)
+			logError(logWithCid, "error when authenticating http requests", prod, err)
 			JSON(c, http.StatusUnauthorized, fmt.Sprintf("[BricksLLM] %v", err))
 			c.Abort()
 			return
@@ -297,7 +303,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		_, ok = err.(notFoundError)
 		if ok {
 			stats.Incr("bricksllm.proxy.get_middleware.not_found_error", nil, 1)
-			logError(log, "error when authenticating http requests", prod, cid, err)
+			logError(logWithCid, "error when authenticating http requests", prod, err)
 			JSON(c, http.StatusNotFound, "[BricksLLM] route not found")
 			c.Abort()
 			return
@@ -305,7 +311,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 		if err != nil {
 			stats.Incr("bricksllm.proxy.get_middleware.authenticate_http_request_error", nil, 1)
-			logError(log, "error when authenticating http requests", prod, cid, err)
+			logError(logWithCid, "error when authenticating http requests", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] internal authentication error")
 			c.Abort()
 			return
@@ -338,7 +344,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading request body", prod, cid, err)
+			logError(logWithCid, "error when reading request body", prod, err)
 			return
 		}
 
@@ -352,12 +358,12 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		}
 
 		if c.FullPath() == "/api/providers/anthropic/v1/complete" {
-			logCompletionRequest(log, body, prod, private, cid)
+			logCompletionRequest(logWithCid, body, prod, private, cid)
 
 			cr := &anthropic.CompletionRequest{}
 			err = json.Unmarshal(body, cr)
 			if err != nil {
-				logError(log, "error when unmarshalling anthropic completion request", prod, cid, err)
+				logError(logWithCid, "error when unmarshalling anthropic completion request", prod, err)
 				return
 			}
 
@@ -377,12 +383,12 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		}
 
 		if c.FullPath() == "/api/providers/anthropic/v1/messages" {
-			logCreateMessageRequest(log, body, prod, private, cid)
+			logCreateMessageRequest(logWithCid, body, prod, private, cid)
 
 			mr := &anthropic.MessagesRequest{}
 			err = json.Unmarshal(body, mr)
 			if err != nil {
-				logError(log, "error when unmarshalling anthropic messages request", prod, cid, err)
+				logError(logWithCid, "error when unmarshalling anthropic messages request", prod, err)
 				return
 			}
 
@@ -432,7 +438,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 			// tks, err := countTokensFromJson(body, rc.RequestPromptLocation)
 			// if err != nil {
-			// 	logError(log, "error when counting tokens for custom provider request", prod, cid, err)
+			// 	logError(log, "error when counting tokens for custom provider request", prod, err)
 			// }
 
 			// c.Set("promptTokenCount", tks)
@@ -467,7 +473,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				er := &goopenai.EmbeddingRequest{}
 				err = json.Unmarshal(body, er)
 				if err != nil {
-					logError(log, "error when unmarshalling route embedding request", prod, cid, err)
+					logError(logWithCid, "error when unmarshalling route embedding request", prod, err)
 					return
 				}
 
@@ -481,7 +487,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 				c.Set("encoding_format", string(er.EncodingFormat))
 
-				logEmbeddingRequest(log, prod, private, cid, er)
+				logEmbeddingRequest(logWithCid, prod, private, cid, er)
 
 				policyInput = er
 			}
@@ -491,7 +497,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 				err = json.Unmarshal(body, ccr)
 				if err != nil {
-					logError(log, "error when unmarshalling route chat completion request", prod, cid, err)
+					logError(logWithCid, "error when unmarshalling route chat completion request", prod, err)
 					return
 				}
 
@@ -499,7 +505,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				userId = ccr.User
 				enrichedEvent.Request = ccr
 
-				logRequest(log, prod, private, cid, ccr)
+				logRequest(logWithCid, prod, private, cid, ccr)
 
 				if ccr.Stream {
 					stats.Incr("bricksllm.proxy.get_middleware.streaming_not_allowed", nil, 1)
@@ -520,7 +526,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			ccr := &vllm.ChatRequest{}
 			err = json.Unmarshal(body, ccr)
 			if err != nil {
-				logError(log, "error when unmarshalling vllm chat completions request", prod, cid, err)
+				logError(logWithCid, "error when unmarshalling vllm chat completions request", prod, err)
 				return
 			}
 
@@ -528,7 +534,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			userId = ccr.User
 			enrichedEvent.Request = ccr
 
-			logVllmChatCompletionRequest(log, ccr, prod, private, cid)
+			logVllmChatCompletionRequest(logWithCid, ccr, prod, private, cid)
 
 			if ccr.Stream {
 				c.Set("stream", true)
@@ -541,7 +547,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			cr := &vllm.CompletionRequest{}
 			err = json.Unmarshal(body, cr)
 			if err != nil {
-				logError(log, "error when unmarshalling vllm completions request", prod, cid, err)
+				logError(logWithCid, "error when unmarshalling vllm completions request", prod, err)
 				return
 			}
 
@@ -549,7 +555,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			userId = cr.User
 			enrichedEvent.Request = cr
 
-			logVllmCompletionRequest(log, cr, prod, private, cid)
+			logVllmCompletionRequest(logWithCid, cr, prod, private, cid)
 
 			if cr.Stream {
 				c.Set("stream", true)
@@ -562,7 +568,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			ccr := &vllm.ChatRequest{}
 			err = json.Unmarshal(body, ccr)
 			if err != nil {
-				logError(log, "error when unmarshalling deepinfra chat completions request", prod, cid, err)
+				logError(logWithCid, "error when unmarshalling deepinfra chat completions request", prod, err)
 				return
 			}
 
@@ -574,7 +580,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				c.Set("stream", true)
 			}
 
-			logVllmChatCompletionRequest(log, ccr, prod, private, cid)
+			logVllmChatCompletionRequest(logWithCid, ccr, prod, private, cid)
 			policyInput = ccr
 		}
 
@@ -582,7 +588,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			cr := &vllm.CompletionRequest{}
 			err = json.Unmarshal(body, cr)
 			if err != nil {
-				logError(log, "error when unmarshalling deepinfra completions request", prod, cid, err)
+				logError(logWithCid, "error when unmarshalling deepinfra completions request", prod, err)
 				return
 			}
 
@@ -594,7 +600,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				c.Set("stream", true)
 			}
 
-			logVllmCompletionRequest(log, cr, prod, private, cid)
+			logVllmCompletionRequest(logWithCid, cr, prod, private, cid)
 			policyInput = cr
 		}
 
@@ -602,7 +608,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			er := &goopenai.EmbeddingRequest{}
 			err = json.Unmarshal(body, er)
 			if err != nil {
-				logError(log, "error when unmarshalling deepinfra embeddings request", prod, cid, err)
+				logError(logWithCid, "error when unmarshalling deepinfra embeddings request", prod, err)
 				return
 			}
 
@@ -611,7 +617,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 			c.Set("model", string(er.Model))
 
-			logEmbeddingRequest(log, prod, private, cid, er)
+			logEmbeddingRequest(logWithCid, prod, private, cid, er)
 			policyInput = er
 		}
 
@@ -619,7 +625,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			ccr := &goopenai.ChatCompletionRequest{}
 			err = json.Unmarshal(body, ccr)
 			if err != nil {
-				logError(log, "error when unmarshalling azure openai chat completion request", prod, cid, err)
+				logError(logWithCid, "error when unmarshalling azure openai chat completion request", prod, err)
 				return
 			}
 
@@ -627,7 +633,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			enrichedEvent.Request = ccr
 			c.Set("model", ccr.Model)
 
-			logRequest(log, prod, private, cid, ccr)
+			logRequest(logWithCid, prod, private, cid, ccr)
 
 			if ccr.Stream {
 				c.Set("stream", true)
@@ -640,7 +646,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			er := &goopenai.EmbeddingRequest{}
 			err = json.Unmarshal(body, er)
 			if err != nil {
-				logError(log, "error when unmarshalling azure openai embedding request", prod, cid, err)
+				logError(logWithCid, "error when unmarshalling azure openai embedding request", prod, err)
 				return
 			}
 
@@ -649,7 +655,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			c.Set("model", "ada")
 			c.Set("encoding_format", string(er.EncodingFormat))
 
-			logEmbeddingRequest(log, prod, private, cid, er)
+			logEmbeddingRequest(logWithCid, prod, private, cid, er)
 
 			policyInput = er
 		}
@@ -658,7 +664,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			ccr := &goopenai.ChatCompletionRequest{}
 			err = json.Unmarshal(body, ccr)
 			if err != nil {
-				logError(log, "error when unmarshalling chat completion request", prod, cid, err)
+				logError(logWithCid, "error when unmarshalling chat completion request", prod, err)
 				return
 			}
 
@@ -668,7 +674,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 			c.Set("model", ccr.Model)
 
-			logRequest(log, prod, private, cid, ccr)
+			logRequest(logWithCid, prod, private, cid, ccr)
 
 			if ccr.Stream {
 				c.Set("stream", true)
@@ -681,7 +687,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			er := &goopenai.EmbeddingRequest{}
 			err = json.Unmarshal(body, er)
 			if err != nil {
-				logError(log, "error when unmarshalling embedding request", prod, cid, err)
+				logError(logWithCid, "error when unmarshalling embedding request", prod, err)
 				return
 			}
 
@@ -690,7 +696,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			c.Set("model", string(er.Model))
 			c.Set("encoding_format", string(er.EncodingFormat))
 
-			logEmbeddingRequest(log, prod, private, cid, er)
+			logEmbeddingRequest(logWithCid, prod, private, cid, er)
 
 			policyInput = er
 		}
@@ -699,7 +705,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			ir := &goopenai.ImageRequest{}
 			err := json.Unmarshal(body, ir)
 			if err != nil {
-				logError(log, "error when unmarshalling create image request", prod, cid, err)
+				logError(logWithCid, "error when unmarshalling create image request", prod, err)
 				return
 			}
 
@@ -710,7 +716,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			}
 
 			c.Set("model", ir.Model)
-			logCreateImageRequest(log, ir, prod, private, cid)
+			logCreateImageRequest(logWithCid, ir, prod, private, cid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/images/edits" && c.Request.Method == http.MethodPost {
@@ -730,7 +736,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				c.Set("model", "dall-e-2")
 			}
 
-			logEditImageRequest(log, prompt, model, n, size, responseFormat, user, prod, private, cid)
+			logEditImageRequest(logWithCid, prompt, model, n, size, responseFormat, user, prod, private, cid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/images/variations" && c.Request.Method == http.MethodPost {
@@ -749,14 +755,14 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				c.Set("model", "dall-e-2")
 			}
 
-			logImageVariationsRequest(log, model, n, size, responseFormat, user, prod, cid)
+			logImageVariationsRequest(logWithCid, model, n, size, responseFormat, user, prod, cid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/audio/speech" && c.Request.Method == http.MethodPost {
 			sr := &goopenai.CreateSpeechRequest{}
 			err := json.Unmarshal(body, sr)
 			if err != nil {
-				logError(log, "error when unmarshalling create speech request", prod, cid, err)
+				logError(logWithCid, "error when unmarshalling create speech request", prod, err)
 				return
 			}
 
@@ -764,7 +770,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 			c.Set("model", string(sr.Model))
 
-			logCreateSpeechRequest(log, sr, prod, private, cid)
+			logCreateSpeechRequest(logWithCid, sr, prod, private, cid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/audio/transcriptions" && c.Request.Method == http.MethodPost {
@@ -777,7 +783,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			c.Set("model", model)
 
 			converted, _ := strconv.ParseFloat(temperature, 64)
-			logCreateTranscriptionRequest(log, model, language, prompt, responseFormat, converted, prod, private, cid)
+			logCreateTranscriptionRequest(logWithCid, model, language, prompt, responseFormat, converted, prod, private, cid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/audio/translations" && c.Request.Method == http.MethodPost {
@@ -789,7 +795,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			c.Set("model", model)
 
 			converted, _ := strconv.ParseFloat(temperature, 64)
-			logCreateTranslationRequest(log, model, prompt, responseFormat, converted, prod, private, cid)
+			logCreateTranslationRequest(logWithCid, model, prompt, responseFormat, converted, prod, private, cid)
 		}
 
 		if len(kc.AllowedPaths) != 0 && !containsPath(kc.AllowedPaths, c.FullPath(), c.Request.Method) {
@@ -833,13 +839,13 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/assistants" && c.Request.Method == http.MethodPost {
-			logCreateAssistantRequest(log, body, prod, private, cid)
+			logCreateAssistantRequest(logWithCid, body, prod, private, cid)
 
 			ar := &goopenai.AssistantRequest{}
 
 			err = json.Unmarshal(body, ar)
 			if err != nil {
-				logError(log, "error when unmarshalling assistant request", prod, cid, err)
+				logError(logWithCid, "error when unmarshalling assistant request", prod, err)
 			}
 
 			if err == nil {
@@ -850,45 +856,45 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id" && c.Request.Method == http.MethodGet {
-			logRetrieveAssistantRequest(log, prod, cid, aid)
+			logRetrieveAssistantRequest(logWithCid, prod, cid, aid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id" && c.Request.Method == http.MethodPost {
-			logModifyAssistantRequest(log, body, prod, private, cid, aid)
+			logModifyAssistantRequest(logWithCid, body, prod, private, cid, aid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id" && c.Request.Method == http.MethodDelete {
-			logDeleteAssistantRequest(log, prod, cid, aid)
+			logDeleteAssistantRequest(logWithCid, prod, cid, aid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/assistants" && c.Request.Method == http.MethodGet {
-			logListAssistantsRequest(log, prod, cid)
+			logListAssistantsRequest(logWithCid, prod, cid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files" && c.Request.Method == http.MethodPost {
-			logCreateAssistantFileRequest(log, body, prod, cid, aid)
+			logCreateAssistantFileRequest(logWithCid, body, prod, cid, aid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files/:file_id" && c.Request.Method == http.MethodGet {
-			logRetrieveAssistantFileRequest(log, prod, cid, fid, aid)
+			logRetrieveAssistantFileRequest(logWithCid, prod, cid, fid, aid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files/:file_id" && c.Request.Method == http.MethodDelete {
-			logDeleteAssistantFileRequest(log, prod, cid, fid, aid)
+			logDeleteAssistantFileRequest(logWithCid, prod, cid, fid, aid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files" && c.Request.Method == http.MethodGet {
-			logListAssistantFilesRequest(log, prod, cid, aid, qm)
+			logListAssistantFilesRequest(logWithCid, prod, cid, aid, qm)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads" && c.Request.Method == http.MethodPost {
-			logCreateThreadRequest(log, body, prod, private, cid)
+			logCreateThreadRequest(logWithCid, body, prod, private, cid)
 
 			tr := &openai.ThreadRequest{}
 
 			err = json.Unmarshal(body, tr)
 			if err != nil {
-				logError(log, "error when unmarshalling create thread request", prod, cid, err)
+				logError(logWithCid, "error when unmarshalling create thread request", prod, err)
 			}
 
 			if err == nil {
@@ -897,24 +903,24 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodGet {
-			logRetrieveThreadRequest(log, prod, cid, tid)
+			logRetrieveThreadRequest(logWithCid, prod, cid, tid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodPost {
-			logModifyThreadRequest(log, body, prod, cid, tid)
+			logModifyThreadRequest(logWithCid, body, prod, cid, tid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodDelete {
-			logDeleteThreadRequest(log, prod, cid, tid)
+			logDeleteThreadRequest(logWithCid, prod, cid, tid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages" && c.Request.Method == http.MethodPost {
-			logCreateMessageRequest(log, body, prod, private, cid)
+			logCreateMessageRequest(logWithCid, body, prod, private, cid)
 
 			mr := &openai.MessageRequest{}
 			err := json.Unmarshal(body, mr)
 			if err != nil {
-				logError(log, "error when unmarshalling create message request", prod, cid, err)
+				logError(logWithCid, "error when unmarshalling create message request", prod, err)
 			}
 
 			if err == nil {
@@ -923,32 +929,32 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id" && c.Request.Method == http.MethodGet {
-			logRetrieveMessageRequest(log, prod, cid, mid, tid)
+			logRetrieveMessageRequest(logWithCid, prod, cid, mid, tid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id" && c.Request.Method == http.MethodPost {
-			logModifyMessageRequest(log, body, prod, private, cid, tid, mid)
+			logModifyMessageRequest(logWithCid, body, prod, private, cid, tid, mid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages" && c.Request.Method == http.MethodGet {
-			logListMessagesRequest(log, prod, cid, aid)
+			logListMessagesRequest(logWithCid, prod, cid, aid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files/:file_id" && c.Request.Method == http.MethodGet {
-			logRetrieveMessageFileRequest(log, prod, cid, mid, tid, fid)
+			logRetrieveMessageFileRequest(logWithCid, prod, cid, mid, tid, fid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files" && c.Request.Method == http.MethodGet {
-			logListMessageFilesRequest(log, prod, cid, tid, mid, qm)
+			logListMessageFilesRequest(logWithCid, prod, cid, tid, mid, qm)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs" && c.Request.Method == http.MethodPost {
-			logCreateRunRequest(log, body, prod, private, cid)
+			logCreateRunRequest(logWithCid, body, prod, private, cid)
 
 			rr := &goopenai.RunRequest{}
 			err := json.Unmarshal(body, rr)
 			if err != nil {
-				logError(log, "error when unmarshalling create run request", prod, cid, err)
+				logError(logWithCid, "error when unmarshalling create run request", prod, err)
 			}
 
 			if err == nil {
@@ -958,32 +964,32 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id" && c.Request.Method == http.MethodGet {
-			logRetrieveRunRequest(log, prod, cid, tid, rid)
+			logRetrieveRunRequest(logWithCid, prod, cid, tid, rid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id" && c.Request.Method == http.MethodPost {
-			logModifyRunRequest(log, body, prod, cid, tid, rid)
+			logModifyRunRequest(logWithCid, body, prod, cid, tid, rid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs" && c.Request.Method == http.MethodGet {
-			logListRunsRequest(log, prod, cid, tid, qm)
+			logListRunsRequest(logWithCid, prod, cid, tid, qm)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs" && c.Request.Method == http.MethodPost {
-			logSubmitToolOutputsRequest(log, body, prod, cid, tid, rid)
+			logSubmitToolOutputsRequest(logWithCid, body, prod, cid, tid, rid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/cancel" && c.Request.Method == http.MethodPost {
-			logCancelARunRequest(log, prod, cid, tid, rid)
+			logCancelARunRequest(logWithCid, prod, cid, tid, rid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/runs" && c.Request.Method == http.MethodPost {
-			logCreateThreadAndRunRequest(log, body, prod, private, cid)
+			logCreateThreadAndRunRequest(logWithCid, body, prod, private, cid)
 
 			r := &openai.CreateThreadAndRunRequest{}
 			err := json.Unmarshal(body, r)
 			if err != nil {
-				logError(log, "error when unmarshalling create thread and run request", prod, cid, err)
+				logError(logWithCid, "error when unmarshalling create thread and run request", prod, err)
 			}
 
 			if err == nil {
@@ -993,48 +999,48 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps/:step_id" && c.Request.Method == http.MethodGet {
-			logRetrieveRunStepRequest(log, prod, cid, tid, rid, sid)
+			logRetrieveRunStepRequest(logWithCid, prod, cid, tid, rid, sid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps" && c.Request.Method == http.MethodGet {
-			logListRunStepsRequest(log, prod, cid, tid, rid, qm)
+			logListRunStepsRequest(logWithCid, prod, cid, tid, rid, qm)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/moderations" && c.Request.Method == http.MethodPost {
-			logCreateModerationRequest(log, body, prod, private, cid)
+			logCreateModerationRequest(logWithCid, body, prod, private, cid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/models" && c.Request.Method == http.MethodGet {
-			logCreateModerationRequest(log, body, prod, private, cid)
+			logCreateModerationRequest(logWithCid, body, prod, private, cid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/models/:model" && c.Request.Method == http.MethodGet {
-			logRetrieveModelRequest(log, prod, cid, md)
+			logRetrieveModelRequest(logWithCid, prod, cid, md)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/models/:model" && c.Request.Method == http.MethodDelete {
-			logDeleteModelRequest(log, prod, cid, md)
+			logDeleteModelRequest(logWithCid, prod, cid, md)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodGet {
-			logListFilesRequest(log, prod, cid, qm)
+			logListFilesRequest(logWithCid, prod, cid, qm)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodPost {
 			purpose := c.PostForm("purpose")
-			logUploadFileRequest(log, prod, cid, purpose)
+			logUploadFileRequest(logWithCid, prod, cid, purpose)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/files/:file_id" && c.Request.Method == http.MethodDelete {
-			logDeleteFileRequest(log, prod, cid, fid)
+			logDeleteFileRequest(logWithCid, prod, cid, fid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/files/:file_id" && c.Request.Method == http.MethodGet {
-			logRetrieveFileRequest(log, prod, cid, fid)
+			logRetrieveFileRequest(logWithCid, prod, cid, fid)
 		}
 
 		if c.FullPath() == "/api/providers/openai/v1/files/:file_id/content" && c.Request.Method == http.MethodGet {
-			logRetrieveFileContentRequest(log, prod, cid, fid)
+			logRetrieveFileContentRequest(logWithCid, prod, cid, fid)
 		}
 
 		if ac.GetAccessStatus(kc.KeyId) {
@@ -1049,7 +1055,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			us, err := um.GetUsers(kc.Tags, nil, []string{userId}, 0, 0)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_middleware.get_users_error", nil, 1)
-				logError(log, "error when getting users", prod, cid, err)
+				logError(logWithCid, "error when getting users", prod, err)
 			}
 
 			if len(us) == 1 {
@@ -1093,7 +1099,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		}
 
 		if p != nil && policyInput != nil {
-			err := p.Filter(client, policyInput, scanner, cd, log)
+			err := p.Filter(client, policyInput, scanner, cd, logWithCid)
 			if err == nil {
 				c.Set("action", "allowed")
 			}
@@ -1118,7 +1124,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 					c.Set("action", "redacted")
 				}
 
-				logError(log, "error when filtering a request", prod, cid, err)
+				logError(logWithCid, "error when filtering a request", prod, err)
 			}
 
 			data, err := json.Marshal(policyInput)
@@ -1147,7 +1153,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 						jbs, err := json.Marshal(streamingData)
 						if err != nil {
 							stats.Incr("bricksllm.proxy.get_middleware.streaming_data_json_marshal_error", nil, 1)
-							logError(log, "error when marshalling streaming data into json", prod, cid, err)
+							logError(logWithCid, "error when marshalling streaming data into json", prod, err)
 						}
 
 						responseBytes = jbs

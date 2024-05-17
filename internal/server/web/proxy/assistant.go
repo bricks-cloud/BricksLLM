@@ -12,13 +12,13 @@ func logCreateAssistantRequest(log *zap.Logger, data []byte, prod, private bool,
 	ar := &goopenai.AssistantRequest{}
 	err := json.Unmarshal(data, ar)
 	if err != nil {
-		logError(log, "error when unmarshalling assistant request", prod, cid, err)
+		logError(log, "error when unmarshalling assistant request", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("model", ar.Model),
 			zap.Any("tools", ar.Tools),
 			zap.Any("file_ids", ar.FileIDs),
@@ -39,13 +39,13 @@ func logAssistantResponse(log *zap.Logger, data []byte, prod, private bool, cid 
 	a := &goopenai.Assistant{}
 	err := json.Unmarshal(data, a)
 	if err != nil {
-		logError(log, "error when unmarshalling assistant response", prod, cid, err)
+		logError(log, "error when unmarshalling assistant response", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", cid),
 			zap.String("object", a.Object),
 			zap.Int64("created_at", a.CreatedAt),
@@ -66,7 +66,7 @@ func logAssistantResponse(log *zap.Logger, data []byte, prod, private bool, cid 
 func logRetrieveAssistantRequest(log *zap.Logger, prod bool, cid, assistantId string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", assistantId),
 		}
 
@@ -78,13 +78,13 @@ func logModifyAssistantRequest(log *zap.Logger, data []byte, prod, private bool,
 	ar := &goopenai.AssistantRequest{}
 	err := json.Unmarshal(data, ar)
 	if err != nil {
-		logError(log, "error when unmarshalling modifying assistant request", prod, cid, err)
+		logError(log, "error when unmarshalling modifying assistant request", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", assistantId),
 			zap.String("model", ar.Model),
 			zap.Any("tools", ar.Tools),
@@ -105,7 +105,7 @@ func logModifyAssistantRequest(log *zap.Logger, data []byte, prod, private bool,
 func logDeleteAssistantRequest(log *zap.Logger, prod bool, cid, assistantId string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", assistantId),
 		}
 
@@ -117,13 +117,13 @@ func logDeleteAssistantResponse(log *zap.Logger, data []byte, prod bool, cid str
 	adr := &goopenai.AssistantDeleteResponse{}
 	err := json.Unmarshal(data, adr)
 	if err != nil {
-		logError(log, "error when unmarshalling assistant deletion response", prod, cid, err)
+		logError(log, "error when unmarshalling assistant deletion response", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", adr.ID),
 			zap.String("object", adr.Object),
 			zap.Bool("deleted", adr.Deleted),
@@ -136,7 +136,7 @@ func logDeleteAssistantResponse(log *zap.Logger, data []byte, prod bool, cid str
 func logListAssistantsRequest(log *zap.Logger, prod bool, cid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 		}
 
 		log.Info("openai list assistants request", fields...)
@@ -147,7 +147,7 @@ func logListAssistantsResponse(log *zap.Logger, data []byte, prod, private bool,
 	assistants := &goopenai.AssistantsList{}
 	err := json.Unmarshal(data, assistants)
 	if err != nil {
-		logError(log, "error when unmarshalling list assistants response", prod, cid, err)
+		logError(log, "error when unmarshalling list assistants response", prod, err)
 		return
 	}
 
@@ -159,7 +159,7 @@ func logListAssistantsResponse(log *zap.Logger, data []byte, prod, private bool,
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.Any("assistants", assistants.Assistants),
 		}
 

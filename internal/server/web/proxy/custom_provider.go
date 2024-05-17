@@ -13,9 +13,9 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
-	"go.uber.org/zap"
 )
 
 func getContentFromJson(bytes []byte, contentLoc string) string {
@@ -46,7 +46,7 @@ type ErrorResponse struct {
 	Error *Error `json:"error"`
 }
 
-func getCustomProviderHandler(prod bool, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
+func getCustomProviderHandler(prod bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tags := []string{
 			fmt.Sprintf("path:%s", c.FullPath()),
@@ -67,19 +67,19 @@ func getCustomProviderHandler(prod bool, client http.Client, log *zap.Logger, ti
 			return
 		}
 
-		cid := c.GetString(correlationId)
+		logWithCid := util.GetLogFromCtx(c)
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
 
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading request body", prod, cid, err)
+			logError(logWithCid, "error when reading request body", prod, err)
 			return
 		}
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, rc.TargetUrl, io.NopCloser(bytes.NewReader(body)))
 		if err != nil {
-			logError(log, "error when creating custom provider http request", prod, cid, err)
+			logError(logWithCid, "error when creating custom provider http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create custom provider http request")
 			return
 		}
@@ -98,7 +98,7 @@ func getCustomProviderHandler(prod bool, client http.Client, log *zap.Logger, ti
 		if err != nil {
 			stats.Incr("bricksllm.proxy.get_custom_provider_handler.http_client_error", tags, 1)
 
-			logError(log, "error when sending custom provider request", prod, cid, err)
+			logError(logWithCid, "error when sending custom provider request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send custom provider request")
 			return
 		}
@@ -110,7 +110,7 @@ func getCustomProviderHandler(prod bool, client http.Client, log *zap.Logger, ti
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
-				logError(log, "error when reading custom provider response body", prod, cid, err)
+				logError(logWithCid, "error when reading custom provider response body", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read custom provider response body")
 				return
 			}
@@ -119,7 +119,7 @@ func getCustomProviderHandler(prod bool, client http.Client, log *zap.Logger, ti
 
 			// tks, err := countTokensFromJson(bytes, rc.ResponseCompletionLocation)
 			// if err != nil {
-			// 	logError(log, "error when counting tokens for custom provider completion response", prod, cid, err)
+			// 	logError(log, "error when counting tokens for custom provider completion response", prod, err)
 			// }
 
 			// c.Set("completionTokenCount", tks)
@@ -133,12 +133,12 @@ func getCustomProviderHandler(prod bool, client http.Client, log *zap.Logger, ti
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
-				logError(log, "error when reading custom provider response body", prod, cid, err)
+				logError(logWithCid, "error when reading custom provider response body", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read custom provider response body")
 				return
 			}
 
-			logError(log, "error response from the custom provider", prod, cid, errors.New(string(bytes)))
+			logError(logWithCid, "error response from the custom provider", prod, errors.New(string(bytes)))
 			c.Data(res.StatusCode, "application/json", bytes)
 			return
 		}
@@ -153,7 +153,7 @@ func getCustomProviderHandler(prod bool, client http.Client, log *zap.Logger, ti
 			// tks, err := custom.Count(aggregated)
 			// if err != nil {
 			// 	stats.Incr("bricksllm.proxy.get_custom_provider_handler.count_error", nil, 1)
-			// 	logError(log, "error when counting tokens for custom provider streaming response", prod, cid, err)
+			// 	logError(log, "error when counting tokens for custom provider streaming response", prod, err)
 			// }
 
 			// c.Set("completionTokenCount", tks)
@@ -170,13 +170,13 @@ func getCustomProviderHandler(prod bool, client http.Client, log *zap.Logger, ti
 
 				if errors.Is(err, context.DeadlineExceeded) {
 					stats.Incr("bricksllm.proxy.get_custom_provider_handler.context_deadline_exceeded_error", nil, 1)
-					logError(log, "context deadline exceeded when reading bytes from custom provider response", prod, cid, err)
+					logError(logWithCid, "context deadline exceeded when reading bytes from custom provider response", prod, err)
 
 					return false
 				}
 
 				stats.Incr("bricksllm.proxy.get_custom_provider_handler.read_bytes_error", nil, 1)
-				logError(log, "error when reading bytes from custom provider response", prod, cid, err)
+				logError(logWithCid, "error when reading bytes from custom provider response", prod, err)
 
 				apiErr := &ErrorResponse{
 					Error: &Error{
@@ -188,7 +188,7 @@ func getCustomProviderHandler(prod bool, client http.Client, log *zap.Logger, ti
 				bytes, err := json.Marshal(apiErr)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_custom_provider_handler.json_marshal_error", nil, 1)
-					logError(log, "error when marshalling bytes for custom provider streaming error response", prod, cid, err)
+					logError(logWithCid, "error when marshalling bytes for custom provider streaming error response", prod, err)
 					return true
 				}
 

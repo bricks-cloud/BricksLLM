@@ -13,13 +13,13 @@ func logCreateRunRequest(log *zap.Logger, data []byte, prod, private bool, cid s
 	rr := &goopenai.RunRequest{}
 	err := json.Unmarshal(data, rr)
 	if err != nil {
-		logError(log, "error when unmarshalling create run request", prod, cid, err)
+		logError(log, "error when unmarshalling create run request", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("assistant_id", rr.AssistantID),
 			zap.String("model", rr.Model),
 			zap.Any("tools", rr.Tools),
@@ -38,13 +38,13 @@ func logRunResponse(log *zap.Logger, data []byte, prod, private bool, cid string
 	r := &goopenai.Run{}
 	err := json.Unmarshal(data, r)
 	if err != nil {
-		logError(log, "error when unmarshalling run response", prod, cid, err)
+		logError(log, "error when unmarshalling run response", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", r.ID),
 			zap.String("object", r.Object),
 			zap.Int64("created_at", r.CreatedAt),
@@ -75,7 +75,7 @@ func logRunResponse(log *zap.Logger, data []byte, prod, private bool, cid string
 func logRetrieveRunRequest(log *zap.Logger, prod bool, cid, tid, rid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("thread_id", tid),
 			zap.String("run_id", rid),
 		}
@@ -88,13 +88,13 @@ func logModifyRunRequest(log *zap.Logger, data []byte, prod bool, cid, tid, rid 
 	rr := &goopenai.RunRequest{}
 	err := json.Unmarshal(data, rr)
 	if err != nil {
-		logError(log, "error when unmarshalling modify run request", prod, cid, err)
+		logError(log, "error when unmarshalling modify run request", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("thread_id", tid),
 			zap.String("run_id", rid),
 			zap.Any("metadata", rr.Metadata),
@@ -107,7 +107,7 @@ func logModifyRunRequest(log *zap.Logger, data []byte, prod bool, cid, tid, rid 
 func logListRunsRequest(log *zap.Logger, prod bool, cid, tid string, params map[string]string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("thread_id", tid),
 		}
 
@@ -135,7 +135,7 @@ func logListRunsResponse(log *zap.Logger, data []byte, prod, private bool, cid s
 	r := &goopenai.RunList{}
 	err := json.Unmarshal(data, r)
 	if err != nil {
-		logError(log, "error when unmarshalling list runs response", prod, cid, err)
+		logError(log, "error when unmarshalling list runs response", prod, err)
 		return
 	}
 
@@ -147,7 +147,7 @@ func logListRunsResponse(log *zap.Logger, data []byte, prod, private bool, cid s
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.Any("runs", r.Runs),
 		}
 
@@ -159,13 +159,13 @@ func logSubmitToolOutputsRequest(log *zap.Logger, data []byte, prod bool, cid, t
 	r := &goopenai.SubmitToolOutputsRequest{}
 	err := json.Unmarshal(data, r)
 	if err != nil {
-		logError(log, "error when unmarshalling submit tool outputs request", prod, cid, err)
+		logError(log, "error when unmarshalling submit tool outputs request", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("thread_id", tid),
 			zap.String("run_id", rid),
 			zap.Any("tool_outputs", r.ToolOutputs),
@@ -178,7 +178,7 @@ func logSubmitToolOutputsRequest(log *zap.Logger, data []byte, prod bool, cid, t
 func logCancelARunRequest(log *zap.Logger, prod bool, cid, tid, rid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("thread_id", tid),
 			zap.String("run_id", rid),
 		}
@@ -192,13 +192,13 @@ func logCreateThreadAndRunRequest(log *zap.Logger, data []byte, prod, private bo
 	err := json.Unmarshal(data, r)
 	if err != nil {
 
-		logError(log, "error when unmarshalling create thread and run request", prod, cid, err)
+		logError(log, "error when unmarshalling create thread and run request", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("assistant_id", r.AssistantID),
 			zap.String("model", r.Model),
 			zap.Any("tools", r.Tools),
@@ -216,7 +216,7 @@ func logCreateThreadAndRunRequest(log *zap.Logger, data []byte, prod, private bo
 func logRetrieveRunStepRequest(log *zap.Logger, prod bool, cid, tid, rid, sid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("thread_id", tid),
 			zap.String("run_id", rid),
 			zap.String("step_id", sid),
@@ -230,13 +230,13 @@ func logRetrieveRunStepResponse(log *zap.Logger, data []byte, prod bool, cid str
 	rs := &goopenai.RunStep{}
 	err := json.Unmarshal(data, rs)
 	if err != nil {
-		logError(log, "error when unmarshalling retrieve run step response", prod, cid, err)
+		logError(log, "error when unmarshalling retrieve run step response", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", rs.ID),
 			zap.String("object", rs.Object),
 			zap.Int64("created_at", rs.CreatedAt),
@@ -261,7 +261,7 @@ func logRetrieveRunStepResponse(log *zap.Logger, data []byte, prod bool, cid str
 func logListRunStepsRequest(log *zap.Logger, prod bool, cid, tid, rid string, params map[string]string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("thread_id", tid),
 			zap.String("run_id", rid),
 		}
@@ -290,13 +290,13 @@ func logListRunStepsResponse(log *zap.Logger, data []byte, prod bool, cid string
 	rsl := &goopenai.RunStepList{}
 	err := json.Unmarshal(data, rsl)
 	if err != nil {
-		logError(log, "error when unmarshalling list run steps response", prod, cid, err)
+		logError(log, "error when unmarshalling list run steps response", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.Any("run_steps", rsl.RunSteps),
 		}
 

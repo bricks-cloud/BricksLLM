@@ -11,27 +11,29 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	goopenai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 )
 
-func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, log *zap.Logger, timeout time.Duration) gin.HandlerFunc {
+func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.proxy.get_deepinfra_completions_handler.requests", nil, 1)
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
 			return
 		}
 
-		cid := c.GetString(correlationId)
+		cid := c.GetString(logFiledNameCorrelationId)
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.deepinfra.com/v1/openai/completions", c.Request.Body)
 		if err != nil {
-			logError(log, "error when creating deepinfra http request", prod, cid, err)
+			logError(log, "error when creating deepinfra http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create deepinfra http request")
 			return
 		}
@@ -50,7 +52,7 @@ func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, log 
 		if err != nil {
 			stats.Incr("bricksllm.proxy.get_deepinfra_completions_handler.http_client_error", nil, 1)
 
-			logError(log, "error when sending http request to deepinfra", prod, cid, err)
+			logError(log, "error when sending http request to deepinfra", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send http request to deepinfra")
 			return
 		}
@@ -69,7 +71,7 @@ func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, log 
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
-				logError(log, "error when reading deepinfra http completions response body", prod, cid, err)
+				logError(log, "error when reading deepinfra http completions response body", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read deepinfra response body")
 				return
 			}
@@ -80,7 +82,7 @@ func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, log 
 
 			err = json.Unmarshal(bytes, cr)
 			if err != nil {
-				logError(log, "error when unmarshalling deepinfra http chat completion response body", prod, cid, err)
+				logError(log, "error when unmarshalling deepinfra http chat completion response body", prod, err)
 			}
 
 			if err == nil {
@@ -101,7 +103,7 @@ func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, log 
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
-				logError(log, "error when reading deepinfra http chat completion response body", prod, cid, err)
+				logError(log, "error when reading deepinfra http chat completion response body", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read deepinfra response body")
 				return
 			}
@@ -109,7 +111,7 @@ func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, log 
 			errorRes := &goopenai.ErrorResponse{}
 			err = json.Unmarshal(bytes, errorRes)
 			if err != nil {
-				logError(log, "error when unmarshalling deepinfra chat completion error response body", prod, cid, err)
+				logError(log, "error when unmarshalling deepinfra chat completion error response body", prod, err)
 			}
 
 			logOpenAiError(log, prod, cid, errorRes)
@@ -137,13 +139,13 @@ func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, log 
 
 				if errors.Is(err, context.DeadlineExceeded) {
 					stats.Incr("bricksllm.proxy.get_deepinfra_completions_handler.context_deadline_exceeded_error", nil, 1)
-					logError(log, "context deadline exceeded when reading bytes from deepinfra completions response", prod, cid, err)
+					logError(log, "context deadline exceeded when reading bytes from deepinfra completions response", prod, err)
 
 					return false
 				}
 
 				stats.Incr("bricksllm.proxy.get_deepinfra_completions_handler.read_bytes_error", nil, 1)
-				logError(log, "error when reading bytes from deepinfra completions response", prod, cid, err)
+				logError(log, "error when reading bytes from deepinfra completions response", prod, err)
 
 				apiErr := &goopenai.ErrorResponse{
 					Error: &goopenai.APIError{
@@ -155,7 +157,7 @@ func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, log 
 				bytes, err := json.Marshal(apiErr)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_deepinfra_completions_handler.json_marshal_error", nil, 1)
-					logError(log, "error when marshalling bytes for deepinfra streaming chat completion error response", prod, cid, err)
+					logError(log, "error when marshalling bytes for deepinfra streaming chat completion error response", prod, err)
 					return false
 				}
 
@@ -182,7 +184,7 @@ func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, log 
 			err = json.Unmarshal(noPrefixLine, completionsStreamResp)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_deepinfra_completions_handler.completion_response_unmarshall_error", nil, 1)
-				logError(log, "error when unmarshalling deepinfra completions stream response", prod, cid, err)
+				logError(log, "error when unmarshalling deepinfra completions stream response", prod, err)
 			}
 
 			if err == nil {
@@ -199,22 +201,23 @@ func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, log 
 	}
 }
 
-func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, log *zap.Logger, timeout time.Duration) gin.HandlerFunc {
+func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.proxy.get_deepinfra_chat_completions_handler.requests", nil, 1)
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
 			return
 		}
 
-		cid := c.GetString(correlationId)
+		cid := c.GetString(logFiledNameCorrelationId)
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.deepinfra.com/v1/openai/chat/completions", c.Request.Body)
 		if err != nil {
-			logError(log, "error when creating deepinfra chat completions http request", prod, cid, err)
+			logError(log, "error when creating deepinfra chat completions http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create deepinfra http request")
 			return
 		}
@@ -233,7 +236,7 @@ func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, 
 		if err != nil {
 			stats.Incr("bricksllm.proxy.get_deepinfra_chat_completions_handler.http_client_error", nil, 1)
 
-			logError(log, "error when sending http request to deepinfra", prod, cid, err)
+			logError(log, "error when sending http request to deepinfra", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send http request to deepinfra")
 			return
 		}
@@ -252,7 +255,7 @@ func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, 
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
-				logError(log, "error when reading vllm chat completions response body", prod, cid, err)
+				logError(log, "error when reading vllm chat completions response body", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read vllm response body")
 				return
 			}
@@ -263,7 +266,7 @@ func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, 
 
 			err = json.Unmarshal(bytes, chatRes)
 			if err != nil {
-				logError(log, "error when unmarshalling deepinfra chat completions response body", prod, cid, err)
+				logError(log, "error when unmarshalling deepinfra chat completions response body", prod, err)
 			}
 
 			if err == nil {
@@ -284,7 +287,7 @@ func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, 
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
-				logError(log, "error when reading deepinfra chat completions response body", prod, cid, err)
+				logError(log, "error when reading deepinfra chat completions response body", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read deepinfras response body")
 				return
 			}
@@ -313,13 +316,13 @@ func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, 
 
 				if errors.Is(err, context.DeadlineExceeded) {
 					stats.Incr("bricksllm.proxy.get_deepinfra_chat_completions_handler.context_deadline_exceeded_error", nil, 1)
-					logError(log, "context deadline exceeded when reading bytes from deepinfra chat completions response", prod, cid, err)
+					logError(log, "context deadline exceeded when reading bytes from deepinfra chat completions response", prod, err)
 
 					return false
 				}
 
 				stats.Incr("bricksllm.proxy.get_deepinfra_chat_completions_handler.read_bytes_error", nil, 1)
-				logError(log, "error when reading bytes from deepinfra chat completions response", prod, cid, err)
+				logError(log, "error when reading bytes from deepinfra chat completions response", prod, err)
 
 				apiErr := &goopenai.ErrorResponse{
 					Error: &goopenai.APIError{
@@ -331,7 +334,7 @@ func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, 
 				bytes, err := json.Marshal(apiErr)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_deepinfra_chat_completions_handler.json_marshal_error", nil, 1)
-					logError(log, "error when marshalling bytes for streaming deepinfra chat completions error response", prod, cid, err)
+					logError(log, "error when marshalling bytes for streaming deepinfra chat completions error response", prod, err)
 					return false
 				}
 
@@ -358,7 +361,7 @@ func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, 
 			err = json.Unmarshal(noPrefixLine, chatCompletionStreamResp)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_deepinfra_chat_completions_handler.completion_response_unmarshall_error", nil, 1)
-				logError(log, "error when unmarshalling deepinfra chat completions stream response", prod, cid, err)
+				logError(log, "error when unmarshalling deepinfra chat completions stream response", prod, err)
 			}
 
 			if err == nil {
@@ -382,14 +385,14 @@ func getDeepinfraEmbeddingsHandler(prod, private bool, client http.Client, log *
 			return
 		}
 
-		cid := c.GetString(correlationId)
+		cid := c.GetString(logFiledNameCorrelationId)
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.deepinfra.com/v1/openai/embeddings", c.Request.Body)
 		if err != nil {
-			logError(log, "error when creating deepinfra embeddings http request", prod, cid, err)
+			logError(log, "error when creating deepinfra embeddings http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create deepinfra http request")
 			return
 		}
@@ -400,7 +403,7 @@ func getDeepinfraEmbeddingsHandler(prod, private bool, client http.Client, log *
 		if err != nil {
 			stats.Incr("bricksllm.proxy.get_deepinfra_embeddings_handler.http_client_error", nil, 1)
 
-			logError(log, "error when sending http request to deepinfra", prod, cid, err)
+			logError(log, "error when sending http request to deepinfra", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send http request to deepinfra")
 			return
 		}
@@ -412,7 +415,7 @@ func getDeepinfraEmbeddingsHandler(prod, private bool, client http.Client, log *
 
 		bytes, err := io.ReadAll(res.Body)
 		if err != nil {
-			logError(log, "error when reading deepinfra embedding response body", prod, cid, err)
+			logError(log, "error when reading deepinfra embedding response body", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read deepinfra openai embedding response body")
 			return
 		}
@@ -427,7 +430,7 @@ func getDeepinfraEmbeddingsHandler(prod, private bool, client http.Client, log *
 
 			err = json.Unmarshal(bytes, chatRes)
 			if err != nil {
-				logError(log, "error when unmarshalling deepinfra openai embedding response body", prod, cid, err)
+				logError(log, "error when unmarshalling deepinfra openai embedding response body", prod, err)
 			}
 
 			model := c.GetString("model")
@@ -441,7 +444,7 @@ func getDeepinfraEmbeddingsHandler(prod, private bool, client http.Client, log *
 				cost, err = e.EstimateEmbeddingsInputCost(model, totalTokens)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_deepinfra_embeddings_handler.estimate_total_cost_error", nil, 1)
-					logError(log, "error when estimating azure openai cost for embedding", prod, cid, err)
+					logError(log, "error when estimating azure openai cost for embedding", prod, err)
 				}
 			}
 		}
@@ -455,7 +458,7 @@ func getDeepinfraEmbeddingsHandler(prod, private bool, client http.Client, log *
 			errorRes := &goopenai.ErrorResponse{}
 			err = json.Unmarshal(bytes, errorRes)
 			if err != nil {
-				logError(log, "error when unmarshalling deepinfra openai embedding error response body", prod, cid, err)
+				logError(log, "error when unmarshalling deepinfra openai embedding error response body", prod, err)
 			}
 
 			logOpenAiError(log, prod, cid, errorRes)

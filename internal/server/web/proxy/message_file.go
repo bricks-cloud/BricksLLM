@@ -11,7 +11,7 @@ import (
 func logRetrieveMessageFileRequest(log *zap.Logger, prod bool, cid, tid, mid, fid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("thread_id", tid),
 			zap.String("message_id", mid),
 			zap.String("file_id", fid),
@@ -25,13 +25,13 @@ func logRetrieveMessageFileResponse(log *zap.Logger, data []byte, prod bool, cid
 	mf := &goopenai.MessageFile{}
 	err := json.Unmarshal(data, mf)
 	if err != nil {
-		logError(log, "error when unmarshalling message file response", prod, cid, err)
+		logError(log, "error when unmarshalling message file response", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", mf.ID),
 			zap.String("object", mf.Object),
 			zap.Int("created_at", mf.CreatedAt),
@@ -45,7 +45,7 @@ func logRetrieveMessageFileResponse(log *zap.Logger, data []byte, prod bool, cid
 func logListMessageFilesRequest(log *zap.Logger, prod bool, cid, tid, mid string, params map[string]string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("thread_id", tid),
 			zap.String("message_id", mid),
 		}
@@ -74,13 +74,13 @@ func logListMessageFilesResponse(log *zap.Logger, data []byte, prod bool, cid st
 	files := &goopenai.MessageFilesList{}
 	err := json.Unmarshal(data, files)
 	if err != nil {
-		logError(log, "error when unmarshalling list message files response", prod, cid, err)
+		logError(log, "error when unmarshalling list message files response", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.Any("message_files", files.MessageFiles),
 		}
 

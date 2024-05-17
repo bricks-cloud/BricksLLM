@@ -21,7 +21,7 @@ func getAzureEmbeddingsHandler(prod, private bool, client http.Client, log *zap.
 			return
 		}
 
-		cid := c.GetString(correlationId)
+		cid := c.GetString(logFiledNameCorrelationId)
 		// raw, exists := c.Get("key")
 		// kc, ok := raw.(*key.ResponseKey)
 		// if !exists || !ok {
@@ -35,7 +35,7 @@ func getAzureEmbeddingsHandler(prod, private bool, client http.Client, log *zap.
 
 		req, err := http.NewRequestWithContext(ctx, c.Request.Method, buildAzureUrl(c.FullPath(), c.Param("deployment_id"), c.Query("api-version"), c.GetString("resourceName")), c.Request.Body)
 		if err != nil {
-			logError(log, "error when creating openai http request", prod, cid, err)
+			logError(log, "error when creating openai http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai http request")
 			return
 		}
@@ -48,7 +48,7 @@ func getAzureEmbeddingsHandler(prod, private bool, client http.Client, log *zap.
 		if err != nil {
 			stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.http_client_error", nil, 1)
 
-			logError(log, "error when sending embedding request to azure openai", prod, cid, err)
+			logError(log, "error when sending embedding request to azure openai", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send embedding request to azure openai")
 			return
 		}
@@ -59,7 +59,7 @@ func getAzureEmbeddingsHandler(prod, private bool, client http.Client, log *zap.
 
 		bytes, err := io.ReadAll(res.Body)
 		if err != nil {
-			logError(log, "error when reading openai embedding response body", prod, cid, err)
+			logError(log, "error when reading openai embedding response body", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read azure openai embedding response body")
 			return
 		}
@@ -77,14 +77,14 @@ func getAzureEmbeddingsHandler(prod, private bool, client http.Client, log *zap.
 			if format == "base64" {
 				err = json.Unmarshal(bytes, base64ChatRes)
 				if err != nil {
-					logError(log, "error when unmarshalling azure openai base64 embedding response body", prod, cid, err)
+					logError(log, "error when unmarshalling azure openai base64 embedding response body", prod, err)
 				}
 			}
 
 			if format != "base64" {
 				err = json.Unmarshal(bytes, chatRes)
 				if err != nil {
-					logError(log, "error when unmarshalling azure openai embedding response body", prod, cid, err)
+					logError(log, "error when unmarshalling azure openai embedding response body", prod, err)
 				}
 			}
 
@@ -107,14 +107,14 @@ func getAzureEmbeddingsHandler(prod, private bool, client http.Client, log *zap.
 				cost, err = aoe.EstimateEmbeddingsInputCost(model, totalTokens)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.estimate_total_cost_error", nil, 1)
-					logError(log, "error when estimating azure openai cost for embedding", prod, cid, err)
+					logError(log, "error when estimating azure openai cost for embedding", prod, err)
 				}
 
 				// micros := int64(cost * 1000000)
 				// err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
 				// if err != nil {
 				// 	stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.record_key_spend_error", nil, 1)
-				// 	logError(log, "error when recording azure openai spend for embedding", prod, cid, err)
+				// 	logError(log, "error when recording azure openai spend for embedding", prod, err)
 				// }
 			}
 		}
@@ -129,7 +129,7 @@ func getAzureEmbeddingsHandler(prod, private bool, client http.Client, log *zap.
 			errorRes := &goopenai.ErrorResponse{}
 			err = json.Unmarshal(bytes, errorRes)
 			if err != nil {
-				logError(log, "error when unmarshalling azure openai embedding error response body", prod, cid, err)
+				logError(log, "error when unmarshalling azure openai embedding error response body", prod, err)
 			}
 
 			logOpenAiError(log, prod, cid, errorRes)

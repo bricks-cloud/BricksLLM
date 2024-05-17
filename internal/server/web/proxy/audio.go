@@ -13,14 +13,16 @@ import (
 
 	"github.com/asticode/go-astisub"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	goopenai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-func getSpeechHandler(prod bool, client http.Client, log *zap.Logger, timeOut time.Duration) gin.HandlerFunc {
+func getSpeechHandler(prod bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.proxy.get_speech_handler.requests", nil, 1)
 
 		if c == nil || c.Request == nil {
@@ -28,14 +30,14 @@ func getSpeechHandler(prod bool, client http.Client, log *zap.Logger, timeOut ti
 			return
 		}
 
-		cid := c.GetString(correlationId)
+		cid := c.GetString(logFiledNameCorrelationId)
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, c.Request.Method, "https://api.openai.com/v1/audio/speech", c.Request.Body)
 		if err != nil {
-			logError(log, "error when creating openai http request", prod, cid, err)
+			logError(log, "error when creating openai http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai http request")
 			return
 		}
@@ -48,7 +50,7 @@ func getSpeechHandler(prod bool, client http.Client, log *zap.Logger, timeOut ti
 		if err != nil {
 			stats.Incr("bricksllm.proxy.get_speech_handler.http_client_error", nil, 1)
 
-			logError(log, "error when sending create speech request to openai", prod, cid, err)
+			logError(log, "error when sending create speech request to openai", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send create speech request to openai")
 			return
 		}
@@ -59,7 +61,7 @@ func getSpeechHandler(prod bool, client http.Client, log *zap.Logger, timeOut ti
 
 		bytes, err := io.ReadAll(res.Body)
 		if err != nil {
-			logError(log, "error when reading openai create speech response body", prod, cid, err)
+			logError(log, "error when reading openai create speech response body", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read openai create speech response body")
 			return
 		}
@@ -76,7 +78,7 @@ func getSpeechHandler(prod bool, client http.Client, log *zap.Logger, timeOut ti
 			errorRes := &goopenai.ErrorResponse{}
 			err = json.Unmarshal(bytes, errorRes)
 			if err != nil {
-				logError(log, "error when unmarshalling openai create speech error response body", prod, cid, err)
+				logError(log, "error when unmarshalling openai create speech error response body", prod, err)
 			}
 
 			logOpenAiError(log, prod, cid, errorRes)
@@ -176,14 +178,14 @@ func getTranscriptionsHandler(prod bool, client http.Client, log *zap.Logger, ti
 			return
 		}
 
-		cid := c.GetString(correlationId)
+		cid := c.GetString(logFiledNameCorrelationId)
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, c.Request.Method, "https://api.openai.com/v1/audio/transcriptions", c.Request.Body)
 		if err != nil {
-			logError(log, "error when creating transcriptions openai http request", prod, cid, err)
+			logError(log, "error when creating transcriptions openai http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai transcriptions http request")
 			return
 		}
@@ -204,7 +206,7 @@ func getTranscriptionsHandler(prod bool, client http.Client, log *zap.Logger, ti
 		})
 		if err != nil {
 			stats.Incr("bricksllm.proxy.get_transcriptions_handler.write_field_to_buffer_error", nil, 1)
-			logError(log, "error when writing field to buffer", prod, cid, err)
+			logError(log, "error when writing field to buffer", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot write field to buffer")
 			return
 		}
@@ -216,7 +218,7 @@ func getTranscriptionsHandler(prod bool, client http.Client, log *zap.Logger, ti
 			fieldWriter, err := writer.CreateFormFile("file", form.File.Filename)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_transcriptions_handler.create_transcription_file_error", nil, 1)
-				logError(log, "error when creating transcription file", prod, cid, err)
+				logError(log, "error when creating transcription file", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create transcription file")
 				return
 			}
@@ -224,7 +226,7 @@ func getTranscriptionsHandler(prod bool, client http.Client, log *zap.Logger, ti
 			opened, err := form.File.Open()
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_transcriptions_handler.open_transcription_file_error", nil, 1)
-				logError(log, "error when openning transcription file", prod, cid, err)
+				logError(log, "error when openning transcription file", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open transcription file")
 				return
 			}
@@ -232,7 +234,7 @@ func getTranscriptionsHandler(prod bool, client http.Client, log *zap.Logger, ti
 			_, err = io.Copy(fieldWriter, opened)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_transcriptions_handler.copy_transcription_file_error", nil, 1)
-				logError(log, "error when copying transcription file", prod, cid, err)
+				logError(log, "error when copying transcription file", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy transcription file")
 				return
 			}
@@ -248,7 +250,7 @@ func getTranscriptionsHandler(prod bool, client http.Client, log *zap.Logger, ti
 		if err != nil {
 			stats.Incr("bricksllm.proxy.get_transcriptions_handler.http_client_error", nil, 1)
 
-			logError(log, "error when sending transcriptions request to openai", prod, cid, err)
+			logError(log, "error when sending transcriptions request to openai", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send transcriptions request to openai")
 			return
 		}
@@ -259,7 +261,7 @@ func getTranscriptionsHandler(prod bool, client http.Client, log *zap.Logger, ti
 
 		bytes, err := io.ReadAll(res.Body)
 		if err != nil {
-			logError(log, "error when reading openai transcriptions response body", prod, cid, err)
+			logError(log, "error when reading openai transcriptions response body", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read openai transcriptions response body")
 			return
 		}
@@ -283,14 +285,14 @@ func getTranscriptionsHandler(prod bool, client http.Client, log *zap.Logger, ti
 			ar := &goopenai.AudioResponse{}
 			err = json.Unmarshal(bytes, ar)
 			if err != nil {
-				logError(log, "error when unmarshalling openai http audio response body", prod, cid, err)
+				logError(log, "error when unmarshalling openai http audio response body", prod, err)
 			}
 
 			if err == nil {
 				cost, err := e.EstimateTranscriptionCost(ar.Duration, c.GetString("model"))
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_transcriptions_handler.estimate_total_cost_error", nil, 1)
-					logError(log, "error when estimating openai cost", prod, cid, err)
+					logError(log, "error when estimating openai cost", prod, err)
 				}
 
 				c.Set("costInUsd", cost)
@@ -299,7 +301,7 @@ func getTranscriptionsHandler(prod bool, client http.Client, log *zap.Logger, ti
 			data, err := convertVerboseJson(ar, format)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_transcriptions_handler.convert_verbose_json_error", nil, 1)
-				logError(log, "error when converting verbose json", prod, cid, err)
+				logError(log, "error when converting verbose json", prod, err)
 			}
 
 			c.Header("Content-Length", strconv.Itoa(len(data)))
@@ -315,7 +317,7 @@ func getTranscriptionsHandler(prod bool, client http.Client, log *zap.Logger, ti
 			errorRes := &goopenai.ErrorResponse{}
 			err = json.Unmarshal(bytes, errorRes)
 			if err != nil {
-				logError(log, "error when unmarshalling openai transcriptions error response body", prod, cid, err)
+				logError(log, "error when unmarshalling openai transcriptions error response body", prod, err)
 			}
 
 			logOpenAiError(log, prod, cid, errorRes)
@@ -336,14 +338,14 @@ func getTranslationsHandler(prod bool, client http.Client, log *zap.Logger, time
 			return
 		}
 
-		cid := c.GetString(correlationId)
+		cid := c.GetString(logFiledNameCorrelationId)
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, c.Request.Method, "https://api.openai.com/v1/audio/translations", c.Request.Body)
 		if err != nil {
-			logError(log, "error when creating translations openai http request", prod, cid, err)
+			logError(log, "error when creating translations openai http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai translations http request")
 			return
 		}
@@ -363,7 +365,7 @@ func getTranslationsHandler(prod bool, client http.Client, log *zap.Logger, time
 		})
 		if err != nil {
 			stats.Incr("bricksllm.proxy.get_pass_through_handler.write_field_to_buffer_error", nil, 1)
-			logError(log, "error when writing field to buffer", prod, cid, err)
+			logError(log, "error when writing field to buffer", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot write field to buffer")
 			return
 		}
@@ -375,7 +377,7 @@ func getTranslationsHandler(prod bool, client http.Client, log *zap.Logger, time
 			fieldWriter, err := writer.CreateFormFile("file", form.File.Filename)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_pass_through_handler.create_translation_file_error", nil, 1)
-				logError(log, "error when creating translation file", prod, cid, err)
+				logError(log, "error when creating translation file", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create translation file")
 				return
 			}
@@ -383,7 +385,7 @@ func getTranslationsHandler(prod bool, client http.Client, log *zap.Logger, time
 			opened, err := form.File.Open()
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_pass_through_handler.open_translation_file_error", nil, 1)
-				logError(log, "error when openning translation file", prod, cid, err)
+				logError(log, "error when openning translation file", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open translation file")
 				return
 			}
@@ -391,7 +393,7 @@ func getTranslationsHandler(prod bool, client http.Client, log *zap.Logger, time
 			_, err = io.Copy(fieldWriter, opened)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_translation_file_error", nil, 1)
-				logError(log, "error when copying translation file", prod, cid, err)
+				logError(log, "error when copying translation file", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy translation file")
 				return
 			}
@@ -409,7 +411,7 @@ func getTranslationsHandler(prod bool, client http.Client, log *zap.Logger, time
 		if err != nil {
 			stats.Incr("bricksllm.proxy.get_translations_handler.http_client_error", nil, 1)
 
-			logError(log, "error when sending translations request to openai", prod, cid, err)
+			logError(log, "error when sending translations request to openai", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send translations request to openai")
 			return
 		}
@@ -420,7 +422,7 @@ func getTranslationsHandler(prod bool, client http.Client, log *zap.Logger, time
 
 		bytes, err := io.ReadAll(res.Body)
 		if err != nil {
-			logError(log, "error when reading openai translations response body", prod, cid, err)
+			logError(log, "error when reading openai translations response body", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read openai translations response body")
 			return
 		}
@@ -444,14 +446,14 @@ func getTranslationsHandler(prod bool, client http.Client, log *zap.Logger, time
 			ar := &goopenai.AudioResponse{}
 			err = json.Unmarshal(bytes, ar)
 			if err != nil {
-				logError(log, "error when unmarshalling openai http audio response body", prod, cid, err)
+				logError(log, "error when unmarshalling openai http audio response body", prod, err)
 			}
 
 			if err == nil {
 				cost, err := e.EstimateTranscriptionCost(ar.Duration, c.GetString("model"))
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_translations_handler.estimate_total_cost_error", nil, 1)
-					logError(log, "error when estimating openai cost", prod, cid, err)
+					logError(log, "error when estimating openai cost", prod, err)
 				}
 
 				c.Set("costInUsd", cost)
@@ -460,7 +462,7 @@ func getTranslationsHandler(prod bool, client http.Client, log *zap.Logger, time
 			data, err := convertVerboseJson(ar, format)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_translations_handler.convert_verbose_json_error", nil, 1)
-				logError(log, "error when converting verbose json", prod, cid, err)
+				logError(log, "error when converting verbose json", prod, err)
 			}
 
 			c.Header("Content-Length", strconv.Itoa(len(data)))
@@ -476,7 +478,7 @@ func getTranslationsHandler(prod bool, client http.Client, log *zap.Logger, time
 			errorRes := &goopenai.ErrorResponse{}
 			err = json.Unmarshal(bytes, errorRes)
 			if err != nil {
-				logError(log, "error when unmarshalling openai translations error response body", prod, cid, err)
+				logError(log, "error when unmarshalling openai translations error response body", prod, err)
 			}
 
 			logOpenAiError(log, prod, cid, errorRes)
@@ -499,7 +501,7 @@ type SpeechRequest struct {
 func logCreateSpeechRequest(log *zap.Logger, csr *goopenai.CreateSpeechRequest, prod, private bool, cid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("model", string(csr.Model)),
 			zap.String("voice", string(csr.Voice)),
 		}
@@ -523,7 +525,7 @@ func logCreateSpeechRequest(log *zap.Logger, csr *goopenai.CreateSpeechRequest, 
 func logCreateTranscriptionRequest(log *zap.Logger, model, language, prompt, responseFormat string, temperature float64, prod, private bool, cid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("model", model),
 		}
 
@@ -550,7 +552,7 @@ func logCreateTranscriptionRequest(log *zap.Logger, model, language, prompt, res
 func logCreateTranslationRequest(log *zap.Logger, model, prompt, responseFormat string, temperature float64, prod, private bool, cid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("model", model),
 			zap.Float64("temperature", temperature),
 		}

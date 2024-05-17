@@ -17,13 +17,13 @@ func logCreateModerationRequest(log *zap.Logger, data []byte, prod, private bool
 	mr := &ModerationRequest{}
 	err := json.Unmarshal(data, mr)
 	if err != nil {
-		logError(log, "error when unmarshalling create moderation request", prod, cid, err)
+		logError(log, "error when unmarshalling create moderation request", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 		}
 
 		if !private {
@@ -46,13 +46,13 @@ func logCreateModerationResponse(log *zap.Logger, data []byte, prod bool, cid st
 	mr := &goopenai.ModerationResponse{}
 	err := json.Unmarshal(data, mr)
 	if err != nil {
-		logError(log, "error when unmarshalling create moderation response", prod, cid, err)
+		logError(log, "error when unmarshalling create moderation response", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", mr.ID),
 			zap.String("model", mr.Model),
 			zap.Any("results", mr.Results),
