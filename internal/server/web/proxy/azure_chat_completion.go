@@ -34,14 +34,14 @@ func getAzureChatCompletionHandler(prod, private bool, client http.Client, log *
 			return
 		}
 
-		cid := c.GetString(correlationId)
+		cid := c.GetString(logFiledNameCorrelationId)
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, buildAzureUrl(c.FullPath(), c.Param("deployment_id"), c.Query("api-version"), c.GetString("resourceName")), c.Request.Body)
 		if err != nil {
-			logError(log, "error when creating azure openai http request", prod, cid, err)
+			logError(log, "error when creating azure openai http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create azure openai http request")
 			return
 		}
@@ -59,7 +59,7 @@ func getAzureChatCompletionHandler(prod, private bool, client http.Client, log *
 		res, err := client.Do(req)
 		if err != nil {
 			stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.http_client_error", nil, 1)
-			logError(log, "error when sending chat completion http request to azure openai", prod, cid, err)
+			logError(log, "error when sending chat completion http request to azure openai", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send chat completion request to azure openai")
 			return
 		}
@@ -78,7 +78,7 @@ func getAzureChatCompletionHandler(prod, private bool, client http.Client, log *
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
-				logError(log, "error when reading azure openai chat completion response body", prod, cid, err)
+				logError(log, "error when reading azure openai chat completion response body", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read azure openai response body")
 				return
 			}
@@ -90,7 +90,7 @@ func getAzureChatCompletionHandler(prod, private bool, client http.Client, log *
 
 			err = json.Unmarshal(bytes, chatRes)
 			if err != nil {
-				logError(log, "error when unmarshalling azure openai http chat completion response body", prod, cid, err)
+				logError(log, "error when unmarshalling azure openai http chat completion response body", prod, err)
 			}
 
 			if err == nil {
@@ -100,14 +100,14 @@ func getAzureChatCompletionHandler(prod, private bool, client http.Client, log *
 				cost, err = aoe.EstimateTotalCost(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.estimate_total_cost_error", nil, 1)
-					logError(log, "error when estimating azure openai cost", prod, cid, err)
+					logError(log, "error when estimating azure openai cost", prod, err)
 				}
 
 				// micros := int64(cost * 1000000)
 				// err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
 				// if err != nil {
 				// 	stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.record_key_spend_error", nil, 1)
-				// 	logError(log, "error when recording azure openai spend", prod, cid, err)
+				// 	logError(log, "error when recording azure openai spend", prod, err)
 				// }
 			}
 
@@ -126,7 +126,7 @@ func getAzureChatCompletionHandler(prod, private bool, client http.Client, log *
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
-				logError(log, "error when reading azyre openai http chat completion response body", prod, cid, err)
+				logError(log, "error when reading azyre openai http chat completion response body", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read azure openai response body")
 				return
 			}
@@ -152,14 +152,14 @@ func getAzureChatCompletionHandler(prod, private bool, client http.Client, log *
 			// tks, cost, err := aoe.EstimateChatCompletionStreamCostWithTokenCounts(model, content)
 			// if err != nil {
 			// 	stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.estimate_chat_completion_cost_and_tokens_error", nil, 1)
-			// 	logError(log, "error when estimating azure openai chat completion stream cost with token counts", prod, cid, err)
+			// 	logError(log, "error when estimating azure openai chat completion stream cost with token counts", prod, err)
 			// }
 
 			// estimatedPromptTokenCounts := c.GetInt("promptTokenCount")
 			// promptCost, err := aoe.EstimatePromptCost(model, estimatedPromptTokenCounts)
 			// if err != nil {
 			// 	stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.estimate_chat_completion_cost_and_tokens_error", nil, 1)
-			// 	logError(log, "error when estimating azure openai chat completion stream cost with token counts", prod, cid, err)
+			// 	logError(log, "error when estimating azure openai chat completion stream cost with token counts", prod, err)
 			// }
 
 			// totalCost = cost + promptCost
@@ -180,13 +180,13 @@ func getAzureChatCompletionHandler(prod, private bool, client http.Client, log *
 
 				if errors.Is(err, context.DeadlineExceeded) {
 					stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.context_deadline_exceeded_error", nil, 1)
-					logError(log, "context deadline exceeded when reading bytes from azure openai chat completion response", prod, cid, err)
+					logError(log, "context deadline exceeded when reading bytes from azure openai chat completion response", prod, err)
 
 					return false
 				}
 
 				stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.read_bytes_error", nil, 1)
-				logError(log, "error when reading bytes from azure openai chat completion response", prod, cid, err)
+				logError(log, "error when reading bytes from azure openai chat completion response", prod, err)
 
 				apiErr := &goopenai.ErrorResponse{
 					Error: &goopenai.APIError{
@@ -198,7 +198,7 @@ func getAzureChatCompletionHandler(prod, private bool, client http.Client, log *
 				bytes, err := json.Marshal(apiErr)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.json_marshal_error", nil, 1)
-					logError(log, "error when marshalling bytes for openai streaming chat completion error response", prod, cid, err)
+					logError(log, "error when marshalling bytes for openai streaming chat completion error response", prod, err)
 					return true
 				}
 
@@ -222,7 +222,7 @@ func getAzureChatCompletionHandler(prod, private bool, client http.Client, log *
 			err = json.Unmarshal(noPrefixLine, chatCompletionStreamResp)
 			if err != nil {
 				stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.completion_response_unmarshall_error", nil, 1)
-				logError(log, "error when unmarshalling azure openai chat completion stream response", prod, cid, err)
+				logError(log, "error when unmarshalling azure openai chat completion stream response", prod, err)
 			}
 
 			if len(model) == 0 && len(chatCompletionStreamResp.Model) != 0 {

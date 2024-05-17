@@ -12,13 +12,13 @@ func logCreateAssistantFileRequest(log *zap.Logger, data []byte, prod bool, cid,
 	afr := &goopenai.AssistantFileRequest{}
 	err := json.Unmarshal(data, afr)
 	if err != nil {
-		logError(log, "error when unmarshalling create assistant file request", prod, cid, err)
+		logError(log, "error when unmarshalling create assistant file request", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("assistant_id", aid),
 			zap.String("file_id", afr.FileID),
 		}
@@ -31,13 +31,13 @@ func logAssistantFileResponse(log *zap.Logger, data []byte, prod bool, cid strin
 	af := &goopenai.AssistantFile{}
 	err := json.Unmarshal(data, af)
 	if err != nil {
-		logError(log, "error when unmarshalling assistant file request", prod, cid, err)
+		logError(log, "error when unmarshalling assistant file request", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("assistant_id", af.AssistantID),
 			zap.String("id", af.ID),
 			zap.String("object", af.Object),
@@ -51,7 +51,7 @@ func logAssistantFileResponse(log *zap.Logger, data []byte, prod bool, cid strin
 func logRetrieveAssistantFileRequest(log *zap.Logger, prod bool, cid, fid, aid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("assistant_id", aid),
 			zap.String("file_id", fid),
 		}
@@ -63,7 +63,7 @@ func logRetrieveAssistantFileRequest(log *zap.Logger, prod bool, cid, fid, aid s
 func logDeleteAssistantFileRequest(log *zap.Logger, prod bool, cid, fid, aid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("assistant_id", aid),
 			zap.String("file_id", fid),
 		}
@@ -76,13 +76,13 @@ func logDeleteAssistantFileResponse(log *zap.Logger, data []byte, prod bool, cid
 	dr := &goopenai.AssistantDeleteResponse{}
 	err := json.Unmarshal(data, dr)
 	if err != nil {
-		logError(log, "error when unmarshalling delete assistant file response", prod, cid, err)
+		logError(log, "error when unmarshalling delete assistant file response", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", dr.ID),
 			zap.String("object", dr.Object),
 			zap.Bool("deleted", dr.Deleted),
@@ -95,7 +95,7 @@ func logDeleteAssistantFileResponse(log *zap.Logger, data []byte, prod bool, cid
 func logListAssistantFilesRequest(log *zap.Logger, prod bool, cid, aid string, params map[string]string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("assistant_id", aid),
 		}
 
@@ -123,13 +123,13 @@ func logListAssistantFilesResponse(log *zap.Logger, data []byte, prod bool, cid 
 	files := &goopenai.AssistantFilesList{}
 	err := json.Unmarshal(data, files)
 	if err != nil {
-		logError(log, "error when unmarshalling list assistant files response", prod, cid, err)
+		logError(log, "error when unmarshalling list assistant files response", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.Any("assistant_files", files.AssistantFiles),
 		}
 

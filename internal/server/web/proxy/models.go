@@ -12,13 +12,13 @@ func logListModelsResponse(log *zap.Logger, data []byte, prod bool, cid string) 
 	models := &goopenai.ModelsList{}
 	err := json.Unmarshal(data, models)
 	if err != nil {
-		logError(log, "error when unmarshalling list models response", prod, cid, err)
+		logError(log, "error when unmarshalling list models response", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.Any("models", models.Models),
 		}
 
@@ -29,7 +29,7 @@ func logListModelsResponse(log *zap.Logger, data []byte, prod bool, cid string) 
 func logRetrieveModelRequest(log *zap.Logger, prod bool, cid, model string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("model", model),
 		}
 
@@ -41,13 +41,13 @@ func logRetrieveModelResponse(log *zap.Logger, data []byte, prod bool, cid strin
 	model := &goopenai.Model{}
 	err := json.Unmarshal(data, model)
 	if err != nil {
-		logError(log, "error when unmarshalling retrieve model response", prod, cid, err)
+		logError(log, "error when unmarshalling retrieve model response", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", model.ID),
 			zap.Int64("created", model.CreatedAt),
 			zap.String("object", model.Object),
@@ -61,7 +61,7 @@ func logRetrieveModelResponse(log *zap.Logger, data []byte, prod bool, cid strin
 func logDeleteModelRequest(log *zap.Logger, prod bool, cid, model string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("model", model),
 		}
 
@@ -79,13 +79,13 @@ func logDeleteModelResponse(log *zap.Logger, data []byte, prod bool, cid string)
 	resp := &DeletionResponse{}
 	err := json.Unmarshal(data, resp)
 	if err != nil {
-		logError(log, "error when unmarshalling model deletion response", prod, cid, err)
+		logError(log, "error when unmarshalling model deletion response", prod, err)
 		return
 	}
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(correlationId, cid),
+			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", resp.Id),
 			zap.String("object", resp.Object),
 			zap.Bool("deleted", resp.Deleted),

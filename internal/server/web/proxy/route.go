@@ -85,7 +85,7 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 			settingsMap[setting.Id] = setting
 		}
 
-		cid := c.GetString(correlationId)
+		cid := c.GetString(logFiledNameCorrelationId)
 		start := time.Now()
 		runRes, err := rc.RunSteps(&route.Request{
 			Settings:  settingsMap,
@@ -97,13 +97,13 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
 				stats.Incr("bricksllm.proxy.get_route_handeler.timeout", tags, 1)
-				logError(log, "running steps time out", prod, cid, err)
+				logError(log, "running steps time out", prod, err)
 				JSON(c, http.StatusRequestTimeout, "[BricksLLM] request timeout")
 				return
 			}
 
 			stats.Incr("bricksllm.proxy.get_route_handeler.run_steps_error", tags, 1)
-			logError(log, "error when running steps", prod, cid, err)
+			logError(log, "error when running steps", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot run route steps")
 			return
 		}
@@ -120,7 +120,7 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 
 		bytes, err := io.ReadAll(res.Body)
 		if err != nil {
-			logError(log, "error when reading route response body", prod, cid, err)
+			logError(log, "error when reading route response body", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read route response body")
 			return
 		}
@@ -132,13 +132,13 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 			if shouldCache && rc.CacheConfig != nil {
 				parsed, err := time.ParseDuration(rc.CacheConfig.Ttl)
 				if err != nil {
-					logError(log, "error when parsing cache config ttl", prod, cid, err)
+					logError(log, "error when parsing cache config ttl", prod, err)
 				}
 
 				if err == nil {
 					err := ca.StoreBytes(cacheKey, bytes, parsed)
 					if err != nil {
-						logError(log, "error when storing cached response", prod, cid, err)
+						logError(log, "error when storing cached response", prod, err)
 					}
 				}
 
@@ -146,7 +146,7 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 
 			err := parseResult(c, rc.ShouldRunEmbeddings(), bytes, e, aoe, runRes.Model, runRes.Provider)
 			if err != nil {
-				logError(log, "error when parsing run steps result", prod, cid, err)
+				logError(log, "error when parsing run steps result", prod, err)
 			}
 		}
 
@@ -157,7 +157,7 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 			errorRes := &goopenai.ErrorResponse{}
 			err = json.Unmarshal(bytes, errorRes)
 			if err != nil {
-				logError(log, "error when unmarshalling azure openai embedding error response body", prod, cid, err)
+				logError(log, "error when unmarshalling azure openai embedding error response body", prod, err)
 			}
 
 			logOpenAiError(log, prod, cid, errorRes)
