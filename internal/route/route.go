@@ -30,22 +30,130 @@ type CacheConfig struct {
 }
 
 type Step struct {
-	Retries  int               `json:"retries"`
-	Provider string            `json:"provider"`
-	Params   map[string]string `json:"params"`
-	Model    string            `json:"model"`
-	Timeout  string            `json:"timeout"`
+	Retries       int               `json:"retries"`
+	Provider      string            `json:"provider"`
+	RequestParams map[string]any    `json:"requestParams"`
+	Params        map[string]string `json:"params"`
+	Model         string            `json:"model"`
+	Timeout       string            `json:"timeout"`
+}
+
+func ConvertToArrayOfStrings(input []any) []string {
+	result := []string{}
+	for _, input := range input {
+		val, ok := input.(string)
+		if ok {
+			result = append(result, val)
+			continue
+		}
+		return []string{}
+	}
+
+	return result
+}
+
+func ConvertToMapOfIntegers(input any) map[string]int {
+	result := map[string]int{}
+
+	parsed, ok := input.(map[string]any)
+	if ok {
+		for k, v := range parsed {
+			parsedv, ok := v.(float64)
+			if ok {
+				result[k] = int(parsedv)
+				continue
+			}
+			return map[string]int{}
+		}
+	}
+
+	return result
+}
+
+func (s *Step) DecorateChatCompletionRequest(req *goopenai.ChatCompletionRequest) {
+	if s == nil {
+		return
+	}
+
+	req.Model = s.Model
+	if val, ok := s.RequestParams["frequency_penalty"]; ok {
+		if parsed, ok := val.(float64); ok {
+			req.FrequencyPenalty = float32(parsed)
+		}
+	}
+
+	if val, ok := s.RequestParams["max_tokens"]; ok {
+		if parsed, ok := val.(float64); ok {
+			req.MaxTokens = int(parsed)
+		}
+	}
+
+	if val, ok := s.RequestParams["temperature"]; ok {
+		if parsed, ok := val.(float64); ok {
+			req.Temperature = float32(parsed)
+		}
+	}
+
+	if val, ok := s.RequestParams["top_p"]; ok {
+		if parsed, ok := val.(float64); ok {
+			req.TopP = float32(parsed)
+		}
+	}
+
+	if val, ok := s.RequestParams["n"]; ok {
+		if parsed, ok := val.(float64); ok {
+			req.N = int(parsed)
+		}
+	}
+
+	if val, ok := s.RequestParams["stop"]; ok {
+		if parsed, ok := val.([]any); ok {
+			req.Stop = ConvertToArrayOfStrings(parsed)
+		}
+	}
+
+	if val, ok := s.RequestParams["presence_penalty"]; ok {
+		if parsed, ok := val.(float64); ok {
+			req.PresencePenalty = float32(parsed)
+		}
+	}
+
+	if val, ok := s.RequestParams["seed"]; ok {
+		if parsed, ok := val.(float64); ok {
+			seedInt := int(parsed)
+			req.Seed = &seedInt
+		}
+	}
+
+	if val, ok := s.RequestParams["logit_bias"]; ok {
+		if parsed, ok := val.(map[string]any); ok {
+			req.LogitBias = ConvertToMapOfIntegers(parsed)
+		}
+	}
+
+	if val, ok := s.RequestParams["logprobs"]; ok {
+		if parsed, ok := val.(bool); ok {
+			req.LogProbs = parsed
+		}
+	}
+
+	if val, ok := s.RequestParams["top_logprobs"]; ok {
+		if parsed, ok := val.(float64); ok {
+			req.TopLogProbs = int(parsed)
+		}
+	}
 }
 
 type Route struct {
-	Id          string       `json:"id"`
-	CreatedAt   int64        `json:"createdAt"`
-	UpdatedAt   int64        `json:"updatedAt"`
-	Name        string       `json:"name"`
-	Path        string       `json:"path"`
-	KeyIds      []string     `json:"keyIds"`
-	Steps       []*Step      `json:"steps"`
-	CacheConfig *CacheConfig `json:"cacheConfig"`
+	Id            string       `json:"id"`
+	RequestFormat string       `json:"requestFormat"`
+	CreatedAt     int64        `json:"createdAt"`
+	UpdatedAt     int64        `json:"updatedAt"`
+	Name          string       `json:"name"`
+	Path          string       `json:"path"`
+	KeyIds        []string     `json:"keyIds"`
+	Steps         []*Step      `json:"steps"`
+	CacheConfig   *CacheConfig `json:"cacheConfig"`
 }
 
 func (r *Route) ValidateSettings(settings []*provider.Setting) bool {
@@ -69,6 +177,10 @@ func (r *Route) ValidateSettings(settings []*provider.Setting) bool {
 }
 
 func (r *Route) ShouldRunEmbeddings() bool {
+	if len(r.RequestFormat) != 0 {
+		return r.RequestFormat == "openai_embeddings"
+	}
+
 	if len(r.Steps) == 0 {
 		return false
 	}
@@ -198,7 +310,7 @@ func (r *Route) RunSteps(req *Request, rec recorder, log *zap.Logger) (*Response
 						continue
 					}
 
-					embeddingsReq.Model = goopenai.AdaEmbeddingV2
+					embeddingsReq.Model = goopenai.EmbeddingModel(step.Model)
 
 					selected, err = json.Marshal(embeddingsReq)
 					if err != nil {
@@ -214,12 +326,14 @@ func (r *Route) RunSteps(req *Request, rec recorder, log *zap.Logger) (*Response
 						continue
 					}
 
-					completionReq.Model = step.Model
+					step.DecorateChatCompletionRequest(completionReq)
 
 					selected, err = json.Marshal(completionReq)
 					if err != nil {
 						continue
 					}
+
+					fmt.Println(string(selected))
 				}
 			}
 

@@ -247,6 +247,88 @@ func (m *RouteManager) validateRoute(r *route.Route) error {
 			fields = append(fields, fmt.Sprintf("steps.[%d].model", index))
 		}
 
+		if val, ok := step.RequestParams["frequency_penalty"]; ok {
+			if _, ok := val.(float64); !ok {
+				fields = append(fields, fmt.Sprintf("steps.[%d].requestParams.frequency_penalty", index))
+			}
+		}
+
+		if val, ok := step.RequestParams["max_tokens"]; ok {
+			if _, ok := val.(float64); !ok {
+				fields = append(fields, fmt.Sprintf("steps.[%d].requestParams.max_tokens", index))
+			}
+		}
+
+		if val, ok := step.RequestParams["temperature"]; ok {
+			if _, ok := val.(float64); !ok {
+				fields = append(fields, fmt.Sprintf("steps.[%d].requestParams.temperature", index))
+			}
+		}
+
+		if val, ok := step.RequestParams["top_p"]; ok {
+			if _, ok := val.(float64); !ok {
+				fields = append(fields, fmt.Sprintf("steps.[%d].requestParams.top_p", index))
+			}
+		}
+
+		if val, ok := step.RequestParams["n"]; ok {
+			if _, ok := val.(float64); !ok {
+				fields = append(fields, fmt.Sprintf("steps.[%d].requestParams.n", index))
+			}
+		}
+
+		if val, ok := step.RequestParams["stop"]; ok {
+			parsed, ok := val.([]any)
+			if !ok {
+				fields = append(fields, fmt.Sprintf("steps.[%d].requestParams.stop", index))
+			}
+
+			if ok {
+				converted := route.ConvertToArrayOfStrings(parsed)
+				if len(converted) == 0 {
+					fields = append(fields, fmt.Sprintf("steps.[%d].requestParams.stop", index))
+				}
+			}
+		}
+
+		if val, ok := step.RequestParams["presence_penalty"]; ok {
+			if _, ok := val.(float64); !ok {
+				fields = append(fields, fmt.Sprintf("steps.[%d].requestParams.presence_penalty", index))
+			}
+		}
+
+		if val, ok := step.RequestParams["seed"]; ok {
+			if _, ok := val.(float64); !ok {
+				fields = append(fields, fmt.Sprintf("steps.[%d].requestParams.seed", index))
+			}
+		}
+
+		if val, ok := step.RequestParams["logit_bias"]; ok {
+			parsed, ok := val.(map[string]any)
+			if !ok {
+				fields = append(fields, fmt.Sprintf("steps.[%d].requestParams.logit_bias", index))
+			}
+
+			if ok {
+				converted := route.ConvertToMapOfIntegers(parsed)
+				if len(converted) == 0 {
+					fields = append(fields, fmt.Sprintf("steps.[%d].requestParams.logit_bias", index))
+				}
+			}
+		}
+
+		if val, ok := step.RequestParams["logprobs"]; ok {
+			if _, ok := val.(bool); !ok {
+				fields = append(fields, fmt.Sprintf("steps.[%d].requestParams.logprobs", index))
+			}
+		}
+
+		if val, ok := step.RequestParams["top_logprobs"]; ok {
+			if _, ok := val.(float64); !ok {
+				fields = append(fields, fmt.Sprintf("steps.[%d].requestParams.top_logprobs", index))
+			}
+		}
+
 		if !contains(step.Model, supportedModels) {
 			return fmt.Errorf("steps.[%d].model is not supported. Only chat completion and embeddings model are supported", index)
 		}

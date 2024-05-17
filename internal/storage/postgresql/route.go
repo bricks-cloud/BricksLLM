@@ -33,6 +33,21 @@ func (s *Store) CreateRoutesTable() error {
 	return nil
 }
 
+func (s *Store) AlterRoutesTable() error {
+	alterTableQuery := `
+		ALTER TABLE routes ADD COLUMN IF NOT EXISTS request_format VARCHAR(255) NOT NULL DEFAULT '';
+	`
+
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+	_, err := s.db.ExecContext(ctxTimeout, alterTableQuery)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *Store) CreateRoute(r *route.Route) (*route.Route, error) {
 	sbytes, err := json.Marshal(r.Steps)
 	if err != nil {
@@ -53,12 +68,13 @@ func (s *Store) CreateRoute(r *route.Route) (*route.Route, error) {
 		sliceToSqlStringArray(r.KeyIds),
 		sbytes,
 		cbytes,
+		r.RequestFormat,
 	}
 
 	query := `
-	INSERT INTO routes (id, created_at, updated_at, name, path, key_ids, steps, cache_config)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	RETURNING id, created_at, updated_at, name, path, key_ids, steps, cache_config
+	INSERT INTO routes (id, created_at, updated_at, name, path, key_ids, steps, cache_config, request_format)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	RETURNING id, created_at, updated_at, name, path, key_ids, steps, cache_config, request_format
 `
 
 	created := &route.Route{}
@@ -78,6 +94,7 @@ func (s *Store) CreateRoute(r *route.Route) (*route.Route, error) {
 		pq.Array(&created.KeyIds),
 		&sdata,
 		&cdata,
+		&created.RequestFormat,
 	); err != nil {
 		return nil, err
 	}
@@ -110,6 +127,7 @@ func (s *Store) GetRoute(id string) (*route.Route, error) {
 		pq.Array(&created.KeyIds),
 		&sdata,
 		&cdata,
+		&created.RequestFormat,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, internal_errors.NewNotFoundError("custom provider is not found")
@@ -146,6 +164,7 @@ func (s *Store) GetRouteByPath(path string) (*route.Route, error) {
 		pq.Array(&created.KeyIds),
 		&sdata,
 		&cdata,
+		&created.RequestFormat,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, internal_errors.NewNotFoundError("route is not found")
@@ -190,6 +209,7 @@ func (s *Store) GetUpdatedRoutes(updatedAt int64) ([]*route.Route, error) {
 			pq.Array(&r.KeyIds),
 			&sdata,
 			&cdata,
+			&r.RequestFormat,
 		); err != nil {
 			return nil, err
 		}
@@ -233,6 +253,7 @@ func (s *Store) GetRoutes() ([]*route.Route, error) {
 			pq.Array(&r.KeyIds),
 			&sdata,
 			&cdata,
+			&r.RequestFormat,
 		); err != nil {
 			return nil, err
 		}
