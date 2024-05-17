@@ -332,8 +332,6 @@ func (r *Route) RunSteps(req *Request, rec recorder, log *zap.Logger) (*Response
 					if err != nil {
 						continue
 					}
-
-					fmt.Println(string(selected))
 				}
 			}
 
