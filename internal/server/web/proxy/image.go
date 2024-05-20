@@ -8,10 +8,9 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func logCreateImageRequest(log *zap.Logger, ir *goopenai.ImageRequest, prod, private bool, cid string) {
+func logCreateImageRequest(log *zap.Logger, ir *goopenai.ImageRequest, prod, private bool) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("model", ir.Model),
 			zap.Int("n", ir.N),
 			zap.String("quality", ir.Quality),
@@ -29,11 +28,9 @@ func logCreateImageRequest(log *zap.Logger, ir *goopenai.ImageRequest, prod, pri
 	}
 }
 
-func logEditImageRequest(log *zap.Logger, prompt, model string, n int, size, responseFormat, user string, prod, private bool, cid string) {
+func logEditImageRequest(log *zap.Logger, prompt, model string, n int, size, responseFormat, user string, prod, private bool) {
 	if prod {
-		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
-		}
+		fields := []zapcore.Field{}
 
 		if !private && len(prompt) != 0 {
 			fields = append(fields, zap.String("prompt", prompt))
@@ -63,11 +60,9 @@ func logEditImageRequest(log *zap.Logger, prompt, model string, n int, size, res
 	}
 }
 
-func logImageVariationsRequest(log *zap.Logger, model string, n int, size, responseFormat, user string, prod bool, cid string) {
+func logImageVariationsRequest(log *zap.Logger, model string, n int, size, responseFormat, user string, prod bool) {
 	if prod {
-		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
-		}
+		fields := []zapcore.Field{}
 
 		if len(model) != 0 {
 			fields = append(fields, zap.String("model", model))
@@ -93,7 +88,7 @@ func logImageVariationsRequest(log *zap.Logger, model string, n int, size, respo
 	}
 }
 
-func logImageResponse(log *zap.Logger, data []byte, prod, private bool, cid string) {
+func logImageResponse(log *zap.Logger, data []byte, prod, private bool) {
 	ir := &goopenai.ImageResponse{}
 	err := json.Unmarshal(data, ir)
 	if err != nil {
@@ -103,7 +98,6 @@ func logImageResponse(log *zap.Logger, data []byte, prod, private bool, cid stri
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.Int64("created", ir.Created),
 		}
 

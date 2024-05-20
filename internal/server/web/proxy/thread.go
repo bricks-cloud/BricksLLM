@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func logCreateThreadRequest(log *zap.Logger, data []byte, prod, private bool, cid string) {
+func logCreateThreadRequest(log *zap.Logger, data []byte, prod, private bool) {
 	tr := &openai.ThreadRequest{}
 	err := json.Unmarshal(data, tr)
 	if err != nil {
@@ -26,7 +26,6 @@ func logCreateThreadRequest(log *zap.Logger, data []byte, prod, private bool, ci
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.Any("metadata", tr.Metadata),
 			zap.Any("messages", tr.Messages),
 		}
@@ -35,7 +34,7 @@ func logCreateThreadRequest(log *zap.Logger, data []byte, prod, private bool, ci
 	}
 }
 
-func logThreadResponse(log *zap.Logger, data []byte, prod bool, cid string) {
+func logThreadResponse(log *zap.Logger, data []byte, prod bool) {
 	t := &goopenai.Thread{}
 	err := json.Unmarshal(data, t)
 	if err != nil {
@@ -45,7 +44,6 @@ func logThreadResponse(log *zap.Logger, data []byte, prod bool, cid string) {
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", t.ID),
 			zap.String("object", t.Object),
 			zap.Int64("created_at", t.CreatedAt),
@@ -56,10 +54,9 @@ func logThreadResponse(log *zap.Logger, data []byte, prod bool, cid string) {
 	}
 }
 
-func logRetrieveThreadRequest(log *zap.Logger, prod bool, cid, tid string) {
+func logRetrieveThreadRequest(log *zap.Logger, prod bool, tid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", tid),
 		}
 
@@ -67,7 +64,7 @@ func logRetrieveThreadRequest(log *zap.Logger, prod bool, cid, tid string) {
 	}
 }
 
-func logModifyThreadRequest(log *zap.Logger, data []byte, prod bool, cid, tid string) {
+func logModifyThreadRequest(log *zap.Logger, data []byte, prod bool, tid string) {
 	tr := &goopenai.ThreadRequest{}
 	err := json.Unmarshal(data, tr)
 	if err != nil {
@@ -77,7 +74,6 @@ func logModifyThreadRequest(log *zap.Logger, data []byte, prod bool, cid, tid st
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", tid),
 			zap.Any("metadata", tr.Metadata),
 		}
@@ -86,10 +82,9 @@ func logModifyThreadRequest(log *zap.Logger, data []byte, prod bool, cid, tid st
 	}
 }
 
-func logDeleteThreadRequest(log *zap.Logger, prod bool, cid, tid string) {
+func logDeleteThreadRequest(log *zap.Logger, prod bool, tid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", tid),
 		}
 
@@ -97,7 +92,7 @@ func logDeleteThreadRequest(log *zap.Logger, prod bool, cid, tid string) {
 	}
 }
 
-func logDeleteThreadResponse(log *zap.Logger, data []byte, prod bool, cid string) {
+func logDeleteThreadResponse(log *zap.Logger, data []byte, prod bool) {
 	tdr := &goopenai.ThreadDeleteResponse{}
 	err := json.Unmarshal(data, tdr)
 	if err != nil {
@@ -107,7 +102,6 @@ func logDeleteThreadResponse(log *zap.Logger, data []byte, prod bool, cid string
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", tdr.ID),
 			zap.String("object", tdr.Object),
 			zap.Bool("deleted", tdr.Deleted),

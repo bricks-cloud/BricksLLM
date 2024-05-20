@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func logCreateAssistantRequest(log *zap.Logger, data []byte, prod, private bool, cid string) {
+func logCreateAssistantRequest(log *zap.Logger, data []byte, prod, private bool) {
 	ar := &goopenai.AssistantRequest{}
 	err := json.Unmarshal(data, ar)
 	if err != nil {
@@ -18,7 +18,6 @@ func logCreateAssistantRequest(log *zap.Logger, data []byte, prod, private bool,
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("model", ar.Model),
 			zap.Any("tools", ar.Tools),
 			zap.Any("file_ids", ar.FileIDs),
@@ -35,7 +34,7 @@ func logCreateAssistantRequest(log *zap.Logger, data []byte, prod, private bool,
 	}
 }
 
-func logAssistantResponse(log *zap.Logger, data []byte, prod, private bool, cid string) {
+func logAssistantResponse(log *zap.Logger, data []byte, prod, private bool) {
 	a := &goopenai.Assistant{}
 	err := json.Unmarshal(data, a)
 	if err != nil {
@@ -45,8 +44,6 @@ func logAssistantResponse(log *zap.Logger, data []byte, prod, private bool, cid 
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
-			zap.String("id", cid),
 			zap.String("object", a.Object),
 			zap.Int64("created_at", a.CreatedAt),
 			zap.String("Model", a.Model),
@@ -63,10 +60,9 @@ func logAssistantResponse(log *zap.Logger, data []byte, prod, private bool, cid 
 	}
 }
 
-func logRetrieveAssistantRequest(log *zap.Logger, prod bool, cid, assistantId string) {
+func logRetrieveAssistantRequest(log *zap.Logger, prod bool, assistantId string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", assistantId),
 		}
 
@@ -74,7 +70,7 @@ func logRetrieveAssistantRequest(log *zap.Logger, prod bool, cid, assistantId st
 	}
 }
 
-func logModifyAssistantRequest(log *zap.Logger, data []byte, prod, private bool, cid, assistantId string) {
+func logModifyAssistantRequest(log *zap.Logger, data []byte, prod, private bool, assistantId string) {
 	ar := &goopenai.AssistantRequest{}
 	err := json.Unmarshal(data, ar)
 	if err != nil {
@@ -84,7 +80,6 @@ func logModifyAssistantRequest(log *zap.Logger, data []byte, prod, private bool,
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", assistantId),
 			zap.String("model", ar.Model),
 			zap.Any("tools", ar.Tools),
@@ -102,10 +97,9 @@ func logModifyAssistantRequest(log *zap.Logger, data []byte, prod, private bool,
 	}
 }
 
-func logDeleteAssistantRequest(log *zap.Logger, prod bool, cid, assistantId string) {
+func logDeleteAssistantRequest(log *zap.Logger, prod bool, assistantId string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", assistantId),
 		}
 
@@ -113,7 +107,7 @@ func logDeleteAssistantRequest(log *zap.Logger, prod bool, cid, assistantId stri
 	}
 }
 
-func logDeleteAssistantResponse(log *zap.Logger, data []byte, prod bool, cid string) {
+func logDeleteAssistantResponse(log *zap.Logger, data []byte, prod bool) {
 	adr := &goopenai.AssistantDeleteResponse{}
 	err := json.Unmarshal(data, adr)
 	if err != nil {
@@ -123,7 +117,6 @@ func logDeleteAssistantResponse(log *zap.Logger, data []byte, prod bool, cid str
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", adr.ID),
 			zap.String("object", adr.Object),
 			zap.Bool("deleted", adr.Deleted),
@@ -133,17 +126,15 @@ func logDeleteAssistantResponse(log *zap.Logger, data []byte, prod bool, cid str
 	}
 }
 
-func logListAssistantsRequest(log *zap.Logger, prod bool, cid string) {
+func logListAssistantsRequest(log *zap.Logger, prod bool) {
 	if prod {
-		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
-		}
+		fields := []zapcore.Field{}
 
 		log.Info("openai list assistants request", fields...)
 	}
 }
 
-func logListAssistantsResponse(log *zap.Logger, data []byte, prod, private bool, cid string) {
+func logListAssistantsResponse(log *zap.Logger, data []byte, prod, private bool) {
 	assistants := &goopenai.AssistantsList{}
 	err := json.Unmarshal(data, assistants)
 	if err != nil {
@@ -159,7 +150,6 @@ func logListAssistantsResponse(log *zap.Logger, data []byte, prod, private bool,
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.Any("assistants", assistants.Assistants),
 		}
 

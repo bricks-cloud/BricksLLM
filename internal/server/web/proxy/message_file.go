@@ -8,10 +8,9 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func logRetrieveMessageFileRequest(log *zap.Logger, prod bool, cid, tid, mid, fid string) {
+func logRetrieveMessageFileRequest(log *zap.Logger, prod bool, tid, mid, fid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("thread_id", tid),
 			zap.String("message_id", mid),
 			zap.String("file_id", fid),
@@ -21,7 +20,7 @@ func logRetrieveMessageFileRequest(log *zap.Logger, prod bool, cid, tid, mid, fi
 	}
 }
 
-func logRetrieveMessageFileResponse(log *zap.Logger, data []byte, prod bool, cid string) {
+func logRetrieveMessageFileResponse(log *zap.Logger, data []byte, prod bool) {
 	mf := &goopenai.MessageFile{}
 	err := json.Unmarshal(data, mf)
 	if err != nil {
@@ -31,7 +30,6 @@ func logRetrieveMessageFileResponse(log *zap.Logger, data []byte, prod bool, cid
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", mf.ID),
 			zap.String("object", mf.Object),
 			zap.Int("created_at", mf.CreatedAt),
@@ -42,10 +40,9 @@ func logRetrieveMessageFileResponse(log *zap.Logger, data []byte, prod bool, cid
 	}
 }
 
-func logListMessageFilesRequest(log *zap.Logger, prod bool, cid, tid, mid string, params map[string]string) {
+func logListMessageFilesRequest(log *zap.Logger, prod bool, tid, mid string, params map[string]string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("thread_id", tid),
 			zap.String("message_id", mid),
 		}
@@ -70,7 +67,7 @@ func logListMessageFilesRequest(log *zap.Logger, prod bool, cid, tid, mid string
 	}
 }
 
-func logListMessageFilesResponse(log *zap.Logger, data []byte, prod bool, cid string) {
+func logListMessageFilesResponse(log *zap.Logger, data []byte, prod bool) {
 	files := &goopenai.MessageFilesList{}
 	err := json.Unmarshal(data, files)
 	if err != nil {
@@ -80,7 +77,6 @@ func logListMessageFilesResponse(log *zap.Logger, data []byte, prod bool, cid st
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.Any("message_files", files.MessageFiles),
 		}
 

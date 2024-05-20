@@ -13,9 +13,9 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/route"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	goopenai "github.com/sashabaranov/go-openai"
-	"go.uber.org/zap"
 )
 
 type routeManager interface {
@@ -27,8 +27,9 @@ type cache interface {
 	GetBytes(key string) ([]byte, error)
 }
 
-func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, client http.Client, log *zap.Logger, rec recorder) gin.HandlerFunc {
+func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, client http.Client, rec recorder) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		trueStart := time.Now()
 
 		tags := []string{
@@ -85,9 +86,9 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 			settingsMap[setting.Id] = setting
 		}
 
-		cid := c.GetString(logFiledNameCorrelationId)
 		start := time.Now()
 
+		cid := c.GetString(util.STRING_CORRELATION_ID)
 		rreq := &route.Request{
 			Settings:      settingsMap,
 			Key:           kc,
@@ -176,7 +177,7 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 				logError(log, "error when unmarshalling azure openai embedding error response body", prod, err)
 			}
 
-			logOpenAiError(log, prod, cid, errorRes)
+			logOpenAiError(log, prod, errorRes)
 		}
 
 		for name, values := range res.Header {

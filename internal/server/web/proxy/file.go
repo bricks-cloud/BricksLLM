@@ -9,11 +9,9 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func logListFilesRequest(log *zap.Logger, prod bool, cid string, params map[string]string) {
+func logListFilesRequest(log *zap.Logger, prod bool, params map[string]string) {
 	if prod {
-		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
-		}
+		fields := []zapcore.Field{}
 
 		if v, ok := params["purpose"]; ok {
 			fields = append(fields, zap.String("purpose", v))
@@ -23,7 +21,7 @@ func logListFilesRequest(log *zap.Logger, prod bool, cid string, params map[stri
 	}
 }
 
-func logListFilesResponse(log *zap.Logger, data []byte, prod bool, cid string) {
+func logListFilesResponse(log *zap.Logger, data []byte, prod bool) {
 	files := &goopenai.FilesList{}
 	err := json.Unmarshal(data, files)
 	if err != nil {
@@ -33,7 +31,6 @@ func logListFilesResponse(log *zap.Logger, data []byte, prod bool, cid string) {
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.Any("files", files.Files),
 		}
 
@@ -41,10 +38,9 @@ func logListFilesResponse(log *zap.Logger, data []byte, prod bool, cid string) {
 	}
 }
 
-func logRetrieveFileRequest(log *zap.Logger, prod bool, cid, fid string) {
+func logRetrieveFileRequest(log *zap.Logger, prod bool, fid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("file_id", fid),
 		}
 
@@ -52,7 +48,7 @@ func logRetrieveFileRequest(log *zap.Logger, prod bool, cid, fid string) {
 	}
 }
 
-func logRetrieveFileResponse(log *zap.Logger, data []byte, prod bool, cid string) {
+func logRetrieveFileResponse(log *zap.Logger, data []byte, prod bool) {
 	file := &goopenai.File{}
 	err := json.Unmarshal(data, file)
 	if err != nil {
@@ -62,7 +58,6 @@ func logRetrieveFileResponse(log *zap.Logger, data []byte, prod bool, cid string
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", file.ID),
 			zap.Int("bytes", file.Bytes),
 			zap.Int64("createdAt", file.CreatedAt),
@@ -77,10 +72,9 @@ func logRetrieveFileResponse(log *zap.Logger, data []byte, prod bool, cid string
 	}
 }
 
-func logDeleteFileRequest(log *zap.Logger, prod bool, cid, fid string) {
+func logDeleteFileRequest(log *zap.Logger, prod bool, fid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("file_id", fid),
 		}
 
@@ -88,7 +82,7 @@ func logDeleteFileRequest(log *zap.Logger, prod bool, cid, fid string) {
 	}
 }
 
-func logDeleteFileResponse(log *zap.Logger, data []byte, prod bool, cid string) {
+func logDeleteFileResponse(log *zap.Logger, data []byte, prod bool) {
 	dr := &DeletionResponse{}
 	err := json.Unmarshal(data, dr)
 	if err != nil {
@@ -98,7 +92,6 @@ func logDeleteFileResponse(log *zap.Logger, data []byte, prod bool, cid string) 
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", dr.Id),
 			zap.String("object", dr.Object),
 			zap.Bool("deleted", dr.Deleted),
@@ -108,10 +101,9 @@ func logDeleteFileResponse(log *zap.Logger, data []byte, prod bool, cid string) 
 	}
 }
 
-func logRetrieveFileContentRequest(log *zap.Logger, prod bool, cid, fid string) {
+func logRetrieveFileContentRequest(log *zap.Logger, prod bool, fid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("file_id", fid),
 		}
 
@@ -119,20 +111,17 @@ func logRetrieveFileContentRequest(log *zap.Logger, prod bool, cid, fid string) 
 	}
 }
 
-func logRetrieveFileContentResponse(log *zap.Logger, prod bool, cid string) {
+func logRetrieveFileContentResponse(log *zap.Logger, prod bool) {
 	if prod {
-		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
-		}
+		fields := []zapcore.Field{}
 
 		log.Info("openai retrieve file content response", fields...)
 	}
 }
 
-func logUploadFileRequest(log *zap.Logger, prod bool, cid, purpose string) {
+func logUploadFileRequest(log *zap.Logger, prod bool, purpose string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("purpose", purpose),
 		}
 
@@ -140,7 +129,7 @@ func logUploadFileRequest(log *zap.Logger, prod bool, cid, purpose string) {
 	}
 }
 
-func logUploadFileResponse(log *zap.Logger, data []byte, prod bool, cid string) {
+func logUploadFileResponse(log *zap.Logger, data []byte, prod bool) {
 	file := &goopenai.File{}
 	err := json.Unmarshal(data, file)
 	if err != nil {
@@ -150,7 +139,6 @@ func logUploadFileResponse(log *zap.Logger, data []byte, prod bool, cid string) 
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", file.ID),
 			zap.Int("bytes", file.Bytes),
 			zap.Int64("createdAt", file.CreatedAt),

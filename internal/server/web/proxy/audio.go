@@ -30,8 +30,6 @@ func getSpeechHandler(prod bool, client http.Client, timeOut time.Duration) gin.
 			return
 		}
 
-		cid := c.GetString(logFiledNameCorrelationId)
-
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
 
@@ -81,7 +79,7 @@ func getSpeechHandler(prod bool, client http.Client, timeOut time.Duration) gin.
 				logError(log, "error when unmarshalling openai create speech error response body", prod, err)
 			}
 
-			logOpenAiError(log, prod, cid, errorRes)
+			logOpenAiError(log, prod, errorRes)
 		}
 
 		for name, values := range res.Header {
@@ -169,16 +167,15 @@ func getContentType(format string) string {
 	return "text/plain; charset=utf-8"
 }
 
-func getTranscriptionsHandler(prod bool, client http.Client, log *zap.Logger, timeOut time.Duration, e estimator) gin.HandlerFunc {
+func getTranscriptionsHandler(prod bool, client http.Client, timeOut time.Duration, e estimator) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.proxy.get_transcriptions_handler.requests", nil, 1)
 
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
 			return
 		}
-
-		cid := c.GetString(logFiledNameCorrelationId)
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
@@ -320,7 +317,7 @@ func getTranscriptionsHandler(prod bool, client http.Client, log *zap.Logger, ti
 				logError(log, "error when unmarshalling openai transcriptions error response body", prod, err)
 			}
 
-			logOpenAiError(log, prod, cid, errorRes)
+			logOpenAiError(log, prod, errorRes)
 
 			c.Data(res.StatusCode, res.Header.Get("Content-Type"), bytes)
 
@@ -329,16 +326,15 @@ func getTranscriptionsHandler(prod bool, client http.Client, log *zap.Logger, ti
 	}
 }
 
-func getTranslationsHandler(prod bool, client http.Client, log *zap.Logger, timeOut time.Duration, e estimator) gin.HandlerFunc {
+func getTranslationsHandler(prod bool, client http.Client, timeOut time.Duration, e estimator) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.proxy.get_translations_handler.requests", nil, 1)
 
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
 			return
 		}
-
-		cid := c.GetString(logFiledNameCorrelationId)
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
@@ -481,7 +477,7 @@ func getTranslationsHandler(prod bool, client http.Client, log *zap.Logger, time
 				logError(log, "error when unmarshalling openai translations error response body", prod, err)
 			}
 
-			logOpenAiError(log, prod, cid, errorRes)
+			logOpenAiError(log, prod, errorRes)
 
 			c.Data(res.StatusCode, res.Header.Get("Content-Type"), bytes)
 
@@ -498,10 +494,9 @@ type SpeechRequest struct {
 	Speed          float64 `json:"speed"`
 }
 
-func logCreateSpeechRequest(log *zap.Logger, csr *goopenai.CreateSpeechRequest, prod, private bool, cid string) {
+func logCreateSpeechRequest(log *zap.Logger, csr *goopenai.CreateSpeechRequest, prod, private bool) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("model", string(csr.Model)),
 			zap.String("voice", string(csr.Voice)),
 		}
@@ -522,10 +517,9 @@ func logCreateSpeechRequest(log *zap.Logger, csr *goopenai.CreateSpeechRequest, 
 	}
 }
 
-func logCreateTranscriptionRequest(log *zap.Logger, model, language, prompt, responseFormat string, temperature float64, prod, private bool, cid string) {
+func logCreateTranscriptionRequest(log *zap.Logger, model, language, prompt, responseFormat string, temperature float64, prod, private bool) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("model", model),
 		}
 
@@ -549,10 +543,9 @@ func logCreateTranscriptionRequest(log *zap.Logger, model, language, prompt, res
 	}
 }
 
-func logCreateTranslationRequest(log *zap.Logger, model, prompt, responseFormat string, temperature float64, prod, private bool, cid string) {
+func logCreateTranslationRequest(log *zap.Logger, model, prompt, responseFormat string, temperature float64, prod, private bool) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("model", model),
 			zap.Float64("temperature", temperature),
 		}

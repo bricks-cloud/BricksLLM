@@ -28,7 +28,6 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut t
 			return
 		}
 
-		cid := c.GetString(logFiledNameCorrelationId)
 		url := c.GetString("vllmUrl")
 		if len(url) == 0 {
 			logError(log, "vllm url cannot be empty", prod, errors.New("url is empty"))
@@ -94,7 +93,7 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut t
 			}
 
 			if err == nil {
-				logVllmCompletionResponse(log, cr, prod, private, cid)
+				logVllmCompletionResponse(log, cr, prod, private)
 			}
 
 			c.Set("promptTokenCount", cr.Usage.PromptTokens)
@@ -122,7 +121,7 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut t
 				logError(log, "error when unmarshalling openai chat completion error response body", prod, err)
 			}
 
-			logOpenAiError(log, prod, cid, errorRes)
+			logOpenAiError(log, prod, errorRes)
 
 			c.Data(res.StatusCode, "application/json", bytes)
 			return
@@ -209,11 +208,10 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut t
 	}
 }
 
-func logVllmCompletionRequest(log *zap.Logger, cr *vllm.CompletionRequest, prod, private bool, cid string) {
+func logVllmCompletionRequest(log *zap.Logger, cr *vllm.CompletionRequest, prod, private bool) {
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("model", cr.Model),
 			zap.String("suffix", cr.Suffix),
 			zap.Int("max_tokens", cr.MaxTokens),
@@ -248,10 +246,9 @@ func logVllmCompletionRequest(log *zap.Logger, cr *vllm.CompletionRequest, prod,
 	}
 }
 
-func logVllmChatCompletionRequest(log *zap.Logger, cr *vllm.ChatRequest, prod, private bool, cid string) {
+func logVllmChatCompletionRequest(log *zap.Logger, cr *vllm.ChatRequest, prod, private bool) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("model", cr.Model),
 			zap.Int("max_tokens", cr.MaxTokens),
 			zap.Float32("temperature", cr.Temperature),
@@ -319,10 +316,9 @@ func logVllmChatCompletionRequest(log *zap.Logger, cr *vllm.ChatRequest, prod, p
 	}
 }
 
-func logVllmCompletionResponse(log *zap.Logger, cr *goopenai.CompletionResponse, prod, private bool, cid string) {
+func logVllmCompletionResponse(log *zap.Logger, cr *goopenai.CompletionResponse, prod, private bool) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", cr.ID),
 			zap.Int64("created", cr.Created),
 			zap.String("model", cr.Model),
@@ -359,7 +355,6 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeO
 			return
 		}
 
-		cid := c.GetString(logFiledNameCorrelationId)
 		url := c.GetString("vllmUrl")
 		if len(url) == 0 {
 			logError(log, "vllm url cannot be empty", prod, errors.New("url is empty"))
@@ -425,7 +420,7 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeO
 			}
 
 			if err == nil {
-				logChatCompletionResponse(log, prod, private, cid, chatRes)
+				logChatCompletionResponse(log, prod, private, chatRes)
 			}
 
 			c.Set("promptTokenCount", chatRes.Usage.PromptTokens)
@@ -447,7 +442,7 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeO
 				return
 			}
 
-			logAnthropicErrorResponse(log, bytes, prod, cid)
+			logAnthropicErrorResponse(log, bytes, prod)
 			c.Data(res.StatusCode, "application/json", bytes)
 			return
 		}

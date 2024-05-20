@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func logListModelsResponse(log *zap.Logger, data []byte, prod bool, cid string) {
+func logListModelsResponse(log *zap.Logger, data []byte, prod bool) {
 	models := &goopenai.ModelsList{}
 	err := json.Unmarshal(data, models)
 	if err != nil {
@@ -18,7 +18,6 @@ func logListModelsResponse(log *zap.Logger, data []byte, prod bool, cid string) 
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.Any("models", models.Models),
 		}
 
@@ -26,10 +25,9 @@ func logListModelsResponse(log *zap.Logger, data []byte, prod bool, cid string) 
 	}
 }
 
-func logRetrieveModelRequest(log *zap.Logger, prod bool, cid, model string) {
+func logRetrieveModelRequest(log *zap.Logger, prod bool, model string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("model", model),
 		}
 
@@ -37,7 +35,7 @@ func logRetrieveModelRequest(log *zap.Logger, prod bool, cid, model string) {
 	}
 }
 
-func logRetrieveModelResponse(log *zap.Logger, data []byte, prod bool, cid string) {
+func logRetrieveModelResponse(log *zap.Logger, data []byte, prod bool) {
 	model := &goopenai.Model{}
 	err := json.Unmarshal(data, model)
 	if err != nil {
@@ -47,7 +45,6 @@ func logRetrieveModelResponse(log *zap.Logger, data []byte, prod bool, cid strin
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", model.ID),
 			zap.Int64("created", model.CreatedAt),
 			zap.String("object", model.Object),
@@ -58,10 +55,9 @@ func logRetrieveModelResponse(log *zap.Logger, data []byte, prod bool, cid strin
 	}
 }
 
-func logDeleteModelRequest(log *zap.Logger, prod bool, cid, model string) {
+func logDeleteModelRequest(log *zap.Logger, prod bool, model string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("model", model),
 		}
 
@@ -75,7 +71,7 @@ type DeletionResponse struct {
 	Deleted bool   `json:"deleted"`
 }
 
-func logDeleteModelResponse(log *zap.Logger, data []byte, prod bool, cid string) {
+func logDeleteModelResponse(log *zap.Logger, data []byte, prod bool) {
 	resp := &DeletionResponse{}
 	err := json.Unmarshal(data, resp)
 	if err != nil {
@@ -85,7 +81,6 @@ func logDeleteModelResponse(log *zap.Logger, data []byte, prod bool, cid string)
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", resp.Id),
 			zap.String("object", resp.Object),
 			zap.Bool("deleted", resp.Deleted),

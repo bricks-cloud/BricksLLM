@@ -16,17 +16,20 @@ func getAdminLoggerMiddleware(log *zap.Logger, prefix string, prod bool, adminPa
 			return
 		}
 
-		c.Set(correlationId, util.NewUuid())
+		cid := util.NewUuid()
+		c.Set(util.STRING_CORRELATION_ID, cid)
+		logWithCid := log.With(zap.String(util.STRING_CORRELATION_ID, cid))
+		util.SetLogToCtx(c, logWithCid)
+
 		start := time.Now()
 		c.Next()
 		latency := time.Since(start).Milliseconds()
 		if !prod {
-			log.Sugar().Infof("%s | %d | %s | %s | %dms", prefix, c.Writer.Status(), c.Request.Method, c.FullPath(), latency)
+			logWithCid.Sugar().Infof("%s | %d | %s | %s | %dms", prefix, c.Writer.Status(), c.Request.Method, c.FullPath(), latency)
 		}
 
 		if prod {
-			log.Info("request to admin management api",
-				zap.String(correlationId, c.GetString(correlationId)),
+			logWithCid.Info("request to admin management api",
 				zap.Int("code", c.Writer.Status()),
 				zap.String("method", c.Request.Method),
 				zap.String("path", c.FullPath()),

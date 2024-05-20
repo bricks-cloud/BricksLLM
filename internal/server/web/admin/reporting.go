@@ -9,8 +9,8 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 func validateEventReportingRequest(r *event.ReportingRequest) bool {
@@ -49,8 +49,9 @@ func validateTopKeyReportingRequest(r *event.KeyReportingRequest) bool {
 	return true
 }
 
-func getGetEventMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getGetEventMetricsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_get_event_metrics.requests", nil, 1)
 
 		start := time.Now()
@@ -72,10 +73,9 @@ func getGetEventMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bool
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading event reporting request body", prod, cid, err)
+			logError(log, "error when reading event reporting request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "request body reader error",
@@ -89,7 +89,7 @@ func getGetEventMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bool
 		request := &event.ReportingRequest{}
 		err = json.Unmarshal(data, request)
 		if err != nil {
-			logError(log, "error when unmarshalling event reporting request body", prod, cid, err)
+			logError(log, "error when unmarshalling event reporting request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
 				Title:    "json unmarshaller error",
@@ -104,7 +104,7 @@ func getGetEventMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bool
 			stats.Incr("bricksllm.admin.get_get_event_metrics.request_not_valid", nil, 1)
 
 			err = fmt.Errorf("event reporting request %+v is not valid", request)
-			logError(log, "invalid reporting request", prod, cid, err)
+			logError(log, "invalid reporting request", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/invalid-reporting-request",
 				Title:    "invalid reporting request",
@@ -119,7 +119,7 @@ func getGetEventMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bool
 		if err != nil {
 			stats.Incr("bricksllm.admin.get_get_event_metrics.get_event_reporting_error", nil, 1)
 
-			logError(log, "error when getting event reporting", prod, cid, err)
+			logError(log, "error when getting event reporting", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/event-reporting-manager",
 				Title:    "event reporting error",
@@ -136,8 +136,9 @@ func getGetEventMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bool
 	}
 }
 
-func getGetEventMetricsByDayHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getGetEventMetricsByDayHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_get_event_metrics_by_day.requests", nil, 1)
 
 		start := time.Now()
@@ -159,10 +160,9 @@ func getGetEventMetricsByDayHandler(m KeyReportingManager, log *zap.Logger, prod
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading event by day reporting request body", prod, cid, err)
+			logError(log, "error when reading event by day reporting request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "request body reader error",
@@ -176,7 +176,7 @@ func getGetEventMetricsByDayHandler(m KeyReportingManager, log *zap.Logger, prod
 		request := &event.ReportingRequest{}
 		err = json.Unmarshal(data, request)
 		if err != nil {
-			logError(log, "error when unmarshalling event by day reporting request body", prod, cid, err)
+			logError(log, "error when unmarshalling event by day reporting request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
 				Title:    "json unmarshaller error",
@@ -191,7 +191,7 @@ func getGetEventMetricsByDayHandler(m KeyReportingManager, log *zap.Logger, prod
 			stats.Incr("bricksllm.admin.get_get_event_metrics_by_day.request_not_valid", nil, 1)
 
 			err = fmt.Errorf("event reporting request %+v is not valid", request)
-			logError(log, "invalid reporting request", prod, cid, err)
+			logError(log, "invalid reporting request", prod, err)
 			c.JSON(http.StatusBadRequest, &ErrorResponse{
 				Type:     "/errors/invalid-reporting-request",
 				Title:    "invalid reporting request",
@@ -206,7 +206,7 @@ func getGetEventMetricsByDayHandler(m KeyReportingManager, log *zap.Logger, prod
 		if err != nil {
 			stats.Incr("bricksllm.admin.get_get_event_metrics_by_day.get_aggregated_event_by_day_reporting", nil, 1)
 
-			logError(log, "error when getting event by day reporting", prod, cid, err)
+			logError(log, "error when getting event by day reporting", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/event-reporting-manager",
 				Title:    "event reporting error",
@@ -223,8 +223,9 @@ func getGetEventMetricsByDayHandler(m KeyReportingManager, log *zap.Logger, prod
 	}
 }
 
-func getGetTopKeysMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getGetTopKeysMetricsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_get_top_keys_metrics_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -246,10 +247,9 @@ func getGetTopKeysMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bo
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading top key reporting request body", prod, cid, err)
+			logError(log, "error when reading top key reporting request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "request body reader error",
@@ -263,7 +263,7 @@ func getGetTopKeysMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bo
 		request := &event.KeyReportingRequest{}
 		err = json.Unmarshal(data, request)
 		if err != nil {
-			logError(log, "error when unmarshalling top key reporting request body", prod, cid, err)
+			logError(log, "error when unmarshalling top key reporting request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
 				Title:    "json unmarshaller error",
@@ -277,7 +277,7 @@ func getGetTopKeysMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bo
 		if !validateTopKeyReportingRequest(request) {
 			stats.Incr("bricksllm.admin.get_get_top_keys_metrics_handler.request_not_valid", nil, 1)
 			err = fmt.Errorf("top key reporting request %+v is not valid", request)
-			logError(log, "invalid reporting request", prod, cid, err)
+			logError(log, "invalid reporting request", prod, err)
 			c.JSON(http.StatusBadRequest, &ErrorResponse{
 				Type:     "/errors/invalid-reporting-request",
 				Title:    "invalid reporting request",
@@ -292,7 +292,7 @@ func getGetTopKeysMetricsHandler(m KeyReportingManager, log *zap.Logger, prod bo
 		if err != nil {
 			stats.Incr("bricksllm.admin.get_get_top_keys_metrics_handler.get_top_key_reporting", nil, 1)
 
-			logError(log, "error when getting top key reporting", prod, cid, err)
+			logError(log, "error when getting top key reporting", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/event-reporting-manager",
 				Title:    "top key reporting error",
