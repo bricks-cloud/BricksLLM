@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/pkoukk/tiktoken-go"
-	tiktoken_loader "github.com/pkoukk/tiktoken-go-loader"
 )
 
 type TokenCounter struct {
@@ -14,7 +13,7 @@ type TokenCounter struct {
 }
 
 func NewTokenCounter() (*TokenCounter, error) {
-	tiktoken.SetBpeLoader(tiktoken_loader.NewOfflineLoader())
+	// tiktoken.SetBpeLoader(tiktoken_loader.NewOfflineLoader())
 	encoder, err := tiktoken.GetEncoding("r50k_base")
 	if err != nil {
 		return nil, err

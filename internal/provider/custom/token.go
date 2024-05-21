@@ -2,11 +2,10 @@ package custom
 
 import (
 	"github.com/pkoukk/tiktoken-go"
-	tiktoken_loader "github.com/pkoukk/tiktoken-go-loader"
 )
 
 func NewTokenCounter() {
-	tiktoken.SetBpeLoader(tiktoken_loader.NewOfflineLoader())
+	// tiktoken.SetBpeLoader(tiktoken_loader.NewOfflineLoader())
 }
 
 func Count(input string) (int, error) {

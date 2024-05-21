@@ -6,14 +6,13 @@ import (
 	"strings"
 
 	"github.com/pkoukk/tiktoken-go"
-	tiktoken_loader "github.com/pkoukk/tiktoken-go-loader"
 )
 
 type TokenCounter struct {
 }
 
 func NewTokenCounter() *TokenCounter {
-	tiktoken.SetBpeLoader(tiktoken_loader.NewOfflineLoader())
+	// tiktoken.SetBpeLoader(tiktoken_loader.NewOfflineLoader())
 	return &TokenCounter{}
 }
 
