@@ -94,14 +94,14 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 
 	// audios
 	router.POST("/api/providers/openai/v1/audio/speech", getSpeechHandler(prod, client, timeOut))
-	router.POST("/api/providers/openai/v1/audio/transcriptions", getTranscriptionsHandler(prod, client, log, timeOut, e))
-	router.POST("/api/providers/openai/v1/audio/translations", getTranslationsHandler(prod, client, log, timeOut, e))
+	router.POST("/api/providers/openai/v1/audio/transcriptions", getTranscriptionsHandler(prod, client, timeOut, e))
+	router.POST("/api/providers/openai/v1/audio/translations", getTranslationsHandler(prod, client, timeOut, e))
 
 	// completions
-	router.POST("/api/providers/openai/v1/chat/completions", getChatCompletionHandler(prod, private, client, log, e, timeOut))
+	router.POST("/api/providers/openai/v1/chat/completions", getChatCompletionHandler(prod, private, client, e, timeOut))
 
 	// embeddings
-	router.POST("/api/providers/openai/v1/embeddings", getEmbeddingHandler(prod, private, client, log, e, timeOut))
+	router.POST("/api/providers/openai/v1/embeddings", getEmbeddingHandler(prod, private, client, e, timeOut))
 
 	// moderations
 	router.POST("/api/providers/openai/v1/moderations", getPassThroughHandler(prod, private, client, timeOut))
@@ -164,12 +164,12 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	router.POST("/api/providers/openai/v1/images/variations", getPassThroughHandler(prod, private, client, timeOut))
 
 	// azure
-	router.POST("/api/providers/azure/openai/deployments/:deployment_id/chat/completions", getAzureChatCompletionHandler(prod, private, client, log, aoe, timeOut))
-	router.POST("/api/providers/azure/openai/deployments/:deployment_id/embeddings", getAzureEmbeddingsHandler(prod, private, client, log, aoe, timeOut))
+	router.POST("/api/providers/azure/openai/deployments/:deployment_id/chat/completions", getAzureChatCompletionHandler(prod, private, client, aoe, timeOut))
+	router.POST("/api/providers/azure/openai/deployments/:deployment_id/embeddings", getAzureEmbeddingsHandler(prod, private, client, aoe, timeOut))
 
 	// anthropic
 	router.POST("/api/providers/anthropic/v1/complete", getCompletionHandler(prod, private, client, timeOut))
-	router.POST("/api/providers/anthropic/v1/messages", getMessagesHandler(prod, private, client, log, ae, timeOut))
+	router.POST("/api/providers/anthropic/v1/messages", getMessagesHandler(prod, private, client, ae, timeOut))
 
 	// vllm
 	router.POST("/api/providers/vllm/v1/chat/completions", getVllmChatCompletionsHandler(prod, private, client, timeOut))
@@ -178,13 +178,13 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	// deepinfra
 	router.POST("/api/providers/deepinfra/v1/chat/completions", getDeepinfraChatCompletionsHandler(prod, private, client, timeOut))
 	router.POST("/api/providers/deepinfra/v1/completions", getDeepinfraCompletionsHandler(prod, private, client, timeOut))
-	router.POST("/api/providers/deepinfra/v1/embeddings", getDeepinfraEmbeddingsHandler(prod, private, client, log, die, timeOut))
+	router.POST("/api/providers/deepinfra/v1/embeddings", getDeepinfraEmbeddingsHandler(prod, private, client, die, timeOut))
 
 	// custom provider
 	router.POST("/api/custom/providers/:provider/*wildcard", getCustomProviderHandler(prod, client, timeOut))
 
 	// custom route
-	router.POST("/api/routes/*route", getRouteHandler(prod, c, aoe, e, client, log, r))
+	router.POST("/api/routes/*route", getRouteHandler(prod, c, aoe, e, client, r))
 
 	srv := &http.Server{
 		Addr:    ":8002",
@@ -259,8 +259,6 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
 			return
 		}
-
-		cid := c.GetString(logFiledNameCorrelationId)
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
@@ -494,163 +492,163 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 			stats.Timing("bricksllm.proxy.get_pass_through_handler.success_latency", dur, tags, 1)
 
 			if c.FullPath() == "/api/providers/openai/v1/assistants" && c.Request.Method == http.MethodPost {
-				logAssistantResponse(log, bytes, prod, private, cid)
+				logAssistantResponse(log, bytes, prod, private)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id" && c.Request.Method == http.MethodGet {
-				logAssistantResponse(log, bytes, prod, private, cid)
+				logAssistantResponse(log, bytes, prod, private)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id" && c.Request.Method == http.MethodPost {
-				logAssistantResponse(log, bytes, prod, private, cid)
+				logAssistantResponse(log, bytes, prod, private)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id" && c.Request.Method == http.MethodDelete {
-				logDeleteAssistantResponse(log, bytes, prod, cid)
+				logDeleteAssistantResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/assistants" && c.Request.Method == http.MethodGet {
-				logListAssistantsResponse(log, bytes, prod, private, cid)
+				logListAssistantsResponse(log, bytes, prod, private)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files" && c.Request.Method == http.MethodPost {
-				logAssistantFileResponse(log, bytes, prod, cid)
+				logAssistantFileResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files/:file_id" && c.Request.Method == http.MethodGet {
-				logAssistantFileResponse(log, bytes, prod, cid)
+				logAssistantFileResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files/:file_id" && c.Request.Method == http.MethodDelete {
-				logDeleteAssistantFileResponse(log, bytes, prod, cid)
+				logDeleteAssistantFileResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files" && c.Request.Method == http.MethodGet {
-				logListAssistantFilesResponse(log, bytes, prod, cid)
+				logListAssistantFilesResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/threads" && c.Request.Method == http.MethodPost {
-				logThreadResponse(log, bytes, prod, cid)
+				logThreadResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodGet {
-				logThreadResponse(log, bytes, prod, cid)
+				logThreadResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodPost {
-				logThreadResponse(log, bytes, prod, cid)
+				logThreadResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodDelete {
-				logDeleteThreadResponse(log, bytes, prod, cid)
+				logDeleteThreadResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages" && c.Request.Method == http.MethodPost {
-				logMessageResponse(log, bytes, prod, private, cid)
+				logMessageResponse(log, bytes, prod, private)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id" && c.Request.Method == http.MethodGet {
-				logMessageResponse(log, bytes, prod, private, cid)
+				logMessageResponse(log, bytes, prod, private)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id" && c.Request.Method == http.MethodPost {
-				logMessageResponse(log, bytes, prod, private, cid)
+				logMessageResponse(log, bytes, prod, private)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages" && c.Request.Method == http.MethodGet {
-				logListMessagesResponse(log, bytes, prod, private, cid)
+				logListMessagesResponse(log, bytes, prod, private)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files/:file_id" && c.Request.Method == http.MethodGet {
-				logRetrieveMessageFileResponse(log, bytes, prod, cid)
+				logRetrieveMessageFileResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files" && c.Request.Method == http.MethodGet {
-				logListMessageFilesResponse(log, bytes, prod, cid)
+				logListMessageFilesResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs" && c.Request.Method == http.MethodPost {
-				logRunResponse(log, bytes, prod, private, cid)
+				logRunResponse(log, bytes, prod, private)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id" && c.Request.Method == http.MethodGet {
-				logRunResponse(log, bytes, prod, private, cid)
+				logRunResponse(log, bytes, prod, private)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id" && c.Request.Method == http.MethodPost {
-				logRunResponse(log, bytes, prod, private, cid)
+				logRunResponse(log, bytes, prod, private)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs" && c.Request.Method == http.MethodGet {
-				logListRunsResponse(log, bytes, prod, private, cid)
+				logListRunsResponse(log, bytes, prod, private)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs" && c.Request.Method == http.MethodPost {
-				logRunResponse(log, bytes, prod, private, cid)
+				logRunResponse(log, bytes, prod, private)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/cancel" && c.Request.Method == http.MethodPost {
-				logRunResponse(log, bytes, prod, private, cid)
+				logRunResponse(log, bytes, prod, private)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/threads/runs" && c.Request.Method == http.MethodPost {
-				logRunResponse(log, bytes, prod, private, cid)
+				logRunResponse(log, bytes, prod, private)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps/:step_id" && c.Request.Method == http.MethodGet {
-				logRetrieveRunStepResponse(log, bytes, prod, cid)
+				logRetrieveRunStepResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps" && c.Request.Method == http.MethodGet {
-				logListRunStepsResponse(log, bytes, prod, cid)
+				logListRunStepsResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/moderations" && c.Request.Method == http.MethodPost {
-				logCreateModerationResponse(log, bytes, prod, cid)
+				logCreateModerationResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/models" && c.Request.Method == http.MethodGet {
-				logListModelsResponse(log, bytes, prod, cid)
+				logListModelsResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/models/:model" && c.Request.Method == http.MethodGet {
-				logRetrieveModelResponse(log, bytes, prod, cid)
+				logRetrieveModelResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/models/:model" && c.Request.Method == http.MethodDelete {
-				logDeleteModelResponse(log, bytes, prod, cid)
+				logDeleteModelResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodGet {
-				logListFilesResponse(log, bytes, prod, cid)
+				logListFilesResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodPost {
-				logUploadFileResponse(log, bytes, prod, cid)
+				logUploadFileResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/files/:file_id" && c.Request.Method == http.MethodDelete {
-				logDeleteFileResponse(log, bytes, prod, cid)
+				logDeleteFileResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/files/:file_id" && c.Request.Method == http.MethodGet {
-				logRetrieveFileResponse(log, bytes, prod, cid)
+				logRetrieveFileResponse(log, bytes, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/files/:file_id/content" && c.Request.Method == http.MethodGet {
-				logRetrieveFileContentResponse(log, prod, cid)
+				logRetrieveFileContentResponse(log, prod)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/images/generations" && c.Request.Method == http.MethodPost {
-				logImageResponse(log, bytes, prod, private, cid)
+				logImageResponse(log, bytes, prod, private)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/images/edits" && c.Request.Method == http.MethodPost {
-				logImageResponse(log, bytes, prod, private, cid)
+				logImageResponse(log, bytes, prod, private)
 			}
 
 			if c.FullPath() == "/api/providers/openai/v1/images/variations" && c.Request.Method == http.MethodPost {
-				logImageResponse(log, bytes, prod, private, cid)
+				logImageResponse(log, bytes, prod, private)
 			}
 		}
 
@@ -664,7 +662,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 				logError(log, "error when unmarshalling openai pass through error response body", prod, err)
 			}
 
-			logOpenAiError(log, prod, cid, errorRes)
+			logOpenAiError(log, prod, errorRes)
 		}
 
 		for name, values := range res.Header {
@@ -874,8 +872,9 @@ type EmbeddingResponseBase64 struct {
 	Usage  goopenai.Usage             `json:"usage"`
 }
 
-func getEmbeddingHandler(prod, private bool, client http.Client, log *zap.Logger, e estimator, timeOut time.Duration) gin.HandlerFunc {
+func getEmbeddingHandler(prod, private bool, client http.Client, e estimator, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.proxy.get_embedding_handler.requests", nil, 1)
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
@@ -889,8 +888,6 @@ func getEmbeddingHandler(prod, private bool, client http.Client, log *zap.Logger
 		// 	JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
 		// 	return
 		// }
-
-		id := c.GetString(logFiledNameCorrelationId)
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
@@ -955,13 +952,13 @@ func getEmbeddingHandler(prod, private bool, client http.Client, log *zap.Logger
 			totalTokens := 0
 			if err == nil {
 				if format == "base64" {
-					logBase64EmbeddingResponse(log, prod, private, id, base64ChatRes)
+					logBase64EmbeddingResponse(log, prod, private, base64ChatRes)
 					promptTokenCounts = base64ChatRes.Usage.PromptTokens
 					totalTokens = base64ChatRes.Usage.TotalTokens
 				}
 
 				if format != "base64" {
-					logEmbeddingResponse(log, prod, private, id, chatRes)
+					logEmbeddingResponse(log, prod, private, chatRes)
 					promptTokenCounts = chatRes.Usage.PromptTokens
 					totalTokens = chatRes.Usage.TotalTokens
 				}
@@ -994,7 +991,7 @@ func getEmbeddingHandler(prod, private bool, client http.Client, log *zap.Logger
 				logError(log, "error when unmarshalling openai embedding error response body", prod, err)
 			}
 
-			logOpenAiError(log, prod, id, errorRes)
+			logOpenAiError(log, prod, errorRes)
 		}
 
 		for name, values := range res.Header {
@@ -1117,11 +1114,10 @@ func (ps *ProxyServer) Run() {
 	}()
 }
 
-func logEmbeddingResponse(log *zap.Logger, prod, private bool, cid string, r *EmbeddingResponse) {
+func logEmbeddingResponse(log *zap.Logger, prod, private bool, r *EmbeddingResponse) {
 	if prod {
 		log.Info("openai embeddings response",
 			zap.Time("createdAt", time.Now()),
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.Object("response", zapcore.ObjectMarshalerFunc(
 				func(enc zapcore.ObjectEncoder) error {
 					enc.AddString("object", r.Object)
@@ -1166,11 +1162,10 @@ func logEmbeddingResponse(log *zap.Logger, prod, private bool, cid string, r *Em
 	}
 }
 
-func logBase64EmbeddingResponse(log *zap.Logger, prod, private bool, cid string, r *EmbeddingResponseBase64) {
+func logBase64EmbeddingResponse(log *zap.Logger, prod, private bool, r *EmbeddingResponseBase64) {
 	if prod {
 		log.Info("openai embeddings response",
 			zap.Time("createdAt", time.Now()),
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.Object("response", zapcore.ObjectMarshalerFunc(
 				func(enc zapcore.ObjectEncoder) error {
 					enc.AddString("object", r.Object)
@@ -1209,11 +1204,10 @@ func logBase64EmbeddingResponse(log *zap.Logger, prod, private bool, cid string,
 	}
 }
 
-func logChatCompletionResponse(log *zap.Logger, prod, private bool, cid string, r *goopenai.ChatCompletionResponse) {
+func logChatCompletionResponse(log *zap.Logger, prod, private bool, r *goopenai.ChatCompletionResponse) {
 	if prod {
 		log.Info("openai chat completion response",
 			zap.Time("createdAt", time.Now()),
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.Object("response", zapcore.ObjectMarshalerFunc(
 				func(enc zapcore.ObjectEncoder) error {
 					enc.AddString("id", r.ID)
@@ -1260,10 +1254,9 @@ func logChatCompletionResponse(log *zap.Logger, prod, private bool, cid string, 
 	}
 }
 
-func logEmbeddingRequest(log *zap.Logger, prod, private bool, id string, r *goopenai.EmbeddingRequest) {
+func logEmbeddingRequest(log *zap.Logger, prod, private bool, r *goopenai.EmbeddingRequest) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, id),
 			zap.String("model", string(r.Model)),
 			zap.String("encoding_format", string(r.EncodingFormat)),
 			zap.String("user", r.User),
@@ -1277,11 +1270,10 @@ func logEmbeddingRequest(log *zap.Logger, prod, private bool, id string, r *goop
 	}
 }
 
-func logRequest(log *zap.Logger, prod, private bool, id string, r *goopenai.ChatCompletionRequest) {
+func logRequest(log *zap.Logger, prod, private bool, r *goopenai.ChatCompletionRequest) {
 	if prod {
 		log.Info("openai chat completion request",
 			zap.Time("createdAt", time.Now()),
-			zap.String(logFiledNameCorrelationId, id),
 			zap.Object("request", zapcore.ObjectMarshalerFunc(
 				func(enc zapcore.ObjectEncoder) error {
 					enc.AddString("model", r.Model)
@@ -1416,13 +1408,13 @@ func logRequest(log *zap.Logger, prod, private bool, id string, r *goopenai.Chat
 	}
 }
 
-func logOpenAiError(log *zap.Logger, prod bool, id string, errRes *goopenai.ErrorResponse) {
+func logOpenAiError(log *zap.Logger, prod bool, errRes *goopenai.ErrorResponse) {
 	if prod {
-		log.Info("openai error response", zap.String(logFiledNameCorrelationId, id), zap.Any("error", errRes))
+		log.Info("openai error response", zap.Any("error", errRes))
 		return
 	}
 
-	log.Sugar().Infof("correlationId:%s | %s ", id, "openai error response")
+	log.Info("openai error response")
 }
 
 func logError(log *zap.Logger, msg string, prod bool, err error) {
@@ -1430,7 +1422,7 @@ func logError(log *zap.Logger, msg string, prod bool, err error) {
 		log.Debug(msg, zap.Error(err))
 		return
 	}
-	log.Debug(fmt.Sprintf("correlationId:%s | %s | %v", msg, err))
+	log.Debug(fmt.Sprintf("%s | %v", msg, err))
 }
 
 func (ps *ProxyServer) Shutdown(ctx context.Context) error {

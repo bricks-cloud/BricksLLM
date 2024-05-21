@@ -8,12 +8,13 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
-func getGetEventsV2Handler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getGetEventsV2Handler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_get_events_v2_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -34,10 +35,9 @@ func getGetEventsV2Handler(m KeyReportingManager, log *zap.Logger, prod bool) gi
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading get events request body", prod, cid, err)
+			logError(log, "error when reading get events request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "get events request body reader error",
@@ -51,7 +51,7 @@ func getGetEventsV2Handler(m KeyReportingManager, log *zap.Logger, prod bool) gi
 		request := &event.EventRequest{}
 		err = json.Unmarshal(data, request)
 		if err != nil {
-			logError(log, "error when unmarshalling get events request body", prod, cid, err)
+			logError(log, "error when unmarshalling get events request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
 				Title:    "json unmarshaller error",
@@ -84,7 +84,7 @@ func getGetEventsV2Handler(m KeyReportingManager, log *zap.Logger, prod bool) gi
 				return
 			}
 
-			logError(log, "error when getting events", prod, cid, err)
+			logError(log, "error when getting events", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/event-manager",
 				Title:    "getting events errored out",

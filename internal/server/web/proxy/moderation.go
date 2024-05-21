@@ -13,7 +13,7 @@ type ModerationRequest struct {
 	Model string `json:"model"`
 }
 
-func logCreateModerationRequest(log *zap.Logger, data []byte, prod, private bool, cid string) {
+func logCreateModerationRequest(log *zap.Logger, data []byte, prod, private bool) {
 	mr := &ModerationRequest{}
 	err := json.Unmarshal(data, mr)
 	if err != nil {
@@ -22,9 +22,7 @@ func logCreateModerationRequest(log *zap.Logger, data []byte, prod, private bool
 	}
 
 	if prod {
-		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
-		}
+		fields := []zapcore.Field{}
 
 		if !private {
 			strInput, ok := mr.Input.(string)
@@ -42,7 +40,7 @@ func logCreateModerationRequest(log *zap.Logger, data []byte, prod, private bool
 	}
 }
 
-func logCreateModerationResponse(log *zap.Logger, data []byte, prod bool, cid string) {
+func logCreateModerationResponse(log *zap.Logger, data []byte, prod bool) {
 	mr := &goopenai.ModerationResponse{}
 	err := json.Unmarshal(data, mr)
 	if err != nil {
@@ -52,7 +50,6 @@ func logCreateModerationResponse(log *zap.Logger, data []byte, prod bool, cid st
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", mr.ID),
 			zap.String("model", mr.Model),
 			zap.Any("results", mr.Results),

@@ -5,12 +5,13 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
-func getGetUserIdsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getGetUserIdsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_get_user_ids_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -43,12 +44,11 @@ func getGetUserIdsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		cids, err := m.GetUserIds(kid)
 		if err != nil {
 			stats.Incr("bricksllm.admin.get_get_user_ids_handler.get_user_ids_err", nil, 1)
 
-			logError(log, "error when getting userIds", prod, cid, err)
+			logError(log, "error when getting userIds", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/key-reporting-manager",
 				Title:    "getting user ids error",
@@ -64,8 +64,9 @@ func getGetUserIdsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin
 	}
 }
 
-func getGetCustomIdsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getGetCustomIdsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_get_custom_ids_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -99,13 +100,11 @@ func getGetCustomIdsHandler(m KeyReportingManager, log *zap.Logger, prod bool) g
 			return
 		}
 
-		cid := c.GetString(correlationId)
-
 		cids, err := m.GetCustomIds(kid)
 		if err != nil {
 			stats.Incr("bricksllm.admin.get_get_user_ids_handler.get_custom_ids_err", nil, 1)
 
-			logError(log, "error when getting custom ids", prod, cid, err)
+			logError(log, "error when getting custom ids", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/key-reporting-manager",
 				Title:    "getting custom ids error",

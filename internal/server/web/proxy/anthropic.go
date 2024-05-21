@@ -52,7 +52,6 @@ func getCompletionHandler(prod, private bool, client http.Client, timeOut time.D
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.anthropic.com/v1/complete", c.Request.Body)
-		cid := c.GetString(logFiledNameCorrelationId)
 		if err != nil {
 			logError(log, "error when creating anthropic http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create anthropic http request")
@@ -118,12 +117,12 @@ func getCompletionHandler(prod, private bool, client http.Client, timeOut time.D
 				logError(log, "error when unmarshalling anthropic http completion response body", prod, err)
 			}
 
-			logCompletionResponse(log, bytes, prod, private, cid)
+			logCompletionResponse(log, bytes, prod, private)
 
 			c.Set("content", completionRes.Completion)
 
 			// if err == nil {
-			// 	logCompletionResponse(log, bytes, prod, private, cid)
+			// 	logCompletionResponse(log, bytes, prod, private)
 			// 	completionTokens = e.Count(completionRes.Completion)
 			// 	completionTokens += anthropicCompletionMagicNum
 			// 	promptTokens := c.GetInt("promptTokenCount")
@@ -159,7 +158,7 @@ func getCompletionHandler(prod, private bool, client http.Client, timeOut time.D
 				return
 			}
 
-			logAnthropicErrorResponse(log, bytes, prod, cid)
+			logAnthropicErrorResponse(log, bytes, prod)
 			c.Data(res.StatusCode, "application/json", bytes)
 			return
 		}
@@ -293,8 +292,9 @@ var (
 	eventContentBlockStop  = []byte("event: content_block_stop")
 )
 
-func getMessagesHandler(prod, private bool, client http.Client, log *zap.Logger, e anthropicEstimator, timeOut time.Duration) gin.HandlerFunc {
+func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstimator, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.proxy.get_messages_handler.requests", nil, 1)
 
 		if c == nil || c.Request == nil {
@@ -306,7 +306,6 @@ func getMessagesHandler(prod, private bool, client http.Client, log *zap.Logger,
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.anthropic.com/v1/messages", c.Request.Body)
-		cid := c.GetString(logFiledNameCorrelationId)
 		if err != nil {
 			logError(log, "error when creating anthropic http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create anthropic http request")
@@ -375,7 +374,7 @@ func getMessagesHandler(prod, private bool, client http.Client, log *zap.Logger,
 			}
 
 			if err == nil {
-				logCompletionResponse(log, bytes, prod, private, cid)
+				logCompletionResponse(log, bytes, prod, private)
 				completionTokens = completionRes.Usage.OutputTokens
 				promptTokens = completionRes.Usage.InputTokens
 				cost, err = e.EstimateTotalCost(model, promptTokens, completionTokens)
@@ -409,7 +408,7 @@ func getMessagesHandler(prod, private bool, client http.Client, log *zap.Logger,
 				return
 			}
 
-			logAnthropicErrorResponse(log, bytes, prod, cid)
+			logAnthropicErrorResponse(log, bytes, prod)
 			c.Data(res.StatusCode, "application/json", bytes)
 			return
 		}
@@ -591,7 +590,7 @@ func getMessagesHandler(prod, private bool, client http.Client, log *zap.Logger,
 	}
 }
 
-func logAnthropicErrorResponse(log *zap.Logger, data []byte, prod bool, cid string) {
+func logAnthropicErrorResponse(log *zap.Logger, data []byte, prod bool) {
 	cr := &anthropic.ErrorResponse{}
 	err := json.Unmarshal(data, cr)
 	if err != nil {
@@ -600,9 +599,7 @@ func logAnthropicErrorResponse(log *zap.Logger, data []byte, prod bool, cid stri
 	}
 
 	if prod {
-		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
-		}
+		fields := []zapcore.Field{}
 
 		if cr.Error != nil {
 			fields = append(fields, zap.Any("error", cr.Error))

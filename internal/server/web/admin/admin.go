@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -14,12 +15,9 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
-)
-
-const (
-	correlationId string = "correlationId"
 )
 
 type ProviderSettingsManager interface {
@@ -76,42 +74,42 @@ func NewAdminServer(log *zap.Logger, mode string, m KeyManager, krm KeyReporting
 
 	router.GET("/api/health", getGetHealthCheckHandler())
 
-	router.POST("/api/v2/key-management/keys", getGetKeysV2Handler(m, log, prod))
-	router.GET("/api/key-management/keys", getGetKeysHandler(m, log, prod))
-	router.PUT("/api/key-management/keys", getCreateKeyHandler(m, log, prod))
-	router.PATCH("/api/key-management/keys/:id", getUpdateKeyHandler(m, log, prod))
-	router.DELETE("/api/key-management/keys/:id", getDeleteKeyHandler(m, log, prod))
+	router.POST("/api/v2/key-management/keys", getGetKeysV2Handler(m, prod))
+	router.GET("/api/key-management/keys", getGetKeysHandler(m, prod))
+	router.PUT("/api/key-management/keys", getCreateKeyHandler(m, prod))
+	router.PATCH("/api/key-management/keys/:id", getUpdateKeyHandler(m, prod))
+	router.DELETE("/api/key-management/keys/:id", getDeleteKeyHandler(m, prod))
 
-	router.GET("/api/reporting/keys/:id", getGetKeyReportingHandler(krm, log, prod))
-	router.POST("/api/reporting/events", getGetEventMetricsHandler(krm, log, prod))
-	router.POST("/api/reporting/events-by-day", getGetEventMetricsByDayHandler(krm, log, prod))
-	router.GET("/api/events", getGetEventsHandler(krm, log, prod))
-	router.POST("/api/v2/events", getGetEventsV2Handler(krm, log, prod))
-	router.GET("/api/reporting/user-ids", getGetUserIdsHandler(krm, log, prod))
-	router.POST("/api/reporting/top-keys", getGetTopKeysMetricsHandler(krm, log, prod))
+	router.GET("/api/reporting/keys/:id", getGetKeyReportingHandler(krm, prod))
+	router.POST("/api/reporting/events", getGetEventMetricsHandler(krm, prod))
+	router.POST("/api/reporting/events-by-day", getGetEventMetricsByDayHandler(krm, prod))
+	router.GET("/api/events", getGetEventsHandler(krm, prod))
+	router.POST("/api/v2/events", getGetEventsV2Handler(krm, prod))
+	router.GET("/api/reporting/user-ids", getGetUserIdsHandler(krm, prod))
+	router.POST("/api/reporting/top-keys", getGetTopKeysMetricsHandler(krm, prod))
 
-	router.GET("/api/reporting/custom-ids", getGetCustomIdsHandler(krm, log, prod))
+	router.GET("/api/reporting/custom-ids", getGetCustomIdsHandler(krm, prod))
 
-	router.PUT("/api/provider-settings", getCreateProviderSettingHandler(psm, log, prod))
-	router.GET("/api/provider-settings", getGetProviderSettingsHandler(psm, log, prod))
-	router.PATCH("/api/provider-settings/:id", getUpdateProviderSettingHandler(psm, log, prod))
+	router.PUT("/api/provider-settings", getCreateProviderSettingHandler(psm, prod))
+	router.GET("/api/provider-settings", getGetProviderSettingsHandler(psm, prod))
+	router.PATCH("/api/provider-settings/:id", getUpdateProviderSettingHandler(psm, prod))
 
-	router.POST("/api/custom/providers", getCreateCustomProviderHandler(cpm, log, prod))
-	router.GET("/api/custom/providers", getGetCustomProvidersHandler(cpm, log, prod))
-	router.PATCH("/api/custom/providers/:id", getUpdateCustomProvidersHandler(cpm, log, prod))
+	router.POST("/api/custom/providers", getCreateCustomProviderHandler(cpm, prod))
+	router.GET("/api/custom/providers", getGetCustomProvidersHandler(cpm, prod))
+	router.PATCH("/api/custom/providers/:id", getUpdateCustomProvidersHandler(cpm, prod))
 
-	router.POST("/api/routes", getCreateRouteHandler(rm, log, prod))
-	router.GET("/api/routes/:id", getGetRouteHandler(rm, log, prod))
-	router.GET("/api/routes", getGetRoutesHandler(rm, log, prod))
+	router.POST("/api/routes", getCreateRouteHandler(rm, prod))
+	router.GET("/api/routes/:id", getGetRouteHandler(rm, prod))
+	router.GET("/api/routes", getGetRoutesHandler(rm, prod))
 
-	router.POST("/api/policies", getCreatePolicyHandler(pm, log, prod))
-	router.PATCH("/api/policies/:id", getUpdatePolicyHandler(pm, log, prod))
-	router.GET("/api/policies", getGetPoliciesByTagsHandler(pm, log, prod))
+	router.POST("/api/policies", getCreatePolicyHandler(pm, prod))
+	router.PATCH("/api/policies/:id", getUpdatePolicyHandler(pm, prod))
+	router.GET("/api/policies", getGetPoliciesByTagsHandler(pm, prod))
 
-	router.POST("/api/users", getCreateUserHandler(um, log, prod))
-	router.PATCH("/api/users/:id", getUpdateUserHandler(um, log, prod))
-	router.PATCH("/api/users", getUpdateUserViaTagsAndUserIdHandler(um, log, prod))
-	router.GET("/api/users", getGetUsersHandler(um, log, prod))
+	router.POST("/api/users", getCreateUserHandler(um, prod))
+	router.PATCH("/api/users/:id", getUpdateUserHandler(um, prod))
+	router.PATCH("/api/users", getUpdateUserViaTagsAndUserIdHandler(um, prod))
+	router.GET("/api/users", getGetUsersHandler(um, prod))
 
 	srv := &http.Server{
 		Addr:    ":8001",
@@ -173,8 +171,9 @@ func getGetHealthCheckHandler() gin.HandlerFunc {
 	}
 }
 
-func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getGetKeysHandler(m KeyManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_get_keys_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -213,12 +212,11 @@ func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc
 			}
 		}
 
-		cid := c.GetString(correlationId)
 		keys, err := m.GetKeys(selected, keyIds, provider)
 		if err != nil {
 			stats.Incr("bricksllm.admin.get_get_keys_handler.get_keys_by_tag_err", nil, 1)
 
-			logError(log, "error when getting api keys by tag", prod, cid, err)
+			logError(log, "error when getting api keys by tag", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/getting-keys",
 				Title:    "getting keys errored out",
@@ -234,8 +232,9 @@ func getGetKeysHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc
 	}
 }
 
-func getGetKeysV2Handler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getGetKeysV2Handler(m KeyManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_get_keys_v2_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -256,10 +255,9 @@ func getGetKeysV2Handler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading get keys request body", prod, cid, err)
+			logError(log, "error when reading get keys request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "get key request body reader error",
@@ -273,7 +271,7 @@ func getGetKeysV2Handler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 		request := &key.KeyRequest{}
 		err = json.Unmarshal(data, request)
 		if err != nil {
-			logError(log, "error when unmarshalling get key request body", prod, cid, err)
+			logError(log, "error when unmarshalling get key request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
 				Title:    "json unmarshaller error",
@@ -306,7 +304,7 @@ func getGetKeysV2Handler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 				return
 			}
 
-			logError(log, "error when getting keys", prod, cid, err)
+			logError(log, "error when getting keys", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/key-manager",
 				Title:    "getting keys errored out",
@@ -327,8 +325,9 @@ type validationError interface {
 	Validation()
 }
 
-func getGetProviderSettingsHandler(m ProviderSettingsManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getGetProviderSettingsHandler(m ProviderSettingsManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_get_provider_settings.requests", nil, 1)
 
 		start := time.Now()
@@ -349,7 +348,6 @@ func getGetProviderSettingsHandler(m ProviderSettingsManager, log *zap.Logger, p
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		created, err := m.GetSettings(c.QueryArray("ids"))
 		if err != nil {
 			errType := "internal"
@@ -360,7 +358,7 @@ func getGetProviderSettingsHandler(m ProviderSettingsManager, log *zap.Logger, p
 				}, 1)
 			}()
 
-			logError(log, "error when getting provider settings", prod, cid, err)
+			logError(log, "error when getting provider settings", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/provider-settings-manager",
 				Title:    "get provider settings failed",
@@ -377,8 +375,9 @@ func getGetProviderSettingsHandler(m ProviderSettingsManager, log *zap.Logger, p
 	}
 }
 
-func getCreateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getCreateProviderSettingHandler(m ProviderSettingsManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_create_provider_setting_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -399,10 +398,9 @@ func getCreateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading api key create request body", prod, cid, err)
+			logError(log, "error when reading api key create request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "request body reader error",
@@ -416,7 +414,7 @@ func getCreateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 		setting := &provider.Setting{}
 		err = json.Unmarshal(data, setting)
 		if err != nil {
-			logError(log, "error when unmarshalling provider setting update request body", prod, cid, err)
+			logError(log, "error when unmarshalling provider setting update request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
 				Title:    "json unmarshaller error",
@@ -450,7 +448,7 @@ func getCreateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 				return
 			}
 
-			logError(log, "error when creating a provider setting", prod, cid, err)
+			logError(log, "error when creating a provider setting", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/provider-settings-manager",
 				Title:    "provider setting creation failed",
@@ -467,8 +465,9 @@ func getCreateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 	}
 }
 
-func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getCreateKeyHandler(m KeyManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_create_key_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -489,10 +488,9 @@ func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 			return
 		}
 
-		id := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading key creation request body", prod, id, err)
+			logError(log, "error when reading key creation request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "request body reader error",
@@ -506,7 +504,7 @@ func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 		rk := &key.RequestKey{}
 		err = json.Unmarshal(data, rk)
 		if err != nil {
-			logError(log, "error when unmarshalling key creation request body", prod, id, err)
+			logError(log, "error when unmarshalling key creation request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
 				Title:    "json unmarshaller error",
@@ -540,7 +538,7 @@ func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 				return
 			}
 
-			logError(log, "error when creating api key", prod, id, err)
+			logError(log, "error when creating api key", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/key-manager",
 				Title:    "key creation error",
@@ -557,8 +555,9 @@ func getCreateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 	}
 }
 
-func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getUpdateProviderSettingHandler(m ProviderSettingsManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_update_provider_setting_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -580,10 +579,9 @@ func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 		}
 
 		id := c.Param("id")
-		cid := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading api key update request body", prod, cid, err)
+			logError(log, "error when reading api key update request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "request body reader error",
@@ -597,7 +595,7 @@ func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 		setting := &provider.UpdateSetting{}
 		err = json.Unmarshal(data, setting)
 		if err != nil {
-			logError(log, "error when unmarshalling provider setting update request body", prod, cid, err)
+			logError(log, "error when unmarshalling provider setting update request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
 				Title:    "json unmarshaller error",
@@ -642,7 +640,7 @@ func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 				return
 			}
 
-			logError(log, "error when updating a provider setting", prod, cid, err)
+			logError(log, "error when updating a provider setting", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/provider-settings-manager",
 				Title:    "provider setting update failed",
@@ -659,8 +657,9 @@ func getUpdateProviderSettingHandler(m ProviderSettingsManager, log *zap.Logger,
 	}
 }
 
-func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getUpdateKeyHandler(m KeyManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_update_key_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -682,7 +681,6 @@ func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 		}
 
 		id := c.Param("id")
-		cid := c.GetString(correlationId)
 		if len(id) == 0 {
 			c.JSON(http.StatusBadRequest, &ErrorResponse{
 				Type:     "/errors/missing-param-id",
@@ -697,7 +695,7 @@ func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading api key update request body", prod, cid, err)
+			logError(log, "error when reading api key update request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "request body reader error",
@@ -711,7 +709,7 @@ func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 		uk := &key.UpdateKey{}
 		err = json.Unmarshal(data, uk)
 		if err != nil {
-			logError(log, "error when unmarshalling api key update request body", prod, cid, err)
+			logError(log, "error when unmarshalling api key update request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
 				Title:    "json unmarshaller error",
@@ -755,7 +753,7 @@ func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 				return
 			}
 
-			logError(log, "error when updating api key", prod, cid, err)
+			logError(log, "error when updating api key", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/key-manager",
 				Title:    "update key error",
@@ -772,8 +770,9 @@ func getUpdateKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 	}
 }
 
-func getDeleteKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getDeleteKeyHandler(m KeyManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		path := "/api/key-management/keys/:id"
 		if c == nil || c.Request == nil {
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -787,7 +786,6 @@ func getDeleteKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 		}
 
 		id := c.Param("id")
-		cid := c.GetString(correlationId)
 		if len(id) == 0 {
 			c.JSON(http.StatusBadRequest, &ErrorResponse{
 				Type:     "/errors/missing-param-id",
@@ -802,7 +800,7 @@ func getDeleteKeyHandler(m KeyManager, log *zap.Logger, prod bool) gin.HandlerFu
 
 		err := m.DeleteKey(id)
 		if err != nil {
-			logError(log, "error when deleting api key", prod, cid, err)
+			logError(log, "error when deleting api key", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/key-manager",
 				Title:    "key deletion error",
@@ -822,8 +820,9 @@ type notFoundError interface {
 	NotFound()
 }
 
-func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getGetEventsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_get_events_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -845,7 +844,6 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		customId, ciok := c.GetQuery("customId")
 		userId, uiok := c.GetQuery("userId")
 		keyIds, kiok := c.GetQueryArray("keyIds")
@@ -926,7 +924,7 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 		if err != nil {
 			stats.Incr("bricksllm.admin.get_get_events_handler.get_events_error", nil, 1)
 
-			logError(log, "error when getting events", prod, cid, err)
+			logError(log, "error when getting events", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/event-manager",
 				Title:    "getting events error",
@@ -943,8 +941,9 @@ func getGetEventsHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.
 	}
 }
 
-func getGetKeyReportingHandler(m KeyReportingManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getGetKeyReportingHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_get_key_reporting_hanlder.requests", nil, 1)
 
 		start := time.Now()
@@ -966,7 +965,6 @@ func getGetKeyReportingHandler(m KeyReportingManager, log *zap.Logger, prod bool
 		}
 
 		id := c.Param("id")
-		cid := c.GetString(correlationId)
 		if len(id) == 0 {
 			c.JSON(http.StatusBadRequest, &ErrorResponse{
 				Type:     "/errors/missing-param-id",
@@ -992,7 +990,7 @@ func getGetKeyReportingHandler(m KeyReportingManager, log *zap.Logger, prod bool
 			if _, ok := err.(notFoundError); ok {
 				errType = "not_found"
 
-				logError(log, "key not found", prod, cid, err)
+				logError(log, "key not found", prod, err)
 				c.JSON(http.StatusInternalServerError, &ErrorResponse{
 					Type:     "/errors/key-not-found",
 					Title:    "key not found error",
@@ -1003,7 +1001,7 @@ func getGetKeyReportingHandler(m KeyReportingManager, log *zap.Logger, prod bool
 				return
 			}
 
-			logError(log, "error when getting api key reporting", prod, cid, err)
+			logError(log, "error when getting api key reporting", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/key-reporting-manager",
 				Title:    "key reporting error",
@@ -1028,8 +1026,9 @@ type CustomProvidersManager interface {
 	UpdateCustomProvider(id string, setting *custom.UpdateProvider) (*custom.Provider, error)
 }
 
-func getCreateCustomProviderHandler(m CustomProvidersManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getCreateCustomProviderHandler(m CustomProvidersManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_create_custom_provider_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -1050,10 +1049,9 @@ func getCreateCustomProviderHandler(m CustomProvidersManager, log *zap.Logger, p
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading create a custom provider request body", prod, cid, err)
+			logError(log, "error when reading create a custom provider request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "request body reader error",
@@ -1067,7 +1065,7 @@ func getCreateCustomProviderHandler(m CustomProvidersManager, log *zap.Logger, p
 		setting := &custom.Provider{}
 		err = json.Unmarshal(data, setting)
 		if err != nil {
-			logError(log, "error when unmarshalling create a custom provider request body", prod, cid, err)
+			logError(log, "error when unmarshalling create a custom provider request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
 				Title:    "json unmarshaller error",
@@ -1100,7 +1098,7 @@ func getCreateCustomProviderHandler(m CustomProvidersManager, log *zap.Logger, p
 				return
 			}
 
-			logError(log, "error when creating a custom provider", prod, cid, err)
+			logError(log, "error when creating a custom provider", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/custom-provider-manager",
 				Title:    "creating a custom provider error",
@@ -1116,8 +1114,9 @@ func getCreateCustomProviderHandler(m CustomProvidersManager, log *zap.Logger, p
 	}
 }
 
-func getGetCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getGetCustomProvidersHandler(m CustomProvidersManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_get_custom_providers_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -1138,7 +1137,6 @@ func getGetCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, pro
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		cps, err := m.GetCustomProviders()
 		if err != nil {
 			errType := "internal"
@@ -1148,7 +1146,7 @@ func getGetCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, pro
 				}, 1)
 			}()
 
-			logError(log, "error when getting custom providers", prod, cid, err)
+			logError(log, "error when getting custom providers", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/custom-provider-manager",
 				Title:    "getting custom providers error",
@@ -1164,8 +1162,9 @@ func getGetCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, pro
 	}
 }
 
-func getUpdateCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getUpdateCustomProvidersHandler(m CustomProvidersManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_update_custom_providers_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -1187,10 +1186,9 @@ func getUpdateCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, 
 		}
 
 		id := c.Param("id")
-		cid := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading update a custom provider request body", prod, cid, err)
+			logError(log, "error when reading update a custom provider request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "request body reader error",
@@ -1204,7 +1202,7 @@ func getUpdateCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, 
 		setting := &custom.UpdateProvider{}
 		err = json.Unmarshal(data, setting)
 		if err != nil {
-			logError(log, "error when unmarshalling update a custom provider request body", prod, cid, err)
+			logError(log, "error when unmarshalling update a custom provider request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
 				Title:    "json unmarshaller error",
@@ -1248,7 +1246,7 @@ func getUpdateCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, 
 				return
 			}
 
-			logError(log, "error when updating a custom provider", prod, cid, err)
+			logError(log, "error when updating a custom provider", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/custom-provider-manager",
 				Title:    "updating a custom provider error",
@@ -1264,11 +1262,11 @@ func getUpdateCustomProvidersHandler(m CustomProvidersManager, log *zap.Logger, 
 	}
 }
 
-func logError(log *zap.Logger, msg string, prod bool, id string, err error) {
+func logError(log *zap.Logger, msg string, prod bool, err error) {
 	if prod {
-		log.Debug(msg, zap.String(correlationId, id), zap.Error(err))
+		log.Debug(msg, zap.Error(err))
 		return
 	}
 
-	log.Sugar().Debugf("correlationId:%s | %s | %v", id, msg, err)
+	log.Debug(fmt.Sprintf("%s | %v", msg, err))
 }

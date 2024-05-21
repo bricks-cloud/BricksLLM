@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func logCreateMessageRequest(log *zap.Logger, data []byte, prod, private bool, cid string) {
+func logCreateMessageRequest(log *zap.Logger, data []byte, prod, private bool) {
 	mr := &openai.MessageRequest{}
 	err := json.Unmarshal(data, mr)
 	if err != nil {
@@ -19,7 +19,6 @@ func logCreateMessageRequest(log *zap.Logger, data []byte, prod, private bool, c
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("role", mr.Role),
 			zap.Any("file_ids", mr.FileIds),
 			zap.Any("metadata", mr.Metadata),
@@ -33,7 +32,7 @@ func logCreateMessageRequest(log *zap.Logger, data []byte, prod, private bool, c
 	}
 }
 
-func logMessageResponse(log *zap.Logger, data []byte, prod, private bool, cid string) {
+func logMessageResponse(log *zap.Logger, data []byte, prod, private bool) {
 	m := &goopenai.Message{}
 	err := json.Unmarshal(data, m)
 	if err != nil {
@@ -49,7 +48,6 @@ func logMessageResponse(log *zap.Logger, data []byte, prod, private bool, cid st
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", m.ID),
 			zap.String("object", m.Object),
 			zap.Int("created_at", m.CreatedAt),
@@ -65,10 +63,9 @@ func logMessageResponse(log *zap.Logger, data []byte, prod, private bool, cid st
 	}
 }
 
-func logRetrieveMessageRequest(log *zap.Logger, prod bool, cid, mid, tid string) {
+func logRetrieveMessageRequest(log *zap.Logger, prod bool, mid, tid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("thread_id", tid),
 			zap.String("message_id", mid),
 		}
@@ -77,7 +74,7 @@ func logRetrieveMessageRequest(log *zap.Logger, prod bool, cid, mid, tid string)
 	}
 }
 
-func logModifyMessageRequest(log *zap.Logger, data []byte, prod, private bool, cid, tid, mid string) {
+func logModifyMessageRequest(log *zap.Logger, data []byte, prod, private bool, tid, mid string) {
 	mr := &goopenai.MessageRequest{}
 	err := json.Unmarshal(data, mr)
 	if err != nil {
@@ -87,7 +84,6 @@ func logModifyMessageRequest(log *zap.Logger, data []byte, prod, private bool, c
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("thread_id", tid),
 			zap.String("message_id", mid),
 			zap.Any("metadata", mr.Metadata),
@@ -101,10 +97,9 @@ func logModifyMessageRequest(log *zap.Logger, data []byte, prod, private bool, c
 	}
 }
 
-func logListMessagesRequest(log *zap.Logger, prod bool, cid, tid string) {
+func logListMessagesRequest(log *zap.Logger, prod bool, tid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("thread_id", tid),
 		}
 
@@ -112,7 +107,7 @@ func logListMessagesRequest(log *zap.Logger, prod bool, cid, tid string) {
 	}
 }
 
-func logListMessagesResponse(log *zap.Logger, data []byte, prod, private bool, cid string) {
+func logListMessagesResponse(log *zap.Logger, data []byte, prod, private bool) {
 	ms := &goopenai.MessagesList{}
 	err := json.Unmarshal(data, ms)
 	if err != nil {
@@ -130,7 +125,6 @@ func logListMessagesResponse(log *zap.Logger, data []byte, prod, private bool, c
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.Any("messages", ms.Messages),
 		}
 

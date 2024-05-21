@@ -8,20 +8,20 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	goopenai "github.com/sashabaranov/go-openai"
-	"go.uber.org/zap"
 )
 
-func getAzureEmbeddingsHandler(prod, private bool, client http.Client, log *zap.Logger, aoe azureEstimator, timeOut time.Duration) gin.HandlerFunc {
+func getAzureEmbeddingsHandler(prod, private bool, client http.Client, aoe azureEstimator, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.requests", nil, 1)
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
 			return
 		}
 
-		cid := c.GetString(logFiledNameCorrelationId)
 		// raw, exists := c.Get("key")
 		// kc, ok := raw.(*key.ResponseKey)
 		// if !exists || !ok {
@@ -93,13 +93,13 @@ func getAzureEmbeddingsHandler(prod, private bool, client http.Client, log *zap.
 			totalTokens := 0
 			if err == nil {
 				if format == "base64" {
-					logBase64EmbeddingResponse(log, prod, private, cid, base64ChatRes)
+					logBase64EmbeddingResponse(log, prod, private, base64ChatRes)
 					totalTokens = base64ChatRes.Usage.TotalTokens
 					promptTokenCounts = base64ChatRes.Usage.PromptTokens
 				}
 
 				if format != "base64" {
-					logEmbeddingResponse(log, prod, private, cid, chatRes)
+					logEmbeddingResponse(log, prod, private, chatRes)
 					totalTokens = chatRes.Usage.TotalTokens
 					promptTokenCounts = chatRes.Usage.PromptTokens
 				}
@@ -132,7 +132,7 @@ func getAzureEmbeddingsHandler(prod, private bool, client http.Client, log *zap.
 				logError(log, "error when unmarshalling azure openai embedding error response body", prod, err)
 			}
 
-			logOpenAiError(log, prod, cid, errorRes)
+			logOpenAiError(log, prod, errorRes)
 		}
 
 		for name, values := range res.Header {

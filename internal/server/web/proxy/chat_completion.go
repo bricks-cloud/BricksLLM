@@ -11,13 +11,14 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	goopenai "github.com/sashabaranov/go-openai"
-	"go.uber.org/zap"
 )
 
-func getChatCompletionHandler(prod, private bool, client http.Client, log *zap.Logger, e estimator, timeOut time.Duration) gin.HandlerFunc {
+func getChatCompletionHandler(prod, private bool, client http.Client, e estimator, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.proxy.get_chat_completion_handler.requests", nil, 1)
 
 		if c == nil || c.Request == nil {
@@ -25,7 +26,6 @@ func getChatCompletionHandler(prod, private bool, client http.Client, log *zap.L
 			return
 		}
 
-		cid := c.GetString(logFiledNameCorrelationId)
 		// raw, exists := c.Get("key")
 		// kc, ok := raw.(*key.ResponseKey)
 		// if !exists || !ok {
@@ -95,7 +95,7 @@ func getChatCompletionHandler(prod, private bool, client http.Client, log *zap.L
 			}
 
 			if err == nil {
-				logChatCompletionResponse(log, prod, private, cid, chatRes)
+				logChatCompletionResponse(log, prod, private, chatRes)
 				cost, err = e.EstimateTotalCost(model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_chat_completion_handler.estimate_total_cost_error", nil, 1)
@@ -136,7 +136,7 @@ func getChatCompletionHandler(prod, private bool, client http.Client, log *zap.L
 				logError(log, "error when unmarshalling openai chat completion error response body", prod, err)
 			}
 
-			logOpenAiError(log, prod, cid, errorRes)
+			logOpenAiError(log, prod, errorRes)
 
 			c.Data(res.StatusCode, "application/json", bytes)
 			return

@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func logCreateAssistantFileRequest(log *zap.Logger, data []byte, prod bool, cid, aid string) {
+func logCreateAssistantFileRequest(log *zap.Logger, data []byte, prod bool, aid string) {
 	afr := &goopenai.AssistantFileRequest{}
 	err := json.Unmarshal(data, afr)
 	if err != nil {
@@ -18,7 +18,6 @@ func logCreateAssistantFileRequest(log *zap.Logger, data []byte, prod bool, cid,
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("assistant_id", aid),
 			zap.String("file_id", afr.FileID),
 		}
@@ -27,7 +26,7 @@ func logCreateAssistantFileRequest(log *zap.Logger, data []byte, prod bool, cid,
 	}
 }
 
-func logAssistantFileResponse(log *zap.Logger, data []byte, prod bool, cid string) {
+func logAssistantFileResponse(log *zap.Logger, data []byte, prod bool) {
 	af := &goopenai.AssistantFile{}
 	err := json.Unmarshal(data, af)
 	if err != nil {
@@ -37,7 +36,6 @@ func logAssistantFileResponse(log *zap.Logger, data []byte, prod bool, cid strin
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("assistant_id", af.AssistantID),
 			zap.String("id", af.ID),
 			zap.String("object", af.Object),
@@ -48,10 +46,9 @@ func logAssistantFileResponse(log *zap.Logger, data []byte, prod bool, cid strin
 	}
 }
 
-func logRetrieveAssistantFileRequest(log *zap.Logger, prod bool, cid, fid, aid string) {
+func logRetrieveAssistantFileRequest(log *zap.Logger, prod bool, fid, aid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("assistant_id", aid),
 			zap.String("file_id", fid),
 		}
@@ -60,10 +57,9 @@ func logRetrieveAssistantFileRequest(log *zap.Logger, prod bool, cid, fid, aid s
 	}
 }
 
-func logDeleteAssistantFileRequest(log *zap.Logger, prod bool, cid, fid, aid string) {
+func logDeleteAssistantFileRequest(log *zap.Logger, prod bool, fid, aid string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("assistant_id", aid),
 			zap.String("file_id", fid),
 		}
@@ -72,7 +68,7 @@ func logDeleteAssistantFileRequest(log *zap.Logger, prod bool, cid, fid, aid str
 	}
 }
 
-func logDeleteAssistantFileResponse(log *zap.Logger, data []byte, prod bool, cid string) {
+func logDeleteAssistantFileResponse(log *zap.Logger, data []byte, prod bool) {
 	dr := &goopenai.AssistantDeleteResponse{}
 	err := json.Unmarshal(data, dr)
 	if err != nil {
@@ -82,7 +78,6 @@ func logDeleteAssistantFileResponse(log *zap.Logger, data []byte, prod bool, cid
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("id", dr.ID),
 			zap.String("object", dr.Object),
 			zap.Bool("deleted", dr.Deleted),
@@ -92,10 +87,9 @@ func logDeleteAssistantFileResponse(log *zap.Logger, data []byte, prod bool, cid
 	}
 }
 
-func logListAssistantFilesRequest(log *zap.Logger, prod bool, cid, aid string, params map[string]string) {
+func logListAssistantFilesRequest(log *zap.Logger, prod bool, aid string, params map[string]string) {
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("assistant_id", aid),
 		}
 
@@ -119,7 +113,7 @@ func logListAssistantFilesRequest(log *zap.Logger, prod bool, cid, aid string, p
 	}
 }
 
-func logListAssistantFilesResponse(log *zap.Logger, data []byte, prod bool, cid string) {
+func logListAssistantFilesResponse(log *zap.Logger, data []byte, prod bool) {
 	files := &goopenai.AssistantFilesList{}
 	err := json.Unmarshal(data, files)
 	if err != nil {
@@ -129,7 +123,6 @@ func logListAssistantFilesResponse(log *zap.Logger, data []byte, prod bool, cid 
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.Any("assistant_files", files.AssistantFiles),
 		}
 

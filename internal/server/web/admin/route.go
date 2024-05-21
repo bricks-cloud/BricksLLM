@@ -8,8 +8,8 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/route"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 type RouteManager interface {
@@ -18,8 +18,9 @@ type RouteManager interface {
 	CreateRoute(r *route.Route) (*route.Route, error)
 }
 
-func getCreateRouteHandler(m RouteManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getCreateRouteHandler(m RouteManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_create_route_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -40,10 +41,9 @@ func getCreateRouteHandler(m RouteManager, log *zap.Logger, prod bool) gin.Handl
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading create a route request body", prod, cid, err)
+			logError(log, "error when reading create a route request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "request body reader error",
@@ -57,7 +57,7 @@ func getCreateRouteHandler(m RouteManager, log *zap.Logger, prod bool) gin.Handl
 		r := &route.Route{}
 		err = json.Unmarshal(data, r)
 		if err != nil {
-			logError(log, "error when unmarshalling create a route request body", prod, cid, err)
+			logError(log, "error when unmarshalling create a route request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
 				Title:    "json unmarshaller error",
@@ -90,7 +90,7 @@ func getCreateRouteHandler(m RouteManager, log *zap.Logger, prod bool) gin.Handl
 				return
 			}
 
-			logError(log, "error when creating a route", prod, cid, err)
+			logError(log, "error when creating a route", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/route-manager",
 				Title:    "creating a route error",
@@ -106,8 +106,9 @@ func getCreateRouteHandler(m RouteManager, log *zap.Logger, prod bool) gin.Handl
 	}
 }
 
-func getGetRouteHandler(m RouteManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getGetRouteHandler(m RouteManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_get_route_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -128,7 +129,6 @@ func getGetRouteHandler(m RouteManager, log *zap.Logger, prod bool) gin.HandlerF
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		r, err := m.GetRoute(c.Param("id"))
 		if err != nil {
 			errType := "internal"
@@ -141,7 +141,7 @@ func getGetRouteHandler(m RouteManager, log *zap.Logger, prod bool) gin.HandlerF
 			if _, ok := err.(notFoundError); ok {
 				errType = "not_found"
 
-				logError(log, "route not found", prod, cid, err)
+				logError(log, "route not found", prod, err)
 				c.JSON(http.StatusNotFound, &ErrorResponse{
 					Type:     "/errors/route-not-found",
 					Title:    "route not found error",
@@ -152,7 +152,7 @@ func getGetRouteHandler(m RouteManager, log *zap.Logger, prod bool) gin.HandlerF
 				return
 			}
 
-			logError(log, "error when getting a route", prod, cid, err)
+			logError(log, "error when getting a route", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/route-manager",
 				Title:    "getting a route error",
@@ -168,8 +168,9 @@ func getGetRouteHandler(m RouteManager, log *zap.Logger, prod bool) gin.HandlerF
 	}
 }
 
-func getGetRoutesHandler(m RouteManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getGetRoutesHandler(m RouteManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_get_routes_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -190,7 +191,6 @@ func getGetRoutesHandler(m RouteManager, log *zap.Logger, prod bool) gin.Handler
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		rs, err := m.GetRoutes()
 		if err != nil {
 			errType := "internal"
@@ -200,7 +200,7 @@ func getGetRoutesHandler(m RouteManager, log *zap.Logger, prod bool) gin.Handler
 				}, 1)
 			}()
 
-			logError(log, "error when getting a route", prod, cid, err)
+			logError(log, "error when getting a route", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/route-manager",
 				Title:    "getting a route error",

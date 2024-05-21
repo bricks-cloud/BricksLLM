@@ -9,8 +9,8 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/bricks-cloud/bricksllm/internal/user"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 type UserManager interface {
@@ -20,8 +20,9 @@ type UserManager interface {
 	UpdateUserViaTagsAndUserId(tags []string, uid string, uu *user.UpdateUser) (*user.User, error)
 }
 
-func getGetUsersHandler(m UserManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getGetUsersHandler(m UserManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_get_users_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -84,12 +85,11 @@ func getGetUsersHandler(m UserManager, log *zap.Logger, prod bool) gin.HandlerFu
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		keys, err := m.GetUsers(tags, keyIds, userIds, offset, limit)
 		if err != nil {
 			stats.Incr("bricksllm.admin.get_get_users_handler.get_users_err", nil, 1)
 
-			logError(log, "error when getting api keys by tag", prod, cid, err)
+			logError(log, "error when getting api keys by tag", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/getting-keys",
 				Title:    "getting keys errored out",
@@ -105,8 +105,9 @@ func getGetUsersHandler(m UserManager, log *zap.Logger, prod bool) gin.HandlerFu
 	}
 }
 
-func getCreateUserHandler(m UserManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getCreateUserHandler(m UserManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_create_user_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -127,10 +128,9 @@ func getCreateUserHandler(m UserManager, log *zap.Logger, prod bool) gin.Handler
 			return
 		}
 
-		id := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading user creation request body", prod, id, err)
+			logError(log, "error when reading user creation request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "request body reader error",
@@ -144,7 +144,7 @@ func getCreateUserHandler(m UserManager, log *zap.Logger, prod bool) gin.Handler
 		u := &user.User{}
 		err = json.Unmarshal(data, u)
 		if err != nil {
-			logError(log, "error when unmarshalling user creation request body", prod, id, err)
+			logError(log, "error when unmarshalling user creation request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
 				Title:    "json unmarshaller error",
@@ -178,7 +178,7 @@ func getCreateUserHandler(m UserManager, log *zap.Logger, prod bool) gin.Handler
 				return
 			}
 
-			logError(log, "error when creating user", prod, id, err)
+			logError(log, "error when creating user", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/user-manager",
 				Title:    "user creation error",
@@ -195,8 +195,9 @@ func getCreateUserHandler(m UserManager, log *zap.Logger, prod bool) gin.Handler
 	}
 }
 
-func getUpdateUserHandler(m UserManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getUpdateUserHandler(m UserManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_update_user_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -229,10 +230,9 @@ func getUpdateUserHandler(m UserManager, log *zap.Logger, prod bool) gin.Handler
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading update user request body", prod, cid, err)
+			logError(log, "error when reading update user request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "request body reader error",
@@ -246,7 +246,7 @@ func getUpdateUserHandler(m UserManager, log *zap.Logger, prod bool) gin.Handler
 		uu := &user.UpdateUser{}
 		err = json.Unmarshal(data, uu)
 		if err != nil {
-			logError(log, "error when unmarshalling update user request body", prod, cid, err)
+			logError(log, "error when unmarshalling update user request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
 				Title:    "json unmarshaller error",
@@ -280,7 +280,7 @@ func getUpdateUserHandler(m UserManager, log *zap.Logger, prod bool) gin.Handler
 				return
 			}
 
-			logError(log, "error when updating user", prod, cid, err)
+			logError(log, "error when updating user", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/user-manager",
 				Title:    "update user error",
@@ -297,8 +297,9 @@ func getUpdateUserHandler(m UserManager, log *zap.Logger, prod bool) gin.Handler
 	}
 }
 
-func getUpdateUserViaTagsAndUserIdHandler(m UserManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getUpdateUserViaTagsAndUserIdHandler(m UserManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_update_user_via_tags_and_user_id_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -331,10 +332,9 @@ func getUpdateUserViaTagsAndUserIdHandler(m UserManager, log *zap.Logger, prod b
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading update user via tags and user id request body", prod, cid, err)
+			logError(log, "error when reading update user via tags and user id request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "request body reader error",
@@ -348,7 +348,7 @@ func getUpdateUserViaTagsAndUserIdHandler(m UserManager, log *zap.Logger, prod b
 		uu := &user.UpdateUser{}
 		err = json.Unmarshal(data, uu)
 		if err != nil {
-			logError(log, "error when unmarshalling update user via tags and user id body", prod, cid, err)
+			logError(log, "error when unmarshalling update user via tags and user id body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
 				Title:    "json unmarshaller error",
@@ -382,7 +382,7 @@ func getUpdateUserViaTagsAndUserIdHandler(m UserManager, log *zap.Logger, prod b
 				return
 			}
 
-			logError(log, "error when updating user", prod, cid, err)
+			logError(log, "error when updating user", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/user-manager",
 				Title:    "update user error",

@@ -14,7 +14,6 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	goopenai "github.com/sashabaranov/go-openai"
-	"go.uber.org/zap"
 )
 
 func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
@@ -25,8 +24,6 @@ func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, time
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
 			return
 		}
-
-		cid := c.GetString(logFiledNameCorrelationId)
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
@@ -86,7 +83,7 @@ func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, time
 			}
 
 			if err == nil {
-				logVllmCompletionResponse(log, cr, prod, private, cid)
+				logVllmCompletionResponse(log, cr, prod, private)
 			}
 
 			c.Set("promptTokenCount", cr.Usage.PromptTokens)
@@ -114,7 +111,7 @@ func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, time
 				logError(log, "error when unmarshalling deepinfra chat completion error response body", prod, err)
 			}
 
-			logOpenAiError(log, prod, cid, errorRes)
+			logOpenAiError(log, prod, errorRes)
 
 			c.Data(res.StatusCode, "application/json", bytes)
 			return
@@ -210,8 +207,6 @@ func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, 
 			return
 		}
 
-		cid := c.GetString(logFiledNameCorrelationId)
-
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
 
@@ -270,7 +265,7 @@ func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, 
 			}
 
 			if err == nil {
-				logChatCompletionResponse(log, prod, private, cid, chatRes)
+				logChatCompletionResponse(log, prod, private, chatRes)
 			}
 
 			c.Set("promptTokenCount", chatRes.Usage.PromptTokens)
@@ -292,7 +287,7 @@ func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, 
 				return
 			}
 
-			logAnthropicErrorResponse(log, bytes, prod, cid)
+			logAnthropicErrorResponse(log, bytes, prod)
 			c.Data(res.StatusCode, "application/json", bytes)
 			return
 		}
@@ -377,15 +372,14 @@ func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, 
 	}
 }
 
-func getDeepinfraEmbeddingsHandler(prod, private bool, client http.Client, log *zap.Logger, e deepinfraEstimator, timeout time.Duration) gin.HandlerFunc {
+func getDeepinfraEmbeddingsHandler(prod, private bool, client http.Client, e deepinfraEstimator, timeout time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.proxy.get_deepinfra_embeddings_handler.requests", nil, 1)
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
 			return
 		}
-
-		cid := c.GetString(logFiledNameCorrelationId)
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
@@ -437,7 +431,7 @@ func getDeepinfraEmbeddingsHandler(prod, private bool, client http.Client, log *
 
 			totalTokens := 0
 			if err == nil {
-				logEmbeddingResponse(log, prod, private, cid, chatRes)
+				logEmbeddingResponse(log, prod, private, chatRes)
 				totalTokens = chatRes.Usage.TotalTokens
 				promptTokenCounts = chatRes.Usage.PromptTokens
 
@@ -461,7 +455,7 @@ func getDeepinfraEmbeddingsHandler(prod, private bool, client http.Client, log *
 				logError(log, "error when unmarshalling deepinfra openai embedding error response body", prod, err)
 			}
 
-			logOpenAiError(log, prod, cid, errorRes)
+			logOpenAiError(log, prod, errorRes)
 		}
 
 		for name, values := range res.Header {

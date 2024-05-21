@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	goopenai "github.com/sashabaranov/go-openai"
-	"go.uber.org/zap"
 )
 
 func buildAzureUrl(path, deploymentId, apiVersion, resourceName string) string {
@@ -25,16 +25,15 @@ func buildAzureUrl(path, deploymentId, apiVersion, resourceName string) string {
 	return fmt.Sprintf("https://%s.openai.azure.com/openai/deployments/%s/embeddings?api-version=%s", resourceName, deploymentId, apiVersion)
 }
 
-func getAzureChatCompletionHandler(prod, private bool, client http.Client, log *zap.Logger, aoe azureEstimator, timeOut time.Duration) gin.HandlerFunc {
+func getAzureChatCompletionHandler(prod, private bool, client http.Client, aoe azureEstimator, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.requests", nil, 1)
 
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
 			return
 		}
-
-		cid := c.GetString(logFiledNameCorrelationId)
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
@@ -96,7 +95,7 @@ func getAzureChatCompletionHandler(prod, private bool, client http.Client, log *
 			if err == nil {
 				c.Set("model", chatRes.Model)
 
-				logChatCompletionResponse(log, prod, private, cid, chatRes)
+				logChatCompletionResponse(log, prod, private, chatRes)
 				cost, err = aoe.EstimateTotalCost(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.estimate_total_cost_error", nil, 1)
@@ -131,7 +130,7 @@ func getAzureChatCompletionHandler(prod, private bool, client http.Client, log *
 				return
 			}
 
-			logAnthropicErrorResponse(log, bytes, prod, cid)
+			logAnthropicErrorResponse(log, bytes, prod)
 			c.Data(res.StatusCode, "application/json", bytes)
 			return
 		}

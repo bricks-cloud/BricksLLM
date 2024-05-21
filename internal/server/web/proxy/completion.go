@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func logCompletionRequest(log *zap.Logger, data []byte, prod, private bool, cid string) {
+func logCompletionRequest(log *zap.Logger, data []byte, prod, private bool) {
 	cr := &anthropic.CompletionRequest{}
 	err := json.Unmarshal(data, cr)
 	if err != nil {
@@ -18,7 +18,6 @@ func logCompletionRequest(log *zap.Logger, data []byte, prod, private bool, cid 
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("model", cr.Model),
 			zap.Int("max_tokens_to_sample", cr.MaxTokensToSample),
 			zap.Any("stop_sequnces", cr.StopSequences),
@@ -40,7 +39,7 @@ func logCompletionRequest(log *zap.Logger, data []byte, prod, private bool, cid 
 	}
 }
 
-func logCompletionResponse(log *zap.Logger, data []byte, prod, private bool, cid string) {
+func logCompletionResponse(log *zap.Logger, data []byte, prod, private bool) {
 	cr := &anthropic.CompletionResponse{}
 	err := json.Unmarshal(data, cr)
 	if err != nil {
@@ -50,7 +49,6 @@ func logCompletionResponse(log *zap.Logger, data []byte, prod, private bool, cid
 
 	if prod {
 		fields := []zapcore.Field{
-			zap.String(logFiledNameCorrelationId, cid),
 			zap.String("stop_reason", cr.StopReason),
 			zap.String("model", cr.Model),
 		}

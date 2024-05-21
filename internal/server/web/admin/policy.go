@@ -8,12 +8,13 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/policy"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
-func getCreatePolicyHandler(pm PoliciesManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getCreatePolicyHandler(pm PoliciesManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_get_create_policy_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -34,10 +35,9 @@ func getCreatePolicyHandler(pm PoliciesManager, log *zap.Logger, prod bool) gin.
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading policy creation request body", prod, cid, err)
+			logError(log, "error when reading policy creation request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "request body reader error",
@@ -51,7 +51,7 @@ func getCreatePolicyHandler(pm PoliciesManager, log *zap.Logger, prod bool) gin.
 		p := &policy.Policy{}
 		err = json.Unmarshal(data, p)
 		if err != nil {
-			logError(log, "error when unmarshalling policy creation request body", prod, cid, err)
+			logError(log, "error when unmarshalling policy creation request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
 				Title:    "json unmarshaller error",
@@ -66,7 +66,7 @@ func getCreatePolicyHandler(pm PoliciesManager, log *zap.Logger, prod bool) gin.
 		if err != nil {
 			stats.Incr("bricksllm.admin.get_get_create_policy_handler.creat_policy_error", nil, 1)
 
-			logError(log, "error when creating a policy", prod, cid, err)
+			logError(log, "error when creating a policy", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/policies/creation",
 				Title:    "policy creation failed",
@@ -83,8 +83,9 @@ func getCreatePolicyHandler(pm PoliciesManager, log *zap.Logger, prod bool) gin.
 	}
 }
 
-func getUpdatePolicyHandler(pm PoliciesManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getUpdatePolicyHandler(pm PoliciesManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_update_policy_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -118,10 +119,9 @@ func getUpdatePolicyHandler(pm PoliciesManager, log *zap.Logger, prod bool) gin.
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		data, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			logError(log, "error when reading policy creation request body", prod, cid, err)
+			logError(log, "error when reading policy creation request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/request-body-read",
 				Title:    "request body reader error",
@@ -135,7 +135,7 @@ func getUpdatePolicyHandler(pm PoliciesManager, log *zap.Logger, prod bool) gin.
 		p := &policy.UpdatePolicy{}
 		err = json.Unmarshal(data, p)
 		if err != nil {
-			logError(log, "error when unmarshalling policy creation request body", prod, cid, err)
+			logError(log, "error when unmarshalling policy creation request body", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/json-unmarshal",
 				Title:    "json unmarshaller error",
@@ -150,7 +150,7 @@ func getUpdatePolicyHandler(pm PoliciesManager, log *zap.Logger, prod bool) gin.
 		if err != nil {
 			stats.Incr("bricksllm.admin.get_update_policy_handler.update_policy_error", nil, 1)
 
-			logError(log, "error when updating a policy by id", prod, cid, err)
+			logError(log, "error when updating a policy by id", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/policie/updates",
 				Title:    "update a policy failed",
@@ -167,8 +167,9 @@ func getUpdatePolicyHandler(pm PoliciesManager, log *zap.Logger, prod bool) gin.
 	}
 }
 
-func getGetPoliciesByTagsHandler(pm PoliciesManager, log *zap.Logger, prod bool) gin.HandlerFunc {
+func getGetPoliciesByTagsHandler(pm PoliciesManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
 		stats.Incr("bricksllm.admin.get_get_policies_by_tags_handler.requests", nil, 1)
 
 		start := time.Now()
@@ -202,7 +203,6 @@ func getGetPoliciesByTagsHandler(pm PoliciesManager, log *zap.Logger, prod bool)
 			return
 		}
 
-		cid := c.GetString(correlationId)
 		policies, err := pm.GetPoliciesByTags(c.QueryArray("tags"))
 		if err != nil {
 			errType := "internal"
@@ -213,7 +213,7 @@ func getGetPoliciesByTagsHandler(pm PoliciesManager, log *zap.Logger, prod bool)
 				}, 1)
 			}()
 
-			logError(log, "error when getting policies by tags", prod, cid, err)
+			logError(log, "error when getting policies by tags", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
 				Type:     "/errors/policies",
 				Title:    "get policies by tags failed",
