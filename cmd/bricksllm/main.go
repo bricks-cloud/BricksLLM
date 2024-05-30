@@ -46,7 +46,7 @@ func main() {
 
 	gin.SetMode(gin.ReleaseMode)
 
-	cfg, err := config.LoadConfig()
+	cfg, err := config.LoadConfig(log)
 	if err != nil {
 		log.Sugar().Fatalf("cannot parse environment variables: %v", err)
 	}
