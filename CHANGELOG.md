@@ -25,6 +25,14 @@
 ### Fixed
 - Reconfigured logger to always log `correlationId`
 
+## 1.25.1 - 2024-05-23
+### Fixed
+- Reconfigured logger to always log `correlationId`
+
+## 1.25.0 - 2024-05-23
+### Added
+- Added `requestFormat` and `requestParams` to routes
+
 ## 1.24.0 - 2024-05-13
 ### Added
 - Added policy integration with assistant APIs
