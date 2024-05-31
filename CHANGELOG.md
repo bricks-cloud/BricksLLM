@@ -1,6 +1,41 @@
-## 1.23.1 - 2024-05-13
+## 1.26.2 - 2024-05-30
+### Fixed
+- Fixed configuration files priority issue
+
+## 1.26.1 - 2024-05-30
+### Fixed
+- Removed unused env variables
+- Fixed `.env` file cannot be openned error
+
+## 1.26.0 - 2024-05-25
 ### Added
-- Added support for `gpt-4o`
+- Added `.env` and `json` file configurations for env variables
+
+### Fixed
+- Removed unused funcition variables such as `cid`
+
+### Changed
+- Updated `go` version to `1.22`
+
+## 1.25.3 - 2024-05-24
+### Fixed
+- Fixed token counting for `gpt-4o`
+
+## 1.25.2 - 2024-05-23
+### Fixed
+- Reconfigured logger to always log `correlationId`
+
+## 1.24.0 - 2024-05-13
+### Added
+- Added policy integration with assistant APIs
+
+## 1.23.2 - 2024-05-10
+### Fixed
+- Fixed issue with policy running even if policy input is empty
+  
+## 1.23.1 - 2024-05-10
+### Added
+- Added support for gpt-4o
 
 ## 1.23.0 - 2024-05-09
 ### Fixed
