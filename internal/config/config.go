@@ -3,14 +3,12 @@ package config
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/caarlos0/env"
 
 	"github.com/joho/godotenv"
 	"github.com/knadh/koanf/parsers/json"
-	koanfenv "github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 	"go.uber.org/zap"
@@ -69,7 +67,14 @@ func prepareDotEnv(envFilePath string) error {
 var k = koanf.New(".")
 
 func LoadConfig(log *zap.Logger) (*Config, error) {
-	err := prepareDotEnv(".env")
+	cfg := &Config{}
+
+	err := env.Parse(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	err = prepareDotEnv(".env")
 	if err != nil {
 		log.Sugar().Infof("error loading config from .env file: %v", err)
 	}
@@ -82,16 +87,8 @@ func LoadConfig(log *zap.Logger) (*Config, error) {
 		}
 	}
 
-	k.Load(koanfenv.Provider("", ".", func(s string) string {
-		return strings.ToLower(s)
-	}), nil)
-
-	cfg := &Config{}
-	k.Unmarshal("", cfg)
-
-	err = env.Parse(cfg)
-	if err != nil {
-		return nil, err
+	if len(cfgPath) != 0 {
+		k.Unmarshal("", cfg)
 	}
 
 	return cfg, nil
