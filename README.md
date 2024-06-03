@@ -60,9 +60,9 @@ cd BricksLLM-Docker
 
 ### Step 3 - Deploy BricksLLM locally with Postgresql and Redis
 ```bash
-docker-compose up
+docker compose up
 ```
-You can run this in detach mode use the -d flag: `docker-compose up -d`
+You can run this in detach mode use the -d flag: `docker compose up -d`
 
 
 ### Step 4 - Create a provider setting
