@@ -465,7 +465,7 @@ func (h *Handler) decorateEvent(m Message) error {
 		}
 	}
 
-	if e.Event.Path == "/api/providers/azure/openai/deployments/:deployment_id/chat/completions" {
+	if strings.HasPrefix(e.Event.Path, "/api/providers/azure/openai/deployments") && strings.HasSuffix(e.Event.Path, "/chat/completions") {
 		ccr, ok := e.Request.(*goopenai.ChatCompletionRequest)
 		if !ok {
 			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
@@ -474,7 +474,13 @@ func (h *Handler) decorateEvent(m Message) error {
 		}
 
 		if ccr.Stream {
-			tks, err := h.e.EstimateChatCompletionPromptTokenCounts("gpt-3.5-turbo", ccr)
+			model := "gpt-3.5-turbo"
+
+			if strings.HasPrefix(e.Event.Model, "gpt-4o") {
+				model = "gpt-4o"
+			}
+
+			tks, err := h.e.EstimateChatCompletionPromptTokenCounts(model, ccr)
 			if err != nil {
 				stats.Incr("bricksllm.message.decorate_event.estimate_chat_completion_prompt_token_counts_error", nil, 1)
 				return err
@@ -586,7 +592,7 @@ func (h *Handler) decorateEvent(m Message) error {
 		}
 	}
 
-	if strings.HasPrefix(e.Event.Path, "/api/custom/providers/:provider") && e.RouteConfig != nil {
+	if strings.HasPrefix(e.Event.Path, "/api/custom/providers") && e.RouteConfig != nil {
 		body, ok := e.Request.([]byte)
 		if !ok {
 			stats.Incr("bricksllm.message.handler.decorate_event.event_request_custom_provider_parsing_error", nil, 1)

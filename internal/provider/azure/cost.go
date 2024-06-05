@@ -9,6 +9,8 @@ import (
 
 var AzureOpenAiPerThousandTokenCost = map[string]map[string]float64{
 	"prompt": {
+		"gpt-4o":                0.005,
+		"gpt-4o-2024-05-13":     0.005,
 		"gpt-4":                 0.03,
 		"gpt-4-32k":             0.06,
 		"gpt-4-vision":          0.06,
@@ -20,6 +22,8 @@ var AzureOpenAiPerThousandTokenCost = map[string]map[string]float64{
 		"ada": 0.0001,
 	},
 	"completion": {
+		"gpt-4o":                0.015,
+		"gpt-4o-2024-05-13":     0.015,
 		"gpt-4":                 0.06,
 		"gpt-4-32k":             0.12,
 		"gpt-4-vision":          0.12,
