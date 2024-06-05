@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -27,18 +28,18 @@ type Config struct {
 	RedisPassword                 string        `koanf:"redis_password" env:"REDIS_PASSWORD"`
 	RedisReadTimeout              time.Duration `koanf:"redis_read_time_out" env:"REDIS_READ_TIME_OUT" envDefault:"1s"`
 	RedisWriteTimeout             time.Duration `koanf:"redis_write_time_out" env:"REDIS_WRITE_TIME_OUT" envDefault:"500ms"`
-	PostgresqlReadTimeout         time.Duration `koanf:"postgresql_read_time_out" env:"POSTGRESQL_READ_TIME_OUT" envDefault:"2s"`
-	PostgresqlWriteTimeout        time.Duration `koanf:"postgresql_write_time_out" env:"POSTGRESQL_WRITE_TIME_OUT" envDefault:"1s"`
+	PostgresqlReadTimeout         time.Duration `koanf:"postgresql_read_time_out" env:"POSTGRESQL_READ_TIME_OUT" envDefault:"2m"`
+	PostgresqlWriteTimeout        time.Duration `koanf:"postgresql_write_time_out" env:"POSTGRESQL_WRITE_TIME_OUT" envDefault:"5s"`
 	InMemoryDbUpdateInterval      time.Duration `koanf:"in_memory_db_update_interval" env:"IN_MEMORY_DB_UPDATE_INTERVAL" envDefault:"5s"`
 	StatsProvider                 string        `koanf:"stats_provider" env:"STATS_PROVIDER"`
 	AdminPass                     string        `koanf:"admin_pass" env:"ADMIN_PASS"`
-	ProxyTimeout                  time.Duration `koanf:"proxy_timeout" env:"PROXY_TIMEOUT"`
+	ProxyTimeout                  time.Duration `koanf:"proxy_timeout" env:"PROXY_TIMEOUT" envDefault:"600s"`
 	NumberOfEventMessageConsumers int           `koanf:"number_of_event_message_consumers" env:"NUMBER_OF_EVENT_MESSAGE_CONSUMERS" envDefault:"3"`
 	OpenAiApiKey                  string        `koanf:"openai_api_key" env:"OPENAI_API_KEY"`
-	CustomPolicyDetectionTimeout  time.Duration `koanf:"custom_policy_detection_timeout" env:"CUSTOM_POLICY_DETECTION_TIMEOUT"`
-	AmazonRegion                  string        `koanf:"amazon_region" env:"AMAZON_REGION"`
-	AmazonRequestTimeout          time.Duration `koanf:"amazon_request_timeout" env:"AMAZON_REQUEST_TIMEOUT"`
-	AmazonConnectionTimeout       time.Duration `koanf:"amazon_connection_timeout" env:"AMAZON_CONNECTION_TIMEOUT"`
+	CustomPolicyDetectionTimeout  time.Duration `koanf:"custom_policy_detection_timeout" env:"CUSTOM_POLICY_DETECTION_TIMEOUT" envDefault:"10m"`
+	AmazonRegion                  string        `koanf:"amazon_region" env:"AMAZON_REGION" envDefault:"us-west-2"`
+	AmazonRequestTimeout          time.Duration `koanf:"amazon_request_timeout" env:"AMAZON_REQUEST_TIMEOUT" envDefault:"5s"`
+	AmazonConnectionTimeout       time.Duration `koanf:"amazon_connection_timeout" env:"AMAZON_CONNECTION_TIMEOUT" envDefault:"10s"`
 }
 
 func prepareDotEnv(envFilePath string) error {
@@ -90,6 +91,8 @@ func LoadConfig(log *zap.Logger) (*Config, error) {
 	if len(cfgPath) != 0 {
 		k.Unmarshal("", cfg)
 	}
+
+	fmt.Printf("%+v", cfg)
 
 	return cfg, nil
 }
