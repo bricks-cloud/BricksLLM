@@ -344,7 +344,10 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		}
 
 		if kc.ShouldLogRequest {
-			requestBytes = body
+			if len(body) != 0 {
+				requestBytes = body
+			}
+
 			c.Set("requestBytes", requestBytes)
 		}
 

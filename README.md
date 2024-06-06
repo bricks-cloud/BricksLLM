@@ -1689,6 +1689,40 @@ This endpoint is set up for retrieving an OpenAI file content. Documentation for
 
 </details>
 
+### Batches
+<details>
+  <summary>Create a batch: <code>POST</code> <code><b>/api/providers/openai/v1/batches</b></code></summary>
+
+##### Description
+This endpoint is set up for creating a batch. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/batch/create).
+
+</details>
+
+<details>
+  <summary>Retrieve a batch: <code>GET</code> <code><b>/api/providers/openai/v1/batches/:batch_id</b></code></summary>
+
+##### Description
+This endpoint is set up for retrieving a batch. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/batch/retrieve).
+
+</details>
+
+<details>
+  <summary>Cancel a batch: <code>POST</code> <code><b>/api/providers/openai/v1/batches/:batch_id/cancel</b></code></summary>
+
+##### Description
+This endpoint is set up for canceling a batch. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/batch/cancel).
+
+</details>
+
+<details>
+  <summary>List batches: <code>GET</code> <code><b>/api/providers/openai/v1/batches</b></code></summary>
+
+##### Description
+This endpoint is set up for listing batches. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/batch/list).
+
+</details>
+
+
 ### Images
 <details>
   <summary>Generate images: <code>POST</code> <code><b>/api/providers/openai/v1/images/generations</b></code></summary>
@@ -1702,7 +1736,7 @@ This endpoint is set up for generating OpenAI images. Documentation for this end
   <summary>Edit images: <code>POST</code> <code><b>/api/providers/openai/v1/images/edits</b></code></summary>
 
 ##### Description
-This endpoint is set up for editting OpenAI generated images. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/images/createEdit).
+This endpoint is set up for editing OpenAI generated images. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/images/createEdit).
 
 </details>
 
@@ -1727,7 +1761,7 @@ This endpoint is set up for creating speeches. Documentation for this endpoint c
   <summary>Create transcriptions: <code>POST</code> <code><b>/api/providers/openai/v1/audio/transcriptions</b></code></summary>
 
 ##### Description
-This endpoint is set up for editting generated images. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/audio/createTranscription).
+This endpoint is set up for editing generated images. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/audio/createTranscription).
 
 </details>
 

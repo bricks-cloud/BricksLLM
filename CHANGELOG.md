@@ -1,3 +1,10 @@
+## 1.27.0 - 2024-06-05
+### Added
+- Added support for OpenAI batch APIs
+
+### Fixed
+- Fixed event not being recorded when request body is empty and request logging is turned on
+
 ## 1.26.3 - 2024-06-05
 ### Added
 - Added support for `gpt-4o` inside Azure OpenAI

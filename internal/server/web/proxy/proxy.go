@@ -158,6 +158,12 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	router.GET("/api/providers/openai/v1/files/:file_id", getPassThroughHandler(prod, private, client, timeOut))
 	router.GET("/api/providers/openai/v1/files/:file_id/content", getPassThroughHandler(prod, private, client, timeOut))
 
+	// batch
+	router.POST("/api/providers/openai/v1/batches", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/batches/:batch_id", getPassThroughHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/openai/v1/batches/:batch_id/cancel", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/batches", getPassThroughHandler(prod, private, client, timeOut))
+
 	// images
 	router.POST("/api/providers/openai/v1/images/generations", getPassThroughHandler(prod, private, client, timeOut))
 	router.POST("/api/providers/openai/v1/images/edits", getPassThroughHandler(prod, private, client, timeOut))
@@ -827,6 +833,22 @@ func buildProxyUrl(c *gin.Context) (string, error) {
 
 	if c.FullPath() == "/api/providers/openai/v1/files/:file_id/content" && c.Request.Method == http.MethodGet {
 		return "https://api.openai.com/v1/files/" + c.Param("file_id") + "/content", nil
+	}
+
+	if c.FullPath() == "/api/providers/openai/v1/batches" && c.Request.Method == http.MethodPost {
+		return "https://api.openai.com/v1/batches", nil
+	}
+
+	if c.FullPath() == "/api/providers/openai/v1/batches/:batch_id" && c.Request.Method == http.MethodGet {
+		return "https://api.openai.com/v1/batches/" + c.Param("batch_id"), nil
+	}
+
+	if c.FullPath() == "/api/providers/openai/v1/batches/:batch_id/cancel" && c.Request.Method == http.MethodPost {
+		return "https://api.openai.com/v1/batches/" + c.Param("batch_id") + "/cancel", nil
+	}
+
+	if c.FullPath() == "/api/providers/openai/v1/batches" && c.Request.Method == http.MethodGet {
+		return "https://api.openai.com/v1/batches", nil
 	}
 
 	if c.FullPath() == "/api/providers/openai/v1/images/generations" && c.Request.Method == http.MethodPost {
