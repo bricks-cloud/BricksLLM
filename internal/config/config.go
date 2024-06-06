@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -91,8 +90,6 @@ func LoadConfig(log *zap.Logger) (*Config, error) {
 	if len(cfgPath) != 0 {
 		k.Unmarshal("", cfg)
 	}
-
-	fmt.Printf("%+v", cfg)
 
 	return cfg, nil
 }
