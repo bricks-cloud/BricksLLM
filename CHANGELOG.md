@@ -1,3 +1,10 @@
+## 1.26.3 - 2024-06-05
+### Added
+- Added support for `gpt-4o` inside Azure OpenAI
+
+### Fixed
+- Fixed Azure OpenAI token counting when streaming
+
 ## 1.26.2 - 2024-05-30
 ### Fixed
 - Fixed configuration files priority issue
