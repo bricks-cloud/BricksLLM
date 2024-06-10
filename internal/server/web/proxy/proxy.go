@@ -92,6 +92,9 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	// health check
 	router.POST("/api/health", getGetHealthCheckHandler())
 
+	// health check
+	router.GET("/api/health", getGetHealthCheckHandler())
+
 	// audios
 	router.POST("/api/providers/openai/v1/audio/speech", getSpeechHandler(prod, client, timeOut))
 	router.POST("/api/providers/openai/v1/audio/transcriptions", getTranscriptionsHandler(prod, client, timeOut, e))
@@ -888,6 +891,9 @@ var (
 func (ps *ProxyServer) Run() {
 	go func() {
 		ps.log.Info("proxy server listening at 8002")
+
+		// health check
+		ps.log.Info("PORT 8002 | GET    | /api/health is ready")
 
 		// audio
 		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/audio/speech is ready for creating openai speeches")

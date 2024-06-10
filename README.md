@@ -172,6 +172,15 @@ The configuration server runs on Port `8001`.
 
 
 <details>
+  <summary>Health Check: <code>GET</code> <code><b>/api/health</b></code></summary>
+
+  ##### Response
+> | http code     |
+> |---------------|
+> | `200`         |
+</details>
+
+<details>
   <summary>Get keys: <code>GET</code> <code><b>/api/key-management/keys</b></code></summary>
 
 ##### Description
@@ -530,7 +539,8 @@ This endpoint is creating a provider setting.
 > | provider | required | `enum` | openai | This value can only be `openai`, `anthropic` and `azure` as for now. |
 > | setting | required | `Setting` | `{ "apikey": "YOUR_OPENAI_KEY" }`            | A map of values used for authenticating with the selected provider. |
 > | name | optional | `string` | YOUR_PROVIDER_SETTING_NAME | This field is used for giving a name to provider setting |
-> | allowedModels | `[]string` | `["text-embedding-ada-002"]` | Allowed models for this provider setting. |
+> | allowedModels | optional | `[]string` | `["text-embedding-ada-002"]` | Allowed models for this provider setting. |
+> | costMap | optional | `CostMap` | `{ "promptCostPerModel": { "facebook/opt-125m": 0.0003 }` | Customized model cost. |
 
 ```Setting```
 > | Field | required | type | example                      | description |
@@ -539,6 +549,12 @@ This endpoint is creating a provider setting.
 > | url | required | `string` | `https://your.deployment.url`  | This value is required when the provider is `vllm` |
 > | resourceName | required | `string` | `YOUR_AZURE_RESOURCE_NAME`            | This value is required when the provider is `azure`. |
 
+```CostMap```
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | promptCostPerModel | optional | `map[string]float64` | `{ "facebook/opt-125m": 0.0003 }`  | Customized prompt cost value per 1000 tokens. |
+> | completionCostPerModel | optional | `map[string]float64` | `{ "facebook/opt-125m": 0.0003 }`  | Customized completion cost per 1000 tokens. |
+> | embeddingsCostPerModel | optional | `map[string]float64` | `{ "facebook/opt-125m": 0.0003 }`  | Customized embeddings cost per 1000 tokens. |
 
 ##### Error Response
 > | http code     | content-type                      |
@@ -562,6 +578,15 @@ This endpoint is creating a provider setting.
 > | id | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This value is a unique identifier. |
 > | name | `string` | `YOUR_PROVIDER_SETTING_NAME` | Provider setting name. |
 > | allowedModels | `[]string` | `["text-embedding-ada-002"]` | Allowed models for this provider setting. |
+> | costMap | `CostMap` | `{ "promptCostPerModel": { "facebook/opt-125m": 0.0003 }` | Customized model cost. |
+
+```CostMap```
+> | Field | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | promptCostPerModel | `map[string]float64` | `{ "facebook/opt-125m": 0.0003 }`  | Customized prompt cost value per 1000 tokens. |
+> | completionCostPerModel | `map[string]float64` | `{ "facebook/opt-125m": 0.0003 }`  | Customized completion cost per 1000 tokens. |
+> | embeddingsCostPerModel | `map[string]float64` | `{ "facebook/opt-125m": 0.0003 }`  | Customized embeddings cost per 1000 tokens. |
+
 </details>
 
 
@@ -594,7 +619,7 @@ This endpoint is getting provider settings.
 []ProviderSetting
 ```
 
-ProviderSetting
+```ProviderSetting```
 > | Field | type | example                      | description |
 > |---------------|-----------------------------------|-|-|
 > | createdAt | `int64` | `1699933571` | Unix timestamp for creation time.  |
@@ -603,6 +628,15 @@ ProviderSetting
 > | id | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This value is a unique identifier. |
 > | name | `string` | `YOUR_PROVIDER_SETTING_NAME` | Provider setting name. |
 > | allowedModels | `[]string` | `["text-embedding-ada-002"]` | Allowed models for this provider setting. |
+> | costMap | `CostMap` | `{"promptCostPerModel": { "facebook/opt-125m": 0.0003 }` | Customized model cost. |
+
+```CostMap```
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | promptCostPerModel | optional | `map[string]float64` | `{ "facebook/opt-125m": 0.0003 }`  | Customized prompt cost value per 1000 tokens. |
+> | completionCostPerModel | optional | `map[string]float64` | `{ "facebook/opt-125m": 0.0003 }`  | Customized completion cost per 1000 tokens. |
+> | embeddingsCostPerModel | optional | `map[string]float64` | `{ "facebook/opt-125m": 0.0003 }`  | Customized embeddings cost per 1000 tokens. |
+
 
 </details>
 
@@ -622,7 +656,9 @@ This endpoint is updating a provider setting .
 > |---------------|-----------------------------------|-|-|-|
 > | setting | required | `Setting` | `{ "apikey": "YOUR_OPENAI_KEY" }`            | A map of values used for authenticating with the selected provider. |
 > | name | optional | `string` | `YOUR_PROVIDER_SETTING_NAME` | This field is used for giving a name to provider setting |
-> | allowedModels | `[]string` | `["text-embedding-ada-002"]` | Allowed models for this provider setting. |
+> | allowedModels | optional | `[]string` | `["text-embedding-ada-002"]` | Allowed models for this provider setting. |
+> | costMap | optional | `CostMap` | `{ "promptCostPerModel": { "facebook/opt-125m": 0.0003 }` | Customized model cost. |
+
 
 ```Setting```
 > | Field | required | type | example                      | description |
@@ -630,6 +666,13 @@ This endpoint is updating a provider setting .
 > | apiKey | required | `string` | `xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`  | This value is required. |
 > | url | required | `string` | `https://your.deployment.url`  | This value is required when the provider is `vllm` |
 > | resourceName | required | `string` | `YOUR_AZURE_RESOURCE_NAME`            | This value is required when the provider is `azure`. |
+
+```CostMap```
+> | Field | required | type | example                      | description |
+> |---------------|-----------------------------------|-|-|-|
+> | promptCostPerModel | optional | `map[string]float64` | `{ "facebook/opt-125m": 0.0003 }`  | Customized prompt cost value per 1000 tokens. |
+> | completionCostPerModel | optional | `map[string]float64` | `{ "facebook/opt-125m": 0.0003 }`  | Customized completion cost per 1000 tokens. |
+> | embeddingsCostPerModel | optional | `map[string]float64` | `{ "facebook/opt-125m": 0.0003 }`  | Customized embeddings cost per 1000 tokens. |
 
 
 ##### Error Response
@@ -654,6 +697,8 @@ This endpoint is updating a provider setting .
 > | id | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | This value is a unique identifier |
 > | name | `string` | `YOUR_PROVIDER_SETTING_NAME` | Provider setting name. |
 > | allowedModels | `[]string` | `["text-embedding-ada-002"]` | Allowed models for this provider setting. |
+> | costMap | `CostMap` | `{ "promptCostPerModel": { "facebook/opt-125m": 0.0003 }` | Customized model cost. |
+
 
 </details>
 
@@ -1595,6 +1640,16 @@ User
 > | allowedPaths | `[]PathConfig` | `[{ "path": "/api/providers/openai/v1/chat/completion", "method": "POST"}]` | List of paths that can be accessed by the user. |
 > | allowedModels | `[]string` | `["gpt-4"]` | List of models that can be accessed by the user.  |
 > | userId | `string` | `98daa3ae-961d-4253-bf6a-322a32fdca3d` | Client defined user id. |
+</details>
+
+# Proxy Health Check
+<details>
+  <summary>Health Check: <code>GET</code> <code><b>/api/health</b></code></summary>
+
+  ##### Response
+> | http code     |
+> |---------------|
+> | `200`         |
 </details>
 
 ## OpenAI Proxy
