@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -401,9 +400,6 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeO
 			req.Header.Set("Cache-Control", "no-cache")
 			req.Header.Set("Connection", "keep-alive")
 		}
-
-		fmt.Println(url + "/v1/chat/completions")
-		fmt.Println(req.Header.Get("Authorization"))
 
 		start := time.Now()
 		res, err := client.Do(req)

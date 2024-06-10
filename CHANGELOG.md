@@ -1,3 +1,7 @@
+## 1.28.1 - 2024-06-10
+### Fixed
+- Removed debug logs
+
 ## 1.28.0 - 2024-06-10
 ### Added
 - Added support for customized model pricing for Azure OpenAI, OpenAI, vLLM and Deep Infra
