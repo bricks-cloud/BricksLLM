@@ -36,7 +36,7 @@ func (s *Store) CreateProviderSettingsTable() error {
 
 func (s *Store) AlterProviderSettingsTable() error {
 	alterTableQuery := `
-		ALTER TABLE provider_settings ADD COLUMN IF NOT EXISTS name VARCHAR(255), ADD COLUMN IF NOT EXISTS allowed_models VARCHAR(255)[]
+		ALTER TABLE provider_settings ADD COLUMN IF NOT EXISTS name VARCHAR(255), ADD COLUMN IF NOT EXISTS allowed_models VARCHAR(255)[], ADD COLUMN IF NOT EXISTS cost_map JSONB NOT NULL DEFAULT '{}'::JSONB
 	`
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -55,6 +55,7 @@ func (s *Store) GetProviderSetting(id string, withSecret bool) (*provider.Settin
 
 	setting := &provider.Setting{}
 	var data []byte
+	var cmdata []byte
 	var name sql.NullString
 	err := s.db.QueryRowContext(ctxTimeout, "SELECT * FROM provider_settings WHERE $1 = id", id).Scan(
 		&setting.Id,
@@ -64,6 +65,7 @@ func (s *Store) GetProviderSetting(id string, withSecret bool) (*provider.Settin
 		&data,
 		&name,
 		pq.Array(&setting.AllowedModels),
+		&cmdata,
 	)
 
 	if err != nil {
@@ -79,11 +81,17 @@ func (s *Store) GetProviderSetting(id string, withSecret bool) (*provider.Settin
 		return nil, err
 	}
 
+	cm := &provider.CostMap{}
+	if err := json.Unmarshal(cmdata, &cm); err != nil {
+		return nil, err
+	}
+
 	if !withSecret {
 		delete(m, "apikey")
 	}
 
 	setting.Setting = m
+	setting.CostMap = cm
 
 	setting.Name = name.String
 
@@ -104,6 +112,7 @@ func (s *Store) GetUpdatedProviderSettings(updatedAt int64) ([]*provider.Setting
 	for rows.Next() {
 		setting := &provider.Setting{}
 		var data []byte
+		var cmdata []byte
 		var name sql.NullString
 		if err := rows.Scan(
 			&setting.Id,
@@ -113,6 +122,7 @@ func (s *Store) GetUpdatedProviderSettings(updatedAt int64) ([]*provider.Setting
 			&data,
 			&name,
 			pq.Array(&setting.AllowedModels),
+			&cmdata,
 		); err != nil {
 			return nil, err
 		}
@@ -122,7 +132,13 @@ func (s *Store) GetUpdatedProviderSettings(updatedAt int64) ([]*provider.Setting
 			return nil, err
 		}
 
+		cm := &provider.CostMap{}
+		if err := json.Unmarshal(cmdata, &cm); err != nil {
+			return nil, err
+		}
+
 		setting.Setting = m
+		setting.CostMap = cm
 		setting.Name = name.String
 		settings = append(settings, setting)
 	}
@@ -161,12 +177,24 @@ func (s *Store) UpdateProviderSetting(id string, setting *provider.UpdateSetting
 		fields = append(fields, fmt.Sprintf("allowed_models = $%d", d))
 	}
 
-	query := fmt.Sprintf("UPDATE provider_settings SET %s WHERE id = $1 RETURNING id, created_at, updated_at, provider, name, allowed_models, setting;", strings.Join(fields, ","))
+	if setting.CostMap != nil {
+		data, err := json.Marshal(setting.CostMap)
+		if err != nil {
+			return nil, err
+		}
+
+		values = append(values, data)
+		fields = append(fields, fmt.Sprintf("cost_map = $%d", d))
+	}
+
+	query := fmt.Sprintf("UPDATE provider_settings SET %s WHERE id = $1 RETURNING id, created_at, updated_at, provider, name, allowed_models, setting, cost_map;", strings.Join(fields, ","))
 	updated := &provider.Setting{}
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
 	defer cancel()
 
 	var rawd []byte
+	var cmdata []byte
+
 	row := s.db.QueryRowContext(ctxTimeout, query, values...)
 	if err := row.Scan(
 		&updated.Id,
@@ -176,6 +204,7 @@ func (s *Store) UpdateProviderSetting(id string, setting *provider.UpdateSetting
 		&updated.Name,
 		pq.Array(&updated.AllowedModels),
 		&rawd,
+		&cmdata,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, internal_errors.NewNotFoundError("provider setting is not found for: " + id)
@@ -189,9 +218,15 @@ func (s *Store) UpdateProviderSetting(id string, setting *provider.UpdateSetting
 		return nil, err
 	}
 
+	cm := &provider.CostMap{}
+	if err := json.Unmarshal(cmdata, &cm); err != nil {
+		return nil, err
+	}
+
 	delete(m, "apikey")
 
 	updated.Setting = m
+	updated.CostMap = cm
 
 	return updated, nil
 }
@@ -219,12 +254,17 @@ func (s *Store) CreateProviderSetting(setting *provider.Setting) (*provider.Sett
 	}
 
 	query := `
-		INSERT INTO provider_settings (id, created_at, updated_at, provider, setting, name, allowed_models)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING id, created_at, updated_at, provider, name, allowed_models, setting
+		INSERT INTO provider_settings (id, created_at, updated_at, provider, setting, name, allowed_models, cost_map)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, created_at, updated_at, provider, name, allowed_models, setting, cost_map
 	`
 
 	data, err := json.Marshal(setting.Setting)
+	if err != nil {
+		return nil, err
+	}
+
+	cmd, err := json.Marshal(setting.CostMap)
 	if err != nil {
 		return nil, err
 	}
@@ -237,9 +277,12 @@ func (s *Store) CreateProviderSetting(setting *provider.Setting) (*provider.Sett
 		data,
 		setting.Name,
 		sliceToSqlStringArray(setting.AllowedModels),
+		cmd,
 	}
 
 	var rawd []byte
+	var rawcmd []byte
+
 	created := &provider.Setting{}
 	var name sql.NullString
 	if err := s.db.QueryRowContext(ctxTimeout, query, values...).Scan(
@@ -250,6 +293,7 @@ func (s *Store) CreateProviderSetting(setting *provider.Setting) (*provider.Sett
 		&name,
 		pq.Array(&created.AllowedModels),
 		&rawd,
+		&rawcmd,
 	); err != nil {
 		return nil, err
 	}
@@ -259,9 +303,15 @@ func (s *Store) CreateProviderSetting(setting *provider.Setting) (*provider.Sett
 		return nil, err
 	}
 
+	cm := &provider.CostMap{}
+	if err := json.Unmarshal(rawcmd, &cm); err != nil {
+		return nil, err
+	}
+
 	delete(m, "apikey")
 
 	created.Setting = m
+	created.CostMap = cm
 
 	created.Name = name.String
 	return created, nil
@@ -290,6 +340,8 @@ func (s *Store) GetProviderSettings(withSecret bool, ids []string) ([]*provider.
 	for rows.Next() {
 		setting := &provider.Setting{}
 		var data []byte
+		var cmdata []byte
+
 		var name sql.NullString
 		if err := rows.Scan(
 			&setting.Id,
@@ -299,6 +351,7 @@ func (s *Store) GetProviderSettings(withSecret bool, ids []string) ([]*provider.
 			&data,
 			&name,
 			pq.Array(&setting.AllowedModels),
+			&cmdata,
 		); err != nil {
 			return nil, err
 		}
@@ -308,11 +361,17 @@ func (s *Store) GetProviderSettings(withSecret bool, ids []string) ([]*provider.
 			return nil, err
 		}
 
+		cm := &provider.CostMap{}
+		if err := json.Unmarshal(cmdata, &cm); err != nil {
+			return nil, err
+		}
+
 		if !withSecret {
 			delete(m, "apikey")
 		}
 
 		setting.Setting = m
+		setting.CostMap = cm
 
 		setting.Name = name.String
 		settings = append(settings, setting)

@@ -6,10 +6,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
 
+	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/provider/vllm"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/bricks-cloud/bricksllm/internal/util"
@@ -96,6 +98,25 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut t
 				logVllmCompletionResponse(log, cr, prod, private)
 			}
 
+			var cost float64 = 0
+
+			m, exists := c.Get("cost_map")
+			if exists {
+				converted, ok := m.(*provider.CostMap)
+				if ok {
+					newCost, err := provider.EstimateTotalCostWithCostMaps(cr.Model, cr.Usage.PromptTokens, cr.Usage.CompletionTokens, 1000, converted.PromptCostPerModel, converted.CompletionCostPerModel)
+					if err != nil {
+						logError(log, "error when estimating vllm completions total cost with cost maps", prod, err)
+						stats.Incr("bricksllm.proxy.get_vllm_completions_handler.estimate_total_cost_with_cost_maps_error", nil, 1)
+					}
+
+					if newCost != 0 {
+						cost = newCost
+					}
+				}
+			}
+
+			c.Set("costInUsd", cost)
 			c.Set("promptTokenCount", cr.Usage.PromptTokens)
 			c.Set("completionTokenCount", cr.Usage.CompletionTokens)
 
@@ -381,6 +402,9 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeO
 			req.Header.Set("Connection", "keep-alive")
 		}
 
+		fmt.Println(url + "/v1/chat/completions")
+		fmt.Println(req.Header.Get("Authorization"))
+
 		start := time.Now()
 		res, err := client.Do(req)
 		if err != nil {
@@ -423,6 +447,25 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeO
 				logChatCompletionResponse(log, prod, private, chatRes)
 			}
 
+			var cost float64 = 0
+
+			m, exists := c.Get("cost_map")
+			if exists {
+				converted, ok := m.(*provider.CostMap)
+				if ok {
+					newCost, err := provider.EstimateTotalCostWithCostMaps(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens, 1000, converted.PromptCostPerModel, converted.CompletionCostPerModel)
+					if err != nil {
+						logError(log, "error when estimating vllm chat completions total cost with cost maps", prod, err)
+						stats.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.estimate_total_cost_with_cost_maps_error", nil, 1)
+					}
+
+					if newCost != 0 {
+						cost = newCost
+					}
+				}
+			}
+
+			c.Set("costInUsd", cost)
 			c.Set("promptTokenCount", chatRes.Usage.PromptTokens)
 			c.Set("completionTokenCount", chatRes.Usage.CompletionTokens)
 
@@ -442,7 +485,13 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeO
 				return
 			}
 
-			logAnthropicErrorResponse(log, bytes, prod)
+			errorRes := &goopenai.ErrorResponse{}
+			err = json.Unmarshal(bytes, errorRes)
+			if err != nil {
+				logError(log, "error when unmarshalling vllm chat completion error response body", prod, err)
+			}
+
+			logOpenAiError(log, prod, errorRes)
 			c.Data(res.StatusCode, "application/json", bytes)
 			return
 		}

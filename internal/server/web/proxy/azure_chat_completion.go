@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
@@ -102,12 +103,21 @@ func getAzureChatCompletionHandler(prod, private bool, client http.Client, aoe a
 					logError(log, "error when estimating azure openai cost", prod, err)
 				}
 
-				// micros := int64(cost * 1000000)
-				// err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
-				// if err != nil {
-				// 	stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.record_key_spend_error", nil, 1)
-				// 	logError(log, "error when recording azure openai spend", prod, err)
-				// }
+				m, exists := c.Get("cost_map")
+				if exists {
+					converted, ok := m.(*provider.CostMap)
+					if ok {
+						newCost, err := provider.EstimateTotalCostWithCostMaps(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens, 1000, converted.PromptCostPerModel, converted.CompletionCostPerModel)
+						if err != nil {
+							logError(log, "error when estimating azure chat completions total cost with cost maps", prod, err)
+							stats.Incr("bricksllm.proxy.get_azure_chat_completion_handler.estimate_total_cost_with_cost_maps_error", nil, 1)
+						}
+
+						if newCost != 0 {
+							cost = newCost
+						}
+					}
+				}
 			}
 
 			c.Set("costInUsd", cost)

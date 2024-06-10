@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
@@ -25,14 +26,6 @@ func getChatCompletionHandler(prod, private bool, client http.Client, e estimato
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
 			return
 		}
-
-		// raw, exists := c.Get("key")
-		// kc, ok := raw.(*key.ResponseKey)
-		// if !exists || !ok {
-		// 	stats.Incr("bricksllm.proxy.get_chat_completion_handler.api_key_not_registered", nil, 1)
-		// 	JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
-		// 	return
-		// }
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
 		defer cancel()
@@ -102,12 +95,21 @@ func getChatCompletionHandler(prod, private bool, client http.Client, e estimato
 					logError(log, "error when estimating openai cost", prod, err)
 				}
 
-				// micros := int64(cost * 1000000)
-				// err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
-				// if err != nil {
-				// 	stats.Incr("bricksllm.proxy.get_chat_completion_handler.record_key_spend_error", nil, 1)
-				// 	logError(log, "error when recording openai spend", prod, err)
-				// }
+				m, exists := c.Get("cost_map")
+				if exists {
+					converted, ok := m.(*provider.CostMap)
+					if ok {
+						newCost, err := provider.EstimateTotalCostWithCostMaps(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens, 1000, converted.PromptCostPerModel, converted.CompletionCostPerModel)
+						if err != nil {
+							logError(log, "error when estimating openai chat completions total cost with cost maps", prod, err)
+							stats.Incr("bricksllm.proxy.get_chat_completion_handler.estimate_total_cost_with_cost_maps_error", nil, 1)
+						}
+
+						if newCost != 0 {
+							cost = newCost
+						}
+					}
+				}
 			}
 
 			c.Set("costInUsd", cost)
@@ -143,26 +145,12 @@ func getChatCompletionHandler(prod, private bool, client http.Client, e estimato
 		}
 
 		buffer := bufio.NewReader(res.Body)
-		// var totalCost float64 = 0
-		// var totalTokens int = 0
 		content := ""
 		streamingResponse := [][]byte{}
 		defer func() {
 			c.Set("content", content)
 			c.Set("streaming_response", bytes.Join(streamingResponse, []byte{'\n'}))
 
-			// tks, cost, err := e.EstimateChatCompletionStreamCostWithTokenCounts(model, content)
-			// if err != nil {
-			// 	stats.Incr("bricksllm.proxy.get_chat_completion_handler.estimate_chat_completion_cost_and_tokens_error", nil, 1)
-			// 	logError(log, "error when estimating chat completion stream cost with token counts", prod, err)
-			// }
-
-			// estimatedPromptCost := c.GetFloat64("estimatedPromptCostInUsd")
-			// totalCost = cost + estimatedPromptCost
-			// totalTokens += tks
-
-			// c.Set("costInUsd", totalCost)
-			// c.Set("completionTokenCount", totalTokens)
 		}()
 
 		stats.Incr("bricksllm.proxy.get_chat_completion_handler.streaming_requests", nil, 1)

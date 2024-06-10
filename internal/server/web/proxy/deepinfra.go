@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
@@ -85,6 +86,26 @@ func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, time
 			if err == nil {
 				logVllmCompletionResponse(log, cr, prod, private)
 			}
+
+			var cost float64 = 0
+
+			m, exists := c.Get("cost_map")
+			if exists {
+				converted, ok := m.(*provider.CostMap)
+				if ok {
+					newCost, err := provider.EstimateTotalCostWithCostMaps(cr.Model, cr.Usage.PromptTokens, cr.Usage.CompletionTokens, 1000, converted.PromptCostPerModel, converted.CompletionCostPerModel)
+					if err != nil {
+						logError(log, "error when estimating deepinfra completions total cost with cost maps", prod, err)
+						stats.Incr("bricksllm.proxy.get_deepinfra_completions_handler.estimate_total_cost_with_cost_maps_error", nil, 1)
+					}
+
+					if newCost != 0 {
+						cost = newCost
+					}
+				}
+			}
+
+			c.Set("costInUsd", cost)
 
 			c.Set("promptTokenCount", cr.Usage.PromptTokens)
 			c.Set("completionTokenCount", cr.Usage.CompletionTokens)
@@ -268,6 +289,25 @@ func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, 
 				logChatCompletionResponse(log, prod, private, chatRes)
 			}
 
+			var cost float64 = 0
+
+			m, exists := c.Get("cost_map")
+			if exists {
+				converted, ok := m.(*provider.CostMap)
+				if ok {
+					newCost, err := provider.EstimateTotalCostWithCostMaps(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens, 1000, converted.PromptCostPerModel, converted.CompletionCostPerModel)
+					if err != nil {
+						logError(log, "error when estimating deepinfra chat completions total cost with cost maps", prod, err)
+						stats.Incr("bricksllm.proxy.get_deepinfra_chat_completions_handler.estimate_total_cost_with_cost_maps_error", nil, 1)
+					}
+
+					if newCost != 0 {
+						cost = newCost
+					}
+				}
+			}
+
+			c.Set("costInUsd", cost)
 			c.Set("promptTokenCount", chatRes.Usage.PromptTokens)
 			c.Set("completionTokenCount", chatRes.Usage.CompletionTokens)
 
@@ -439,6 +479,22 @@ func getDeepinfraEmbeddingsHandler(prod, private bool, client http.Client, e dee
 				if err != nil {
 					stats.Incr("bricksllm.proxy.get_deepinfra_embeddings_handler.estimate_total_cost_error", nil, 1)
 					logError(log, "error when estimating azure openai cost for embedding", prod, err)
+				}
+
+				m, exists := c.Get("cost_map")
+				if exists {
+					converted, ok := m.(*provider.CostMap)
+					if ok {
+						newCost, err := provider.EstimateCostWithCostMap(model, totalTokens, 1000, converted.EmbeddingsCostPerModel)
+						if err != nil {
+							logError(log, "error when estimating deepinfra embeddings total cost with cost maps", prod, err)
+							stats.Incr("bricksllm.proxy.get_deepinfra_embeddings_handler.estimate_cost_with_cost_map_error", nil, 1)
+						}
+
+						if newCost != 0 {
+							cost = newCost
+						}
+					}
 				}
 			}
 		}

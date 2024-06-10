@@ -945,10 +945,12 @@ This endpoint is for creating a policy.
 
 ##### Rule
 > | type | example | description |
+> |---------------|-----------------------------------|-----------|
 > | `enum`| `address` | Possible values are `address`,`age`,`all`,`aws_access_key`,`aws_secret_key`,`bank_account_number`,`bank_routing`,`ca_health_number`,`ca_social_insurance_number`,`credit_debit_cvv`,`credit_debit_expiry`,`credit_debit_number`,`date_time`,`driver_id`,`email`,`in_aadhaar`,`in_nrega`,`in_permanent_account_number`,`in_voter_number`,`international_bank_account_number`,`ip_address`,`license_plate`,`mac_address`,`name`,`passport_number`,`password`,`phone`,`pin`,`ssn`,`swift_code`,`uk_national_health_service_number`,`uk_national_insurance_number`,`uk_unique_taxpayer_reference_number`,`url`,`us_individual_tax_identification_number`,`username`, and `vehicle_identification_number`. |
 
 ##### Action
 > | type | example | description |
+> |---------------|-----------------------------------|-----------|
 > | `enum`| `block` | Possible values are `block`,`allow_but_redact`, and `allow`. |
 
 ##### Error Response
@@ -1003,10 +1005,12 @@ This endpoint is for updating a policy.
 
 ##### Rule
 > | type | example | description |
+> |---------------|-----------------------------------|-----------|
 > | `enum`| `address` | Possible values are `address`,`age`,`all`,`aws_access_key`,`aws_secret_key`,`bank_account_number`,`bank_routing`,`ca_health_number`,`ca_social_insurance_number`,`credit_debit_cvv`,`credit_debit_expiry`,`credit_debit_number`,`date_time`,`driver_id`,`email`,`in_aadhaar`,`in_nrega`,`in_permanent_account_number`,`in_voter_number`,`international_bank_account_number`,`ip_address`,`license_plate`,`mac_address`,`name`,`passport_number`,`password`,`phone`,`pin`,`ssn`,`swift_code`,`uk_national_health_service_number`,`uk_national_insurance_number`,`uk_unique_taxpayer_reference_number`,`url`,`us_individual_tax_identification_number`,`username`, and `vehicle_identification_number`. |
 
 ##### Action
 > | type | example | description |
+> |---------------|-----------------------------------|-----------|
 > | `enum`| `block` | Possible values are `block`,`allow_but_redact`, and `allow`. |
 
 ##### Error Response

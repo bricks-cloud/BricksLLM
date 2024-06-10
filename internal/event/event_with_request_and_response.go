@@ -2,6 +2,7 @@ package event
 
 import (
 	"github.com/bricks-cloud/bricksllm/internal/key"
+	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
 )
 
@@ -13,4 +14,5 @@ type EventWithRequestAndContent struct {
 	Content             string
 	Response            interface{}
 	Key                 *key.ResponseKey
+	CostMap             *provider.CostMap
 }

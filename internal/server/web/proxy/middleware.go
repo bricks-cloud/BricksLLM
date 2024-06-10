@@ -316,17 +316,20 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		c.Set("settings", settings)
 
 		if len(settings) >= 1 {
-			if strings.HasPrefix(c.FullPath(), "/api/providers/azure/openai") {
-				selected := settings[0]
+			selected := settings[0]
 
+			if selected.CostMap != nil {
+				enrichedEvent.CostMap = selected.CostMap
+				c.Set("cost_map", selected.CostMap)
+			}
+
+			if strings.HasPrefix(c.FullPath(), "/api/providers/azure/openai") {
 				if selected != nil && len(selected.Setting["resourceName"]) != 0 {
 					c.Set("resourceName", selected.Setting["resourceName"])
 				}
 			}
 
 			if strings.HasPrefix(c.FullPath(), "/api/providers/vllm") {
-				selected := settings[0]
-
 				if selected != nil && len(selected.Setting["url"]) != 0 {
 					c.Set("vllmUrl", selected.Setting["url"])
 				}

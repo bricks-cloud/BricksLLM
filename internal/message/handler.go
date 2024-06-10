@@ -8,6 +8,7 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
 	"github.com/bricks-cloud/bricksllm/internal/key"
+	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
 	"github.com/bricks-cloud/bricksllm/internal/provider/vllm"
@@ -503,6 +504,16 @@ func (h *Handler) decorateEvent(m Message) error {
 
 			if e.Event.Status == http.StatusOK {
 				e.Event.CostInUsd = cost + completionCost
+				if e.CostMap != nil {
+					newCost, err := provider.EstimateTotalCostWithCostMaps(e.Event.Model, tks, completiontks, 1000, e.CostMap.PromptCostPerModel, e.CostMap.CompletionCostPerModel)
+					if err != nil {
+						stats.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
+					}
+
+					if newCost != 0 {
+						e.Event.CostInUsd = newCost
+					}
+				}
 			}
 		}
 	}
@@ -530,8 +541,21 @@ func (h *Handler) decorateEvent(m Message) error {
 
 			e.Event.PromptTokenCount = tks
 			e.Event.CompletionTokenCount = completiontks
+
 			if e.Event.Status == http.StatusOK {
 				e.Event.CostInUsd = cost + completionCost
+
+				if e.CostMap != nil {
+					newCost, err := provider.EstimateTotalCostWithCostMaps(e.Event.Model, tks, completiontks, 1000, e.CostMap.PromptCostPerModel, e.CostMap.CompletionCostPerModel)
+					if err != nil {
+						h.log.Debug("error when estimating total cost with cost maps", zap.Error(err))
+						stats.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
+					}
+
+					if newCost != 0 {
+						e.Event.CostInUsd = newCost
+					}
+				}
 			}
 		}
 	}
@@ -547,6 +571,19 @@ func (h *Handler) decorateEvent(m Message) error {
 		if ccr.Stream {
 			e.Event.PromptTokenCount = h.vllme.EstimateChatCompletionPromptToken(ccr)
 			e.Event.CompletionTokenCount = h.vllme.EstimateContentTokenCounts(e.Event.Model, e.Content)
+			if e.Event.Status == http.StatusOK {
+				if e.CostMap != nil {
+					newCost, err := provider.EstimateTotalCostWithCostMaps(e.Event.Model, e.Event.PromptTokenCount, e.Event.CompletionTokenCount, 1000, e.CostMap.PromptCostPerModel, e.CostMap.CompletionCostPerModel)
+					if err != nil {
+						h.log.Debug("error when estimating total cost with cost maps", zap.Error(err))
+						stats.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
+					}
+
+					if newCost != 0 {
+						e.Event.CostInUsd = newCost
+					}
+				}
+			}
 		}
 	}
 
@@ -561,6 +598,20 @@ func (h *Handler) decorateEvent(m Message) error {
 		if cr.Stream {
 			e.Event.PromptTokenCount = h.vllme.EstimateCompletionPromptToken(cr)
 			e.Event.CompletionTokenCount = h.vllme.EstimateContentTokenCounts(e.Event.Model, e.Content)
+
+			if e.Event.Status == http.StatusOK {
+				if e.CostMap != nil {
+					newCost, err := provider.EstimateTotalCostWithCostMaps(e.Event.Model, e.Event.PromptTokenCount, e.Event.CompletionTokenCount, 1000, e.CostMap.PromptCostPerModel, e.CostMap.CompletionCostPerModel)
+					if err != nil {
+						h.log.Debug("error when estimating total cost with cost maps", zap.Error(err))
+						stats.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
+					}
+
+					if newCost != 0 {
+						e.Event.CostInUsd = newCost
+					}
+				}
+			}
 		}
 	}
 
@@ -575,6 +626,19 @@ func (h *Handler) decorateEvent(m Message) error {
 		if ccr.Stream {
 			e.Event.PromptTokenCount = h.vllme.EstimateChatCompletionPromptToken(ccr)
 			e.Event.CompletionTokenCount = h.vllme.EstimateContentTokenCounts(e.Event.Model, e.Content)
+			if e.Event.Status == http.StatusOK {
+				if e.CostMap != nil {
+					newCost, err := provider.EstimateTotalCostWithCostMaps(e.Event.Model, e.Event.PromptTokenCount, e.Event.CompletionTokenCount, 1000, e.CostMap.PromptCostPerModel, e.CostMap.CompletionCostPerModel)
+					if err != nil {
+						h.log.Debug("error when estimating total cost with cost maps", zap.Error(err))
+						stats.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
+					}
+
+					if newCost != 0 {
+						e.Event.CostInUsd = newCost
+					}
+				}
+			}
 		}
 	}
 
@@ -589,6 +653,19 @@ func (h *Handler) decorateEvent(m Message) error {
 		if cr.Stream {
 			e.Event.PromptTokenCount = h.vllme.EstimateCompletionPromptToken(cr)
 			e.Event.CompletionTokenCount = h.vllme.EstimateContentTokenCounts(e.Event.Model, e.Content)
+			if e.Event.Status == http.StatusOK {
+				if e.CostMap != nil {
+					newCost, err := provider.EstimateTotalCostWithCostMaps(e.Event.Model, e.Event.PromptTokenCount, e.Event.CompletionTokenCount, 1000, e.CostMap.PromptCostPerModel, e.CostMap.CompletionCostPerModel)
+					if err != nil {
+						h.log.Debug("error when estimating total cost with cost maps", zap.Error(err))
+						stats.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
+					}
+
+					if newCost != 0 {
+						e.Event.CostInUsd = newCost
+					}
+				}
+			}
 		}
 	}
 
