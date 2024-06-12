@@ -1,3 +1,7 @@
+## 1.28.4 - 2024-06-12
+### Added
+- Added filtering by status code for events v2 API
+
 ## 1.28.3 - 2024-06-12
 ### Fixed
 - Fixed issues with updating provider settings

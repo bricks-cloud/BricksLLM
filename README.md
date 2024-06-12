@@ -831,6 +831,8 @@ This endpoint retrieves a list of events based on provided filters.
 > | `costOrder`       | optional   | `string`        | `asc`               | Order by cost, specify `asc` or `desc`.                         |
 > | `dateOrder`       | optional   | `string`        | `desc`              | Order by date, specify 'asc' or 'desc'.                         |
 > | `returnCount`     | optional   | `bool`          | `true`                | Whether to return the count of events instead of event details. |
+> | `status`     | optional   | `int`          | `200`                | Event http status code. |
+
 
 ##### Response
 > | Field | type | example                      | description |
