@@ -1,3 +1,7 @@
+## 1.28.3 - 2024-06-12
+### Fixed
+- Fixed issues with updating provider settings
+
 ## 1.28.2 - 2024-06-12
 ### Fixed
 - Removed unused logs
