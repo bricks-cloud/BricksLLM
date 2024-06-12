@@ -1,3 +1,10 @@
+## 1.28.2 - 2024-06-12
+### Fixed
+- Removed unused logs
+
+### Fixed
+- Changed from using response model to using request model as the source of truth for customized pricing
+
 ## 1.28.1 - 2024-06-10
 ### Fixed
 - Removed debug logs
