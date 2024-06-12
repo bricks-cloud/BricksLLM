@@ -63,6 +63,8 @@ func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, time
 			}
 		}
 
+		model := c.GetString("model")
+
 		if res.StatusCode == http.StatusOK && !isStreaming {
 			dur := time.Since(start)
 			stats.Timing("bricksllm.proxy.get_deepinfra_completions_handler.latency", dur, nil, 1)
@@ -93,7 +95,7 @@ func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, time
 			if exists {
 				converted, ok := m.(*provider.CostMap)
 				if ok {
-					newCost, err := provider.EstimateTotalCostWithCostMaps(cr.Model, cr.Usage.PromptTokens, cr.Usage.CompletionTokens, 1000, converted.PromptCostPerModel, converted.CompletionCostPerModel)
+					newCost, err := provider.EstimateTotalCostWithCostMaps(model, cr.Usage.PromptTokens, cr.Usage.CompletionTokens, 1000, converted.PromptCostPerModel, converted.CompletionCostPerModel)
 					if err != nil {
 						logError(log, "error when estimating deepinfra completions total cost with cost maps", prod, err)
 						stats.Incr("bricksllm.proxy.get_deepinfra_completions_handler.estimate_total_cost_with_cost_maps_error", nil, 1)
@@ -265,6 +267,8 @@ func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, 
 			}
 		}
 
+		model := c.GetString("model")
+
 		if res.StatusCode == http.StatusOK && !isStreaming {
 			dur := time.Since(start)
 			stats.Timing("bricksllm.proxy.get_deepinfra_chat_completions_handler.latency", dur, nil, 1)
@@ -295,7 +299,7 @@ func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, 
 			if exists {
 				converted, ok := m.(*provider.CostMap)
 				if ok {
-					newCost, err := provider.EstimateTotalCostWithCostMaps(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens, 1000, converted.PromptCostPerModel, converted.CompletionCostPerModel)
+					newCost, err := provider.EstimateTotalCostWithCostMaps(model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens, 1000, converted.PromptCostPerModel, converted.CompletionCostPerModel)
 					if err != nil {
 						logError(log, "error when estimating deepinfra chat completions total cost with cost maps", prod, err)
 						stats.Incr("bricksllm.proxy.get_deepinfra_chat_completions_handler.estimate_total_cost_with_cost_maps_error", nil, 1)

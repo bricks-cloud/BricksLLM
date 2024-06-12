@@ -99,7 +99,7 @@ func getChatCompletionHandler(prod, private bool, client http.Client, e estimato
 				if exists {
 					converted, ok := m.(*provider.CostMap)
 					if ok {
-						newCost, err := provider.EstimateTotalCostWithCostMaps(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens, 1000, converted.PromptCostPerModel, converted.CompletionCostPerModel)
+						newCost, err := provider.EstimateTotalCostWithCostMaps(model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens, 1000, converted.PromptCostPerModel, converted.CompletionCostPerModel)
 						if err != nil {
 							logError(log, "error when estimating openai chat completions total cost with cost maps", prod, err)
 							stats.Incr("bricksllm.proxy.get_chat_completion_handler.estimate_total_cost_with_cost_maps_error", nil, 1)
