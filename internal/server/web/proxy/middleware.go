@@ -1011,10 +1011,6 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			logCreateModerationRequest(logWithCid, body, prod, private)
 		}
 
-		if c.FullPath() == "/api/providers/openai/v1/models" && c.Request.Method == http.MethodGet {
-			logCreateModerationRequest(logWithCid, body, prod, private)
-		}
-
 		if c.FullPath() == "/api/providers/openai/v1/models/:model" && c.Request.Method == http.MethodGet {
 			logRetrieveModelRequest(logWithCid, prod, md)
 		}
