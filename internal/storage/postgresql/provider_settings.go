@@ -175,6 +175,7 @@ func (s *Store) UpdateProviderSetting(id string, setting *provider.UpdateSetting
 	if setting.AllowedModels != nil {
 		values = append(values, sliceToSqlStringArray(*setting.AllowedModels))
 		fields = append(fields, fmt.Sprintf("allowed_models = $%d", d))
+		d++
 	}
 
 	if setting.CostMap != nil {

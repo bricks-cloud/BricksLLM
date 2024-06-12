@@ -141,16 +141,16 @@ docker pull luyuanxin1995/bricksllm:1.4.0
 > | `POSTGRESQL_DB_NAME`       | optional | Name for Postgresql DB. |
 > | `POSTGRESQL_USERNAME`         | required | Postgresql DB username |
 > | `POSTGRESQL_PASSWORD`         | required | Postgresql DB password |
-> | `POSTGRESQL_SSL_MODE`         | optional | Postgresql SSL mode| `disable`
-> | `POSTGRESQL_PORT`         | optional | The port that Postgresql DB runs on| `5432`
-> | `POSTGRESQL_READ_TIME_OUT`         | optional | Timeout for Postgresql read operations | `2m`
-> | `POSTGRESQL_WRITE_TIME_OUT`         | optional | Timeout for Postgresql write operations | `5s`
-> | `REDIS_HOSTS`         | required | Host for Redis. Separated by , | `localhost`
+> | `POSTGRESQL_SSL_MODE`         | optional | Postgresql SSL mode| `disable` |
+> | `POSTGRESQL_PORT`         | optional | The port that Postgresql DB runs on| `5432` |
+> | `POSTGRESQL_READ_TIME_OUT`         | optional | Timeout for Postgresql read operations | `2m` |
+> | `POSTGRESQL_WRITE_TIME_OUT`         | optional | Timeout for Postgresql write operations | `5s` |
+> | `REDIS_HOSTS`         | required | Host for Redis. Separated by , | `localhost` |
 > | `REDIS_PASSWORD`         | optional | Redis Password |
-> | `REDIS_PORT`         | optional | The port that Redis DB runs on | `6379`
-> | `REDIS_READ_TIME_OUT`         | optional | Timeout for Redis read operations | `1s`
-> | `REDIS_WRITE_TIME_OUT`         | optional | Timeout for Redis write operations | `500ms`
-> | `IN_MEMORY_DB_UPDATE_INTERVAL`         | optional | The interval BricksLLM API gateway polls Postgresql DB for latest key configurations | `1s`
+> | `REDIS_PORT`         | optional | The port that Redis DB runs on | `6379` |
+> | `REDIS_READ_TIME_OUT`         | optional | Timeout for Redis read operations | `1s` |
+> | `REDIS_WRITE_TIME_OUT`         | optional | Timeout for Redis write operations | `500ms` |
+> | `IN_MEMORY_DB_UPDATE_INTERVAL`         | optional | The interval BricksLLM API gateway polls Postgresql DB for latest key configurations | `1s` |
 > | `STATS_PROVIDER`         | optional | This value can only be datadog. Required for integration with Datadog.  |
 > | `PROXY_TIMEOUT`         | optional | Timeout for proxy HTTP requests. | `600s` |
 > | `NUMBER_OF_EVENT_MESSAGE_CONSUMERS`         | optional | Number of event message consumers that help handle counting tokens and inserting event into db.  | `3` |
@@ -159,8 +159,7 @@ docker pull luyuanxin1995/bricksllm:1.4.0
 > | `AMAZON_REGION`         | optional | Region for AWS.  | `us-west-2` |
 > | `AMAZON_REQUEST_TIMEOUT`         | optional | Timeout for amazon requests.  | `5s` |
 > | `AMAZON_CONNECTION_TIMEOUT`         | optional | Timeout for amazon connection.  | `10s` |
-> | `AWS_SECRET_ACCESS_KEY`         | optional | Required for PII detection features.  |
-> | `AWS_ACCESS_KEY_ID`         | optional | Required for PII detection features.  |
+> | `ADMIN_PASS`         | optional | Simple password for the admin server. |
 
 ## Configuration Endpoints
 The configuration server runs on Port `8001`.
