@@ -3,6 +3,7 @@ package postgresql
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -89,6 +90,181 @@ func (s *Store) CreateKeyIdIndexForEventsTable() error {
 	}
 
 	return nil
+}
+
+func (s *Store) CreateEventsTable() error {
+	createTableQuery := `
+	CREATE TABLE IF NOT EXISTS events (
+		event_id VARCHAR(255) PRIMARY KEY,
+		created_at BIGINT NOT NULL,
+		tags VARCHAR(255)[],
+		key_id VARCHAR(255),
+		cost_in_usd FLOAT8,
+		provider VARCHAR(255),
+		model VARCHAR(255),
+		status_code INT,
+		prompt_token_count INT,
+		completion_token_count INT,
+		latency_in_ms INT
+	)`
+
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+	_, err := s.db.ExecContext(ctxTimeout, createTableQuery)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Store) GetEvents(userId string, customId string, keyIds []string, start int64, end int64) ([]*event.Event, error) {
+	if len(customId) == 0 && len(keyIds) == 0 && len(userId) == 0 {
+		return nil, errors.New("none of customId, keyIds and userId is specified")
+	}
+
+	if len(keyIds) != 0 && (start == 0 || end == 0) {
+		return nil, errors.New("keyIds are provided but either start or end is not specified")
+	}
+
+	query := `
+		SELECT * FROM events WHERE
+	`
+
+	if len(customId) != 0 {
+		query += fmt.Sprintf(" custom_id = '%s'", customId)
+	}
+
+	if len(customId) > 0 && len(userId) > 0 {
+		query += " AND"
+	}
+
+	if len(userId) != 0 {
+		query += fmt.Sprintf(" user_id = '%s'", userId)
+	}
+
+	if (len(customId) > 0 || len(userId) > 0) && len(keyIds) > 0 {
+		query += " AND"
+	}
+
+	if len(keyIds) != 0 {
+		query += fmt.Sprintf(" key_id = ANY('%s') AND created_at >= %d AND created_at <= %d", sliceToSqlStringArray(keyIds), start, end)
+	}
+
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	events := []*event.Event{}
+	rows, err := s.db.QueryContext(ctxTimeout, query)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return events, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var e event.Event
+		var path sql.NullString
+		var method sql.NullString
+		var customId sql.NullString
+
+		if err := rows.Scan(
+			&e.Id,
+			&e.CreatedAt,
+			pq.Array(&e.Tags),
+			&e.KeyId,
+			&e.CostInUsd,
+			&e.Provider,
+			&e.Model,
+			&e.Status,
+			&e.PromptTokenCount,
+			&e.CompletionTokenCount,
+			&e.LatencyInMs,
+			&path,
+			&method,
+			&customId,
+			&e.Request,
+			&e.Response,
+			&e.UserId,
+			&e.Action,
+			&e.PolicyId,
+			&e.RouteId,
+			&e.CorrelationId,
+		); err != nil {
+			return nil, err
+		}
+
+		pe := &e
+		pe.Path = path.String
+		pe.Method = method.String
+		pe.CustomId = customId.String
+
+		events = append(events, pe)
+	}
+
+	return events, nil
+}
+
+func (s *Store) GetLatencyPercentiles(start, end int64, tags, keyIds []string) ([]float64, error) {
+	eventSelectionBlock := `
+	WITH events_table AS
+		(
+			SELECT * FROM events 
+	`
+
+	conditionBlock := fmt.Sprintf("WHERE created_at >= %d AND created_at <= %d ", start, end)
+	if len(tags) != 0 {
+		conditionBlock += fmt.Sprintf("AND tags @> '%s' ", sliceToSqlStringArray(tags))
+	}
+
+	if len(keyIds) != 0 {
+		conditionBlock += fmt.Sprintf("AND key_id = ANY('%s')", sliceToSqlStringArray(keyIds))
+	}
+
+	if len(tags) != 0 || len(keyIds) != 0 {
+		eventSelectionBlock += conditionBlock
+	}
+
+	eventSelectionBlock += ")"
+
+	query :=
+		`
+		SELECT    COALESCE(percentile_cont(0.5) WITHIN GROUP (ORDER BY events_table.latency_in_ms), 0) as median_latency, COALESCE(percentile_cont(0.99) WITHIN GROUP (ORDER BY events_table.latency_in_ms), 0) as top_latency
+		FROM      events_table
+		`
+
+	query = eventSelectionBlock + query
+
+	ctx, cancel := context.WithTimeout(context.Background(), s.rt)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	data := []float64{}
+	for rows.Next() {
+		var median float64
+		var top float64
+
+		if err := rows.Scan(
+			&median,
+			&top,
+		); err != nil {
+			return nil, err
+		}
+
+		data = []float64{
+			median,
+			top,
+		}
+	}
+
+	return data, nil
 }
 
 func (s *Store) GetCustomIds(keyId string) ([]string, error) {
@@ -499,6 +675,11 @@ func (s *Store) GetEventsV2(req *event.EventRequest) (*event.EventResponse, erro
 	if len(req.UserIds) != 0 {
 		query += fmt.Sprintf(" AND user_id = ANY('%s')", sliceToSqlStringArray(req.UserIds))
 		cquery += fmt.Sprintf(" AND user_id = ANY('%s')", sliceToSqlStringArray(req.UserIds))
+	}
+
+	if req.Status != 0 {
+		query += fmt.Sprintf(" AND status_code = %d", req.Status)
+		cquery += fmt.Sprintf(" AND status_code = %d", req.Status)
 	}
 
 	if len(req.CustomIds) != 0 {

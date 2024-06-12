@@ -52,6 +52,7 @@ type EventRequest struct {
 	CostOrder       string   `json:"costOrder"`
 	DateOrder       string   `json:"dateOrder"`
 	ReturnCount     bool     `json:"returnCount"`
+	Status          int      `json:"status"`
 }
 
 func (r *EventRequest) Validate() error {
