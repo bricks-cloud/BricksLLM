@@ -1,0 +1,1831 @@
+openapi: 3.1.0
+info:
+  title: BricksLLM
+  contact:
+    email: spike@bricks-tech.com
+  license:
+    name: The MIT License
+    url: https://opensource.org/license/mit
+  version: 1.28.3
+
+tags:
+  - name: Health Check
+  - name: Keys
+  - name: Provider Settings
+  - name: Users
+  - name: Events
+  - name: Reporting
+  - name: Custom Providers
+  - name: Policies
+  - name: Routes
+
+servers:
+  - url: localhost:8001
+    description: Admin server for configuring BricksLLM
+    variables:
+      protocol:
+        enum: [http]
+        default: http
+paths:
+  /api/health:
+    get:
+      tags:
+        - Health Check
+      summary: Health check
+      description: Endpoint for checking the health status of the service.
+      responses:
+        200:
+          description: Service is up and running.
+  /api/key-management/keys:
+    get:
+      tags:
+        - Keys
+      summary: List keys
+      description: Listing keys using query parameters.
+      parameters:
+        - name: tag
+          in: query
+          description: Identifier attached to a key configuration.
+          required: false
+          type: string
+        - name: tags
+          in: query
+          description: List of tags.
+          required: false
+          type: array
+          items:
+            type: string
+        - name: provider
+          in: query
+          description: Provider attached to a key provider configuration.
+          required: false
+          type: string
+          enum: [openai, azure, vllm, deepinfra, anthropic]
+        - name: keyIds
+          in: query
+          description: List of key IDs.
+          required: false
+          type: array
+          items:
+            type: string
+      responses:
+        200:
+          description: List of keys.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Key"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags:
+        - Keys
+      summary: Create a new key
+      description: This endpoint is for creating a new key.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Key"
+
+      responses:
+        200:
+          description: Successfully created key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Key"
+        400:
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        500:
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    patch:
+      tags:
+        - Keys
+      summary: Update key
+      description: This endpoint is for updating a key using a key ID.
+      parameters:
+        - in: path
+          name: keyId
+          type: string
+          required: true
+          description: Unique key configuration identifier.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Key"
+      responses:
+        200:
+          description: Successfully updated key configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Key"
+
+  /api/v2/key-management/keys:
+    post:
+      tags:
+        - Keys
+      summary: List keys V2
+      description: Listing keys V2.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GetKeysV2Request"
+
+      responses:
+        200:
+          description: Successful retrieval of keys.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Key"
+                  count:
+                    type: integer
+                    example: 123
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/reporting/top-keys:
+    post:
+      tags:
+        - Reporting
+      summary: Get top spending key IDs
+      description: This endpoint is set up for getting a list of key ids ordered by spend.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GetTopKeysRequest"
+
+      responses:
+        200:
+          description: Successfully updated key configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KeyReportingResponse"
+
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/provider-settings:
+    post:
+      tags:
+        - Provider Settings
+      summary: Create a provider setting
+      description: This endpoint is creating a provider setting.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Setting"
+      responses:
+        200:
+          description: Successfully created a provider setting.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Setting"
+
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      tags:
+        - Provider Settings
+      summary: Get provider settings
+      description: This endpoint retrieves provider settings.
+      parameters:
+        - in: query
+          name: ids
+          type: array
+          items:
+            type: string
+          description: Provider setting IDs
+      responses:
+        200:
+          description: Array of provider settings
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/Setting"
+
+  /api/provider-settings/{id}:
+    patch:
+      tags:
+        - Provider Settings
+      summary: Update a provider setting
+      description: This endpoint is for updating a provider setting.
+      parameters:
+        - in: path
+          name: id
+          type: string
+          required: true
+          description: Unique identifier for the provider setting to update.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProviderSettingUpdateRequest"
+      responses:
+        200:
+          description: Provider setting updated
+          schema:
+            $ref: "#/components/schemas/Setting"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/reporting/events:
+    post:
+      tags:
+        - Reporting
+      summary: Retrieve Metrics
+      description: This endpoint retrieves aggregated metrics.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportingEventsRequest"
+      responses:
+        200:
+          description: Aggregated metrics data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportingEventsResponse"
+
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/events:
+    get:
+      tags:
+        - Events
+      summary: Get events
+      description: This endpoint retrieves events based on query parameters.
+      parameters:
+        - in: query
+          name: customId
+          type: string
+          description: Custom identifier attached to an event.
+        - in: query
+          name: keyIds
+          type: array
+          items:
+            type: string
+          description: List of key IDs.
+        - in: query
+          name: start
+          type: integer
+          description: Start timestamp, required if `keyIds` is specified.
+        - in: query
+          name: end
+          type: integer
+          description: End timestamp, required if `keyIds` is specified.
+      responses:
+        200:
+          description: Array of events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Event"
+
+  /api/v2/events:
+    get:
+      tags:
+        - Events
+      summary: Get events V2
+      description: List events based on provided filters.
+      parameters:
+        - in: query
+          name: userIds
+          type: array
+          items:
+            type: string
+          description: List of user IDs to filter events by specific users.
+        - in: query
+          name: customIds
+          type: array
+          items:
+            type: string
+          description: List of custom identifiers for filtering events.
+        - in: query
+          name: keyIds
+          type: array
+          items:
+            type: string
+          description: List of key IDs used to filter events.
+        - in: query
+          name: tags
+          type: array
+          items:
+            type: string
+          description: List of tags associated with events for filtering.
+        - in: query
+          name: start
+          type: integer
+          format: int64
+          required: true
+          description: Start timestamp for filtering events.
+        - in: query
+          name: end
+          type: integer
+          format: int64
+          required: true
+          description: End timestamp for filtering events.
+        - in: query
+          name: limit
+          type: integer
+          description: Maximum number of events to return.
+        - in: query
+          name: offset
+          type: integer
+          description: Offset for pagination.
+        - in: query
+          name: policyIds
+          type: array
+          items:
+            type: string
+          description: List of policy IDs to filter events related to specific policies.
+        - in: query
+          name: actions
+          type: array
+          items:
+            type: string
+          description: Values can include 'allowed', 'redacted', and 'blocked'.
+        - in: query
+          name: costOrder
+          type: string
+          description: Order by cost, specify 'asc' or 'desc'.
+        - in: query
+          name: dateOrder
+          type: string
+          description: Order by date, specify 'asc' or 'desc'.
+        - in: query
+          name: returnCount
+          type: boolean
+          description: Whether to return the count of events instead of event details.
+        - in: query
+          name: status
+          type: integer
+          description: Event HTTP status code.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Event"
+                  count:
+                    type: integer
+                    description: Total number of events returned.
+
+  /api/custom/providers:
+    get:
+      tags:
+        - Custom Providers
+      summary: Get custom providers
+      description: List custom providers based on the provided filters.
+      responses:
+        200:
+          description: List of custom providers.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Provider"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags:
+        - Custom Providers
+      summary: Create a custom provider
+      description: Create a custom provider.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Provider"
+      responses:
+        200:
+          description: Created custom provider.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Provider"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    patch:
+      tags:
+        - Custom Providers
+      summary: Update a custom provider
+      description: Update a custom provider.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Provider"
+      responses:
+        200:
+          description: Updated custom provider.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Provider"
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        500:
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/routes:
+    post:
+      tags:
+        - Routes
+      summary: Create routes
+      description: Creates a new route based on the provided configurations.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRouteRequest"
+      responses:
+        200:
+          description: Route created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouteConfig"
+        400:
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        500:
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      tags:
+        - Routes
+      summary: Retrieve routes
+      description: Retrieves all routes.
+      responses:
+        200:
+          description: List of all routes.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RouteConfig"
+        500:
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/routes/{id}:
+    get:
+      tags:
+        - Routes
+      summary: Retrieve a route
+      description: Retrieves a route based on its unique identifier.
+      parameters:
+        - in: path
+          name: id
+          type: string
+          required: true
+          description: Unique identifier for the route.
+      responses:
+        200:
+          description: Route retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouteConfig"
+        404:
+          description: Route not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        500:
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/reporting/users-ids:
+    get:
+      tags:
+        - Reporting
+      summary: Get user IDs
+      description: Retrieves user IDs associated with a given key ID.
+      parameters:
+        - in: query
+          name: keyId
+          type: string
+          required: true
+          description: Key ID for which to retrieve user IDs.
+      responses:
+        200:
+          description: List of user IDs.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        500:
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/reporting/custom-ids:
+    get:
+      tags:
+        - Reporting
+      summary: Get custom IDs
+      description: Retrieves custom IDs associated with a given key ID.
+      parameters:
+        - in: query
+          name: keyId
+          type: string
+          required: true
+          description: Key ID for which to retrieve custom IDs.
+      responses:
+        200:
+          description: List of custom IDs.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        500:
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/users:
+    post:
+      tags:
+        - Users
+      summary: Create a user
+      description: Creates a new user with specific configurations.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreateRequest"
+      responses:
+        200:
+          description: Created user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        400:
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        500:
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    patch:
+      tags:
+        - Users
+      summary: Update a user via id and tags
+      description: Update a user based on the provided query params.
+      parameters:
+        - in: query
+          name: userId
+          type: string
+          required: true
+          description: User id to update.
+        - in: query
+          name: userId
+          type: string
+          required: true
+          description: Unique identifier of the user to update.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdateRequest"
+
+      responses:
+        200:
+          description: User updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        400:
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        500:
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    get:
+      tags:
+        - Users
+      summary: Get users
+      description: Retrieves users based on query parameters.
+      parameters:
+        - in: query
+          name: userIds
+          type: array
+          items:
+            type: string
+          description: Array of user identifiers.
+        - in: query
+          name: tags
+          type: array
+          items:
+            type: string
+          description: Array of identifiers associated with a user.
+        - in: query
+          name: offset
+          type: integer
+          description: Pagination offset.
+        - in: query
+          name: limit
+          type: integer
+          description: Pagination limit.
+        - in: query
+          name: keyIds
+          type: array
+          items:
+            type: string
+          description: Array of key IDs associated with a user.
+      responses:
+        200:
+          description: List of users.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+        400:
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        500:
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /policies:
+    post:
+      tags:
+        - Policies
+      summary: Create a policy
+      description: Creates a new privacy policy with specific rules and configurations.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PolicyRequest"
+      responses:
+        200:
+          description: Policy created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policy"
+        500:
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      tags:
+        - Policies
+      summary: Get policies by tags
+      description: Retrieves policies filtered by tags.
+      parameters:
+        - in: query
+          name: tags
+          type: array
+          items:
+            type: string
+          required: true
+          description: Tags attached to the policies.
+      responses:
+        200:
+          description: List of policies.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Policy"
+        400:
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        500:
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /policies/{id}:
+    patch:
+      tags:
+        - Policies
+      summary: Update a policy
+      description: Updates a specific policy by its ID.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PolicyRequest"
+      parameters:
+        - in: path
+          name: id
+          type: string
+          required: true
+          description: Unique identifier of the policy to update.
+
+      responses:
+        200:
+          description: Policy updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policy"
+        400:
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        500:
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/users/{id}:
+    patch:
+      tags:
+        - Users
+      summary: Update a user via id
+      description: Updates user details based on the provided id.
+      parameters:
+        - in: path
+          name: id
+          type: string
+          required: true
+          description: Unique identifier of the user to update.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdateRequest"
+
+      responses:
+        200:
+          description: User updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        400:
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        500:
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  schemas:
+    UpdateKeyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: spike's developer key
+          description: Name of the API key.
+        revoked:
+          type: boolean
+          example: false
+          description: Indicator for whether the key is revoked.
+        revokedReason:
+          type: string
+          example: The key has expired
+          description: Reason for why the key is revoked.
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["org-tag-12345"]
+          description: Identifiers associated with the key.
+        costLimitInUsd:
+          type: number
+          example: 5.5
+          description: Total spend limit of the API key.
+        costLimitInUsdUnit:
+          type: string
+          enum: [m, h, d, mo]
+          description: Time unit for costLimitInUsdOverTime. Possible values are ['m', 'h', 'd', 'mo'].
+        costLimitInUsdOverTime:
+          type: number
+          example: 5.5
+          description: Total spend within period of time. This field is required if costLimitInUsdUnit is specified.
+        rateLimitOverTime:
+          type: integer
+          description: Rate limit over period of time. This field is required if rateLimitUnit is specified.
+        rateLimitUnit:
+          type: string
+          enum: [h, m, s, d]
+          description: Time unit for rateLimitOverTime. Possible values are ['h', 'm', 's', 'd'].
+        ttl:
+          type: string
+          description: Time to live for the API key.
+        allowedPaths:
+          type: array
+          items:
+            $ref: "#/components/schemas/PathConfig"
+          description: List of paths that can be accessed by the API key.
+        settingId:
+          type: string
+          deprecated: true
+          description: This field is DEPRECATED. Use `settingIds` field instead.
+        settingIds:
+          type: array
+          items:
+            type: string
+          description: Setting ids associated with the key.
+        shouldLogRequest:
+          type: boolean
+          description: Should request be stored.
+        shouldLogResponse:
+          type: boolean
+          description: Should response be stored.
+        rotationEnabled:
+          type: boolean
+          description: Should key rotate setting used to access third party endpoints in order to circumvent rate limits.
+        policyId:
+          type: string
+          description: Policy id associated with the key.
+        isKeyNotHashed:
+          type: boolean
+          description: Flag controls whether or not the key should be hashed.
+
+    CreateKeyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: spike's developer key
+          description: Name of the API key.
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["org-tag-12345"]
+          description: Identifiers associated with the API key for categorization or organization.
+        key:
+          type: string
+          description: API key.
+          example: abcdef12345
+        keyId:
+          type: string
+          description: Unique identifier for the API key.
+        costLimitInUsd:
+          type: number
+          example: 5.5
+          description: The total spending limit for the API key in USD.
+        costLimitInUsdOverTime:
+          type: number
+          example: 2
+          description: Specifies the spending limit over a specified time frame.
+        costLimitInUsdUnit:
+          type: string
+          enum: [m, h, d, mo]
+          example: d
+          description: Unit of time for the cost limit; 'm' for minutes, 'h' for hours, 'd' for days, 'mo' for months.
+        rateLimitOverTime:
+          type: integer
+          example: 2
+          description: Specifies the maximum number of requests that can be made over a specified time period.
+        rateLimitUnit:
+          type: string
+          enum: [h, m, s, d]
+          example: m
+          description: Unit of time for the rate limit; 'h' for hours, 'm' for minutes, 's' for seconds, 'd' for days.
+        ttl:
+          type: string
+          example: "24h"
+          description: Time to live for the API key, indicating how long the key remains valid.
+        allowedPaths:
+          type: array
+          items:
+            $ref: "#/components/schemas/PathConfig"
+          description: Specifies the API paths that are accessible using this key.
+        settingId:
+          type: string
+          deprecated: true
+          description: Deprecated. Use 'settingIds' instead for identifying associated settings.
+        settingIds:
+          type: array
+          items:
+            type: string
+          example: ["98daa3ae-961d-4253-bf6a-322a32fdca3d"]
+          description: Array of setting identifiers associated with the key.
+        shouldLogRequest:
+          type: boolean
+          example: false
+          description: Indicates whether requests made with this key should be logged.
+        shouldLogResponse:
+          type: boolean
+          example: true
+          description: Indicates whether responses for requests made with this key should be logged.
+        rotationEnabled:
+          type: boolean
+          example: false
+          description: Indicates whether key rotation is enabled to use different keys periodically for enhanced security.
+        policyId:
+          type: string
+          example: "98daa3ae-961d-4253-bf6a-322a32fdca3d"
+          description: Identifier of the policy associated with this key.
+        isKeyNotHashed:
+          type: boolean
+          example: false
+          description: Flag controls whether or not the key should be hashed.
+
+    Key:
+      type: object
+      properties:
+        name:
+          type: string
+        createdAt:
+          type: integer
+        updatedAt:
+          type: integer
+        revoked:
+          type: boolean
+        revokedReason:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        keyId:
+          type: string
+        costLimitInUsd:
+          type: number
+        costLimitInUsdOverTime:
+          type: number
+        costLimitInUsdUnit:
+          type: string
+          enum: [m, h, d, mo]
+        rateLimitOverTime:
+          type: integer
+        rateLimitUnit:
+          type: string
+          enum: [h, m, s, d]
+        ttl:
+          type: string
+        allowedPaths:
+          type: array
+          items:
+            $ref: "#/components/schemas/PathConfig"
+        settingId:
+          type: string
+          deprecated: true
+        settingIds:
+          type: array
+          items:
+            type: string
+        shouldLogRequest:
+          type: boolean
+        shouldLogResponse:
+          type: boolean
+        rotationEnabled:
+          type: boolean
+        policyId:
+          type: string
+        isKeyNotHashed:
+          type: boolean
+
+    PathConfig:
+      type: object
+      required:
+        - path
+        - method
+      properties:
+        path:
+          type: string
+          example: /api/providers/openai/v1/chat/completion
+          description: Allowed path for the API key.
+        method:
+          type: string
+          enum: [GET, POST, PUT, DELETE]
+          description: HTTP Method allowed for the path.
+
+    KeyReportingResponse:
+      type: object
+      properties:
+        dataPoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/KeyDataPoint"
+    KeyDataPoint:
+      type: object
+      properties:
+        keyId:
+          type: string
+        costInUsd:
+          type: float
+    Error:
+      type: object
+      properties:
+        status:
+          type: integer
+        title:
+          type: string
+        type:
+          type: string
+        detail:
+          type: string
+        instance:
+          type: string
+
+    Setting:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+            - openai
+            - anthropic
+            - azure
+          description: This value can only be `openai`, `anthropic` and `azure` as for now.
+        setting:
+          type: object
+          required:
+            - apiKey
+          properties:
+            apiKey:
+              type: string
+              example: xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+              description: This value is required.
+            url:
+              type: string
+              example: https://your.deployment.url
+              description: This value is required when the provider is `vllm`.
+            resourceName:
+              type: string
+              example: YOUR_AZURE_RESOURCE_NAME
+              description: This value is required when the provider is `azure`.
+        name:
+          type: string
+          example: YOUR_PROVIDER_SETTING_NAME
+          description: This field is used for giving a name to provider setting.
+        allowedModels:
+          type: array
+          items:
+            type: string
+          example: ["text-embedding-ada-002"]
+          description: Allowed models for this provider setting.
+        costMap:
+          type: object
+          properties:
+            promptCostPerModel:
+              type: object
+              additionalProperties:
+                type: float
+              example: { "facebook/opt-125m": 0.0003 }
+              description: Customized prompt cost value per 1000 tokens.
+            completionCostPerModel:
+              type: object
+              additionalProperties:
+                type: float
+              example: { "facebook/opt-125m": 0.0003 }
+              description: Customized completion cost per 1000 tokens.
+            embeddingsCostPerModel:
+              type: object
+              additionalProperties:
+                type: float
+              example: { "facebook/opt-125m": 0.0003 }
+              description: Customized embeddings cost per 1000 tokens.
+
+    ProviderSetting:
+      type: object
+      properties:
+        createdAt:
+          type: integer
+          format: int64
+          description: Unix timestamp for creation time.
+        updatedAt:
+          type: integer
+          format: int64
+          description: Unix timestamp for update time.
+        provider:
+          type: string
+          enum: [openai, anthropic, azure, vllm, deepinfra]
+          description: Provider name.
+        id:
+          type: string
+          description: Unique identifier.
+        name:
+          type: string
+          description: Provider setting name.
+        allowedModels:
+          type: array
+          items:
+            type: string
+        costMap:
+          $ref: "#/components/schemas/CostMap"
+
+    CostMap:
+      type: object
+      properties:
+        promptCostPerModel:
+          type: object
+          additionalProperties:
+            type: float
+        completionCostPerModel:
+          type: object
+          additionalProperties:
+            type: float
+        embeddingsCostPerModel:
+          type: object
+          additionalProperties:
+            type: float
+
+    ProviderSettingCreateRequest:
+      type: object
+      required:
+        - provider
+        - setting
+      properties:
+        provider:
+          type: string
+          enum: [openai, anthropic, azure, vllm, deepinfra]
+        setting:
+          $ref: "#/components/schemas/Setting"
+        name:
+          type: string
+        allowedModels:
+          type: array
+          items:
+            type: string
+        costMap:
+          $ref: "#/components/schemas/CostMap"
+
+    ProviderSettingUpdateRequest:
+      type: object
+      required:
+        - setting
+      properties:
+        setting:
+          $ref: "#/components/schemas/Setting"
+        name:
+          type: string
+        allowedModels:
+          type: array
+          items:
+            type: string
+        costMap:
+          $ref: "#/components/schemas/CostMap"
+
+    ReportingEventsRequest:
+      type: object
+      required:
+        - keyIds
+        - tags
+        - customIds
+        - filters
+        - start
+        - end
+        - increment
+      properties:
+        keyIds:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        customIds:
+          type: array
+          items:
+            type: string
+        filters:
+          type: array
+          items:
+            type: string
+        start:
+          type: integer
+        end:
+          type: integer
+        increment:
+          type: integer
+
+    ReportingEventsResponse:
+      type: object
+      properties:
+        dataPoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/DataPoint"
+        latencyInMsMedian:
+          type: float
+        latencyInMs99th:
+          type: float
+
+    DataPoint:
+      type: object
+      properties:
+        timeStamp:
+          type: integer
+        numberOfRequests:
+          type: integer
+        costInUsd:
+          type: float
+        latencyInMs:
+          type: integer
+        promptTokenCount:
+          type: integer
+        completionTokenCount:
+          type: integer
+        successCount:
+          type: integer
+        keyId:
+          type: integer
+        model:
+          type: string
+        customId:
+          type: string
+
+    Event:
+      type: object
+      properties:
+        id:
+          type: integer
+        created_at:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+        key_id:
+          type: string
+        cost_in_usd:
+          type: float
+        model:
+          type: string
+        provider:
+          type: string
+        status:
+          type: integer
+        prompt_token_count:
+          type: integer
+        completion_token_count:
+          type: integer
+        latency_in_ms:
+          type: integer
+        path:
+          type: string
+        method:
+          type: string
+        custom_id:
+          type: string
+        request:
+          type: string
+        response:
+          type: string
+
+    Provider:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Unique identifier associated with the provider.
+        created_at:
+          type: integer
+          format: int64
+          description: Unix timestamp for creation time.
+        updated_at:
+          type: integer
+          format: int64
+          description: Unix timestamp for update time.
+        provider:
+          type: string
+          description: Unique identifier associated with the route config.
+        route_configs:
+          type: array
+          items:
+            $ref: "#/components/schemas/RouteConfig"
+          description: Route configurations for the custom provider.
+        authentication_param:
+          type: string
+          description: The authentication parameter required for.
+
+    RouteConfig:
+      type: object
+      properties:
+        path:
+          type: string
+          description: Path associated with the custom provider route. It must be unique within the custom provider.
+        target_url:
+          type: string
+          description: Proxy destination URL for the custom provider route.
+        model_location:
+          type: string
+          description: JSON field for the model in the HTTP request.
+        request_prompt_location:
+          type: string
+          description: JSON field for the prompt request in the HTTP request.
+        response_completion_location:
+          type: string
+          description: JSON field for the completion content in the HTTP response.
+        stream_location:
+          type: string
+          description: JSON field for the stream boolean in the HTTP request.
+        stream_end_word:
+          type: string
+          description: End word for the stream.
+        stream_response_completion_location:
+          type: string
+          description: JSON field for the completion content in the streaming response.
+        stream_max_empty_messages:
+          type: integer
+          description: Number of max empty messages in stream.
+
+    CreateRouteRequest:
+      type: object
+      required:
+        - name
+        - path
+        - steps
+        - keyIds
+        - cacheConfig
+      properties:
+        name:
+          type: string
+          description: Name of the route.
+        path:
+          type: string
+          description: Path identifier for the route.
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/StepConfig"
+        keyIds:
+          type: array
+          items:
+            type: string
+          description: List of key IDs authorized to use the route.
+        cacheConfig:
+          $ref: "#/components/schemas/CacheConfig"
+
+    StepConfig:
+      type: object
+      required:
+        - provider
+        - model
+      properties:
+        provider:
+          type: string
+          enum: [openai, anthropic, azure, vllm, deepinfra]
+          description: Provider for the step.
+        model:
+          type: string
+          description: Model that the step should call.
+        retries:
+          type: integer
+          default: 0
+          description: Number of retries allowed.
+        params:
+          type: object
+          description: Additional parameters required for the API requests.
+        timeout:
+          type: string
+          default: "5m"
+          description: Timeout for each request.
+
+    CacheConfig:
+      type: object
+      required:
+        - enabled
+      properties:
+        enabled:
+          type: boolean
+          description: Indicates whether caching is enabled.
+        ttl:
+          type: string
+          default: "168h"
+          description: Time to live for the cache entries.
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the user.
+        name:
+          type: string
+          description: Name of the user.
+        createdAt:
+          type: integer
+          format: int64
+          description: Unix timestamp of the user creation.
+        updatedAt:
+          type: integer
+          format: int64
+          description: Unix timestamp of the last user update.
+        tags:
+          type: array
+          items:
+            type: string
+          description: Identifiers associated with the user.
+        keyIds:
+          type: array
+          items:
+            type: string
+          description: Key IDs associated with the user.
+        revoked:
+          type: boolean
+          description: Whether the user is revoked.
+        revokedReason:
+          type: string
+          description: Reason for user revocation.
+        allowedPaths:
+          type: array
+          items:
+            $ref: "#/components/schemas/PathConfig"
+          description: Allowed API paths for the user.
+        allowedModels:
+          type: array
+          items:
+            type: string
+          description: Models that the user can access.
+
+    UserCreateRequest:
+      type: object
+      required:
+        - name
+        - path
+        - method
+      properties:
+        name:
+          type: string
+          description: Name of the user.
+        tags:
+          type: array
+          items:
+            type: string
+          description: Identifiers associated with the user.
+        keyIds:
+          type: array
+          items:
+            type: string
+          description: Unique identifiers for keys.
+        costLimitInUsd:
+          type: number
+          format: float
+          description: Total spend limit of the user.
+        costLimitInUsdOverTime:
+          type: number
+          format: float
+          description: Total spend within a specified time period.
+        costLimitInUsdUnit:
+          type: string
+          enum: [m, h, d, mo]
+          description: Time unit for costLimitInUsdOverTime.
+        rateLimitOverTime:
+          type: integer
+          description: Rate limit over a specified time period.
+        rateLimitUnit:
+          type: string
+          enum: [h, m, s, d]
+          description: Time unit for rateLimitOverTime.
+        ttl:
+          type: string
+          description: Time to live for the user's session.
+        allowedPaths:
+          type: array
+          items:
+            $ref: "#/components/schemas/PathConfig"
+          description: Allowed API paths for the user.
+        allowedModels:
+          type: array
+          items:
+            type: string
+          description: Models that the user can access.
+
+    UserUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the user.
+        keyIds:
+          type: array
+          items:
+            type: string
+          description: Keys ids associated with the user.
+        costLimitInUsd:
+          type: number
+          format: float
+          description: Total spend limit of the user.
+        revoked:
+          type: boolean
+          description: Whether the user is revoked.
+        revokedReason:
+          type: string
+          description: Reason for why the user is revoked.
+        allowedPaths:
+          type: array
+          items:
+            $ref: "#/components/schemas/PathConfig"
+          description: Allowed API paths for the user.
+        allowedModels:
+          type: array
+          items:
+            type: string
+          description: Models that the user can access.
+
+    GetKeysV2Request:
+      type: object
+      properties:
+        keyIds:
+          type: array
+          items:
+            type: string
+          example: ["98daa3ae-961d-4253-bf6a-322a32fdca3d"]
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["org-tag-12345"]
+        name:
+          type: string
+          example: "key"
+        revoked:
+          type: boolean
+          example: false
+        limit:
+          type: integer
+          example: 5
+        offset:
+          type: integer
+          example: 5
+        order:
+          type: string
+          enum: [asc, desc]
+          example: "asc"
+        returnCount:
+          type: boolean
+          example: true
+
+    GetTopKeysRequest:
+      type: object
+      properties:
+        start:
+          type: integer
+          format: int64
+          example: 1257894000
+          description: Start unix timestamp.
+        end:
+          type: integer
+          format: int64
+          example: 1257894000
+          description: End unix timestamp.
+        keyIds:
+          type: array
+          items:
+            type: string
+          example: ["98daa3ae-961d-4253-bf6a-322a32fdca3d"]
+          description: Array of key IDs.
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["org-tag-12345"]
+          description: Identifiers associated with keys.
+        name:
+          type: string
+          example: key
+          description: Filter keys by the substring match on the `name` field.
+        revoked:
+          type: boolean
+          example: false
+          description: Filters keys by `revoked` status.
+        limit:
+          type: integer
+          example: 5
+          description: Pagination limit.
+        offset:
+          type: integer
+          example: 5
+          description: Pagination offset.
+        order:
+          type: string
+          example: asc
+          description: There are the two available values `asc` and `desc`.
+
+    PolicyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the policy.
+        tags:
+          type: array
+          items:
+            type: string
+          description: Tags associated with the policy.
+        config:
+          $ref: "#/components/schemas/Config"
+        regexConfig:
+          $ref: "#/components/schemas/RegexConfig"
+
+    Config:
+      type: object
+      properties:
+        rules:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/Action"
+          description: Map of rules with associated actions for PII detection.
+
+    RegexConfig:
+      type: object
+      properties:
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/RegexRule"
+          description: List of regular expression rules with associated actions.
+
+    RegexRule:
+      type: object
+      properties:
+        definition:
+          type: string
+          description: Regular expression pattern.
+        action:
+          $ref: "#/components/schemas/Action"
+
+    Action:
+      type: string
+      enum: [block, allow_but_redact, allow]
+      description: Actions that can be applied to a rule match.
+
+    Policy:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Unique identifier of the policy.
+        created_at:
+          type: integer
+          format: int64
+          description: Timestamp of when the policy was created.
+        updated_at:
+          type: integer
+          format: int64
+          description: Timestamp of the last update to the policy.
+        tags:
+          type: array
+          items:
+            type: string
+          description: Tags attached to the policy.
+        config:
+          $ref: "#/components/schemas/Config"
+        regexConfig:
+          $ref: "#/components/schemas/RegexConfig"
