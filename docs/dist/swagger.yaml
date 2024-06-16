@@ -6,7 +6,7 @@ info:
   license:
     name: The MIT License
     url: https://opensource.org/license/mit
-  version: 1.28.3
+  version: 1.28.4
 
 tags:
   - name: Health Check
@@ -32,7 +32,7 @@ paths:
       tags:
         - Health Check
       summary: Health check
-      description: Endpoint for checking the health status of the service.
+      description: This endpoint is for checking the health status of the service.
       responses:
         200:
           description: Service is up and running.
@@ -148,7 +148,7 @@ paths:
       tags:
         - Keys
       summary: List keys V2
-      description: This endpoint is V2 for listing keys.
+      description: This endpoint is for listing keys.
       requestBody:
         content:
           application/json:
@@ -187,8 +187,8 @@ paths:
     post:
       tags:
         - Reporting
-      summary: List top spending keys
-      description: This endpoint is for listing top spending keys ordered by spend.
+      summary: Get top spending key IDs
+      description: This endpoint is getting a list of key IDs ordered by spend.
       requestBody:
         content:
           application/json:
@@ -201,14 +201,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/KeyReportingResponse"
-
+                $ref: "#/components/schemas/TopKeysReportingResponse"
         400:
           description: Bad request.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/BadRequestError"
+        500:
+          description: Internal error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalError"
 
   /api/provider-settings:
     post:
@@ -292,8 +297,8 @@ paths:
     post:
       tags:
         - Reporting
-      summary: Retrieve Metrics
-      description: This endpoint retrieves aggregated metrics.
+      summary: Get Metrics
+      description: This endpoint is for getting aggregated metrics.
       requestBody:
         content:
           application/json:
@@ -319,7 +324,7 @@ paths:
       tags:
         - Events
       summary: Get events
-      description: This endpoint retrieves events based on query parameters.
+      description: This endpoint is for getting events based on query parameters.
       parameters:
         - in: query
           name: customId
@@ -360,7 +365,7 @@ paths:
       tags:
         - Events
       summary: Get events V2
-      description: List events based on provided filters.
+      description: This endpoint is for listing events based on provided filters.
       parameters:
         - in: query
           name: userIds
@@ -464,8 +469,8 @@ paths:
     get:
       tags:
         - Custom Providers
-      summary: Get custom providers
-      description: List custom providers based on the provided filters.
+      summary: List custom providers
+      description: This endpoint is for listing all custom providers.
       responses:
         200:
           description: List of custom providers.
@@ -475,12 +480,6 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Provider"
-        400:
-          description: Bad request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/BadRequestError"
         500:
           description: Internal server error.
           content:
@@ -491,11 +490,12 @@ paths:
       tags:
         - Custom Providers
       summary: Create a custom provider
-      description: Create a custom provider.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Provider"
+      description: This endpoint is for creating a custom provider.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProviderRequest"
       responses:
         200:
           description: Created custom provider.
@@ -519,11 +519,12 @@ paths:
       tags:
         - Custom Providers
       summary: Update a custom provider
-      description: Update a custom provider.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Provider"
+      description: This endpoint is for updating a custom provider.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProviderRequest"
       responses:
         200:
           description: Updated custom provider.
@@ -537,6 +538,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BadRequestError"
+        404:
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundError"
         500:
           description: Internal server error.
           content:
@@ -548,8 +555,8 @@ paths:
     post:
       tags:
         - Routes
-      summary: Create routes
-      description: Creates a new route based on the provided configurations.
+      summary: Create a route
+      description: This endpoint is for creating a new route based on the provided configurations.
       requestBody:
         content:
           application/json:
@@ -557,7 +564,7 @@ paths:
               $ref: "#/components/schemas/CreateRouteRequest"
       responses:
         200:
-          description: Route created successfully.
+          description: Created route.
           content:
             application/json:
               schema:
@@ -577,8 +584,8 @@ paths:
     get:
       tags:
         - Routes
-      summary: Retrieve routes
-      description: Retrieves all routes.
+      summary: List all routes
+      description: This endpoint is for listing all routes.
       responses:
         200:
           description: List of all routes.
@@ -599,8 +606,8 @@ paths:
     get:
       tags:
         - Routes
-      summary: Retrieve a route
-      description: Retrieves a route based on its unique identifier.
+      summary: Get a route
+      description: This endpint is for getting a route based on its unique identifier.
       parameters:
         - in: path
           name: id
@@ -619,7 +626,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/NotFoundError"
         500:
           description: Internal server error.
           content:
@@ -631,8 +638,8 @@ paths:
     get:
       tags:
         - Reporting
-      summary: Get user IDs
-      description: Retrieves user IDs associated with a given key ID.
+      summary: List user IDs
+      description: This endpoint is for listing user IDs associated with a given key ID.
       parameters:
         - in: query
           name: keyId
@@ -659,8 +666,8 @@ paths:
     get:
       tags:
         - Reporting
-      summary: Get custom IDs
-      description: Retrieves custom IDs associated with a given key ID.
+      summary: List custom IDs
+      description: This endpoint is for listing custom IDs associated with a given key ID.
       parameters:
         - in: query
           name: keyId
@@ -688,7 +695,7 @@ paths:
       tags:
         - Users
       summary: Create a user
-      description: Creates a new user with specific configurations.
+      description: This endpoint is for creating a new user with specific configurations.
       requestBody:
         content:
           application/json:
@@ -718,7 +725,7 @@ paths:
       tags:
         - Users
       summary: Update a user via user id and tags
-      description: Update a user based on the provided query params.
+      description: This endpoint is for updating a user based on the provided query params.
       parameters:
         - in: query
           name: userId
@@ -761,7 +768,7 @@ paths:
       tags:
         - Users
       summary: Get users
-      description: Retrieves users based on query parameters.
+      description: This endpoint is for getting users based on query parameters.
       parameters:
         - in: query
           name: userIds
@@ -816,12 +823,12 @@ paths:
       tags:
         - Policies
       summary: Create a policy
-      description: Creates a new privacy policy with specific rules and configurations.
+      description: This endpoint is for creating a new privacy policy with specific rules and configurations.
       requestBody:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/PolicyRequest"
+              $ref: "#/components/schemas/CreatePolicyRequest"
       responses:
         200:
           description: Policy created successfully.
@@ -838,8 +845,8 @@ paths:
     get:
       tags:
         - Policies
-      summary: Get policies by tags
-      description: Retrieves policies filtered by tags.
+      summary: List policies by tags
+      description: This endpoint is for listing policies filtered by tags.
       parameters:
         - in: query
           name: tags
@@ -875,12 +882,12 @@ paths:
       tags:
         - Policies
       summary: Update a policy
-      description: Updates a specific policy by its ID.
+      description: This endpoint is for updating a specific policy by its ID.
       requestBody:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/PolicyRequest"
+              $ref: "#/components/schemas/UpdatePolicyRequest"
       parameters:
         - in: path
           name: id
@@ -913,7 +920,7 @@ paths:
       tags:
         - Users
       summary: Update a user via id
-      description: Updates user details based on the provided id.
+      description: This endpoint is for updating a user based on the provided id.
       parameters:
         - in: path
           name: id
@@ -1217,20 +1224,34 @@ components:
           enum: [GET, POST, PUT, DELETE]
           description: HTTP Method allowed for the path.
 
-    KeyReportingResponse:
+    TopKeysReportingResponse:
       type: object
       properties:
         dataPoints:
           type: array
+          description: List of top spending key IDs.
+          example:
+            [
+              {
+                "keyId": "98daa3ae-961d-4253-bf6a-322a32fdca3d",
+                "costInUsd": 125,
+              },
+            ]
           items:
             $ref: "#/components/schemas/KeyDataPoint"
+
     KeyDataPoint:
       type: object
+      description: Key ID with spend.
       properties:
         keyId:
           type: string
+          example: "98daa3ae-961d-4253-bf6a-322a32fdca3d"
+          description: Key ID.
         costInUsd:
-          type: float
+          type: number
+          example: 125.5
+          description: Associated spend.
 
     InternalError:
       type: object
@@ -1270,6 +1291,25 @@ components:
           type: string
           example: /api/key-management/keys
 
+    NotFoundError:
+      type: object
+      properties:
+        status:
+          type: integer
+          example: 404
+        title:
+          type: string
+          example: not found
+        type:
+          type: string
+          example: /errors/not-found
+        detail:
+          type: string
+          example: something is not found
+        instance:
+          type: string
+          example: /api/key-management/keys
+
     ProviderSettingUpdateRequest:
       type: object
       properties:
@@ -1290,8 +1330,8 @@ components:
 
     ProviderSettingCreationRequest:
       required:
-          - setting
-          - provider
+        - setting
+        - provider
       type: object
       properties:
         setting:
@@ -1349,7 +1389,7 @@ components:
     CostMap:
       type: object
       description: Customized cost mapping for different models.
-      example: { "promptCostPerModel": { "facebook/opt-125m": 0.0003 }}
+      example: { "promptCostPerModel": { "facebook/opt-125m": 0.0003 } }
       properties:
         promptCostPerModel:
           type: object
@@ -1373,7 +1413,7 @@ components:
     ProviderSettingMap:
       type: object
       description: API Credentials associated with different providers.
-      example: { "apikey": "MY_OPENAI_API_KEY"}
+      example: { "apikey": "MY_OPENAI_API_KEY" }
       required:
         - apikey
       properties:
@@ -1393,10 +1433,6 @@ components:
     ReportingEventsRequest:
       type: object
       required:
-        - keyIds
-        - tags
-        - customIds
-        - filters
         - start
         - end
         - increment
@@ -1405,24 +1441,39 @@ components:
           type: array
           items:
             type: string
+          example: ["key-1", "key-2", "key-3"]
+          description: Array of IDs specifying the keys from which you want to aggregate statistics.
         tags:
           type: array
           items:
             type: string
+          example: ["tag-1", "tag-2"]
+          description: Array of tags specifying the key tags from which you want to aggregate statistics.
         customIds:
           type: array
           items:
             type: string
+          example: ["customId-1", "customId-2"]
+          description: List of custom IDs from which you want to aggregate statistics.
         filters:
           type: array
           items:
             type: string
+            enum: ["model", "keyId", "customId", "userId"]
+          example: ["model", "keyId"]
+          description: Specifies the data points to group by during aggregation, such as model, keyId, userId, or customId.
         start:
           type: integer
+          example: 1699933571
+          description: Start timestamp for the requested timeseries data.
         end:
           type: integer
+          example: 1699933571
+          description: End timestamp for the requested timeseries data.
         increment:
           type: integer
+          example: 60
+          description: Increment in seconds for the timeseries data intervals.
 
     ReportingEventsResponse:
       type: object
@@ -1431,34 +1482,63 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DataPoint"
+          description: List of aggregated data points according to specified filters and increments.
         latencyInMsMedian:
-          type: float
+          type: number
+          example: 656.7
+          description: Median latency for the given time period, measured in milliseconds.
         latencyInMs99th:
-          type: float
+          type: number
+          example: 555.7
+          description: 99th percentile latency for the given time period, measured in milliseconds.
 
     DataPoint:
       type: object
       properties:
         timeStamp:
           type: integer
+          example: 1702504746
+          description: Unix timestamp for the data point.
         numberOfRequests:
           type: integer
+          example: 100
+          description: Aggregated number of HTTP requests over the given time increment.
         costInUsd:
-          type: float
+          type: number
+          example: 1.7
+          description: Aggregated cost of proxied requests in USD over the given time increment.
         latencyInMs:
           type: integer
+          example: 555
+          description: Aggregated latency in milliseconds of HTTP requests over the given time increment.
         promptTokenCount:
           type: integer
+          example: 25
+          description: Aggregated prompt token counts over the given time increment.
         completionTokenCount:
           type: integer
+          example: 4000
+          description: Aggregated completion token counts over the given time increment.
         successCount:
           type: integer
+          example: 555
+          description: Aggregated number of successful HTTP requests over the given time increment.
         keyId:
-          type: integer
+          type: string
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
+          description: Key ID associated with the event.
         model:
           type: string
+          example: "gpt-3.5-turbo"
+          description: Model associated with the event.
         customId:
           type: string
+          example: "customId"
+          description: Associated custom ID.
+        userId:
+          type: string
+          example: "userId"
+          description: Associated user ID.
 
     Event:
       type: object
@@ -1546,27 +1626,51 @@ components:
         routeId:
           type: string
           example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
-          description: Associated route ID.        
+          description: Associated route ID.
         correlationId:
           type: string
           example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           description: Associated correlation ID.
-          
+
     Provider:
       type: object
       properties:
         id:
           type: string
+          example: 9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb
           description: Unique identifier associated with the provider.
         created_at:
           type: integer
+          example: 1699933571
           description: Unix timestamp for creation time.
         updated_at:
           type: integer
+          example: 1699933571
           description: Unix timestamp for update time.
         provider:
           type: string
-          description: Unique identifier associated with the route config.
+          example: bricks
+          description: Unique identifier associated with the custom provider.
+        route_configs:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomRouteConfig"
+          description: Route configurations for the custom provider.
+        authentication_param:
+          type: string
+          example: apikey
+          description: The authentication parameter required for accessing the custom provider.
+
+    CreateProviderRequest:
+      type: object
+      required:
+        - provider
+        - route_configs
+      properties:
+        provider:
+          type: string
+          example: bricks
+          description: Unique identifier associated with the custom provider.
         route_configs:
           type: array
           items:
@@ -1574,37 +1678,66 @@ components:
           description: Route configurations for the custom provider.
         authentication_param:
           type: string
-          description: The authentication parameter required for.
+          example: apikey
+          description: The authentication parameter required for accessing the custom provider.
 
-    RouteConfig:
+    UpdateProviderRequest:
       type: object
+      properties:
+        route_configs:
+          type: array
+          items:
+            $ref: "#/components/schemas/RouteConfig"
+          description: Route configurations for the custom provider.
+        authentication_param:
+          type: string
+          example: apikey
+          description: The authentication parameter required for accessing the custom provider.
+
+    CustomRouteConfig:
+      type: object
+      required:
+        - path
+        - target_url
+        - model_location
+        - request_prompt_location
+        - response_completion_location
       properties:
         path:
           type: string
+          example: /chat/completion
           description: Path associated with the custom provider route. It must be unique within the custom provider.
         target_url:
           type: string
+          example: https://api.openai.com/v1/chat/completions
           description: Proxy destination URL for the custom provider route.
         model_location:
           type: string
+          example: model
           description: JSON field for the model in the HTTP request.
         request_prompt_location:
           type: string
+          example: messages.#.content
           description: JSON field for the prompt request in the HTTP request.
         response_completion_location:
           type: string
+          example: choices.#.message.content
           description: JSON field for the completion content in the HTTP response.
         stream_location:
           type: string
+          example: stream
           description: JSON field for the stream boolean in the HTTP request.
         stream_end_word:
           type: string
+          example: [DONE]
           description: End word for the stream.
         stream_response_completion_location:
           type: string
+          example: choices.#.delta.content
           description: JSON field for the completion content in the streaming response.
         stream_max_empty_messages:
           type: integer
+          example: 10
           description: Number of max empty messages in stream.
 
     CreateRouteRequest:
@@ -1634,6 +1767,32 @@ components:
         cacheConfig:
           $ref: "#/components/schemas/CacheConfig"
 
+    CacheConfig:
+      type: object
+      required:
+        - enabled
+      properties:
+        enabled:
+          type: boolean
+          example: false
+          description: Boolean flag indicating whether caching is enabled.
+        ttl:
+          type: string
+          example: "5s"
+          description: TTL for the cache.
+
+    StepConfigParams:
+      type: object
+      properties:
+        deploymentId:
+          type: string
+          example: "ada-test"
+          description: Azure deployment ID.
+        apiVersion:
+          type: string
+          example: "2022-12-01"
+          description: Azure API version.
+
     StepConfig:
       type: object
       required:
@@ -1642,35 +1801,96 @@ components:
       properties:
         provider:
           type: string
-          enum: [openai, anthropic, azure, vllm, deepinfra]
-          description: Provider for the step.
+          enum: [azure, openai]
+          example: azure
+          description: Provider for the step. Can only be either 'azure' or 'openai'.
         model:
           type: string
-          description: Model that the step should call.
+          example: "gpt-3.5-turbo"
+          description: Model that the step should call. Can only be chat completion or embedding models from OpenAI or Azure OpenAI.
         retries:
           type: integer
-          default: 0
-          description: Number of retries allowed.
+          example: 2
+          description: Number of retries.
         params:
-          type: object
-          description: Additional parameters required for the API requests.
+          type: objects
+          $ref: "#/components/schemas/StepConfigParams"
+          example: { "deploymentId": "ada-test", "apiVersion": "2022-12-01" }
+          description: Params required for making Azure OpenAI requests. Required if the provider is 'azure'.
         timeout:
           type: string
-          default: "5m"
-          description: Timeout for each request.
+          example: "5s"
+          description: Timeout desired for each request. Default value is '5m'.
 
-    CacheConfig:
+    RouteConfig:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb"
+          description: Unique identifier for the route.
+        createdAt:
+          type: string
+          example: "1699933571"
+          description: Creation time of the route.
+        updatedAt:
+          type: string
+          example: "1699933571"
+          description: Update time of the route.
+        name:
+          type: string
+          example: "staging-openai-azure-completion-route"
+          description: Name for the route.
+        path:
+          type: string
+          example: "/production/chat/completion"
+          description: Unique path for the route.
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/StepConfig"
+          description: List of steps configurations that details sequences of API calls.
+        keyIds:
+          type: array
+          items:
+            type: string
+          example: ["9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb"]
+          description: List of key IDs that can be used to access the route.
+        cacheConfig:
+          $ref: "#/components/schemas/CacheConfig"
+          description: The caching configurations parameter required for.
+
+    RouteConfigCreationRequest:
       type: object
       required:
-        - enabled
+        - path
+        - steps
+        - keyIds
+        - cacheConfig
       properties:
-        enabled:
-          type: boolean
-          description: Indicates whether caching is enabled.
-        ttl:
+        name:
           type: string
-          default: "168h"
-          description: Time to live for the cache entries.
+          example: "staging-openai-azure-completion-route"
+          description: Name for the route.
+        path:
+          type: string
+          example: "/production/chat/completion"
+          description: Unique path for the route.
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/StepConfig"
+          description: List of steps configurations that details sequences of API calls.
+        keyIds:
+          type: array
+          items:
+            type: string
+          example: ["9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb"]
+          description: List of key IDs that can be used to access the route.
+        cacheConfig:
+          $ref: "#/components/schemas/CacheConfig"
+          example: { "enabled": false, "ttl": "5s" }
+          description: The caching configurations parameter required for the route.
 
     User:
       type: object
@@ -1981,7 +2201,8 @@ components:
           type: object
           additionalProperties:
             $ref: "#/components/schemas/Action"
-          description: Map of rules with associated actions for PII detection.
+          description: Mapping of rules to associated actions for personal identifiable information (PII) detection. Available key values are `address`,`age`,`all`,`aws_access_key`,`aws_secret_key`,`bank_account_number`,`bank_routing`,`ca_health_number`,`ca_social_insurance_number`,`credit_debit_cvv`,`credit_debit_expiry`,`credit_debit_number`,`date_time`,`driver_id`,`email`,`in_aadhaar`,`in_nrega`,`in_permanent_account_number`,`in_voter_number`,`international_bank_account_number`,`ip_address`,`license_plate`,`mac_address`,`name`,`passport_number`,`password`,`phone`,`pin`,`ssn`,`swift_code`,`uk_national_health_service_number`,`uk_national_insurance_number`,`uk_unique_taxpayer_reference_number`,`url`,`us_individual_tax_identification_number`,`username`, and `vehicle_identification_number`.
+          example: { "address": "block", "phone": "allow_but_redact" }
 
     RegexConfig:
       type: object
@@ -1990,40 +2211,125 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RegexRule"
-          description: List of regular expression rules with associated actions.
+          description: List of regular expression rules with associated actions for content filtering.
 
     RegexRule:
       type: object
       properties:
         definition:
           type: string
-          description: Regular expression pattern.
+          example: "[2-9]|[12]\\d|3[0-6]"
+          description: Regular expression pattern used for matching text.
         action:
           $ref: "#/components/schemas/Action"
+          description: Action to be applied when a regex match is found.
 
     Action:
       type: string
       enum: [block, allow_but_redact, allow]
-      description: Actions that can be applied to a rule match.
+      description: Actions that can be applied when a rule or regex pattern matches. Options include 'block', 'allow_but_redact', or 'allow'.
 
     Policy:
       type: object
       properties:
+        name:
+          type: string
+          description: Name of the policy.
+          example: Name and Address policy
         id:
-          type: integer
+          type: string
           description: Unique identifier of the policy.
+          example: 9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb
         created_at:
           type: integer
-          description: Timestamp of when the policy was created.
+          description: Timestamp of when the policy was created, in Unix time.
+          example: 1699933571
         updated_at:
           type: integer
-          description: Timestamp of the last update to the policy.
+          description: Timestamp of the last update to the policy, in Unix time.
+          example: 1699933571
         tags:
           type: array
           items:
             type: string
-          description: Tags attached to the policy.
+          description: Tags attached to the policy for identification and categorization.
+          example: ["org-111", "data-privacy"]
         config:
           $ref: "#/components/schemas/Config"
+          example: { "rules": { "address": "block" } }
+          description: Configurations setting specific rules for detecting and handling personal identifiable information (PII).
         regexConfig:
           $ref: "#/components/schemas/RegexConfig"
+          example:
+            {
+              "rules":
+                [
+                  {
+                    "definition": "[2-9]\\|[12]\\d\\|3[0-6]",
+                    "action": "block",
+                  },
+                ],
+            }
+          description: Configurations containing a list of regular expression rules and associated actions.
+
+    CreatePolicyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the policy.
+          example: Name and Address policy
+        tags:
+          type: array
+          items:
+            type: string
+          description: Tags attached to the policy for identification and categorization.
+          example: ["org-111", "data-privacy"]
+        config:
+          $ref: "#/components/schemas/Config"
+          example: { "rules": { "address": "block" } }
+          description: Configurations setting specific rules for detecting and handling personal identifiable information (PII).
+        regexConfig:
+          $ref: "#/components/schemas/RegexConfig"
+          example:
+            {
+              "rules":
+                [
+                  {
+                    "definition": "[2-9]\\|[12]\\d\\|3[0-6]",
+                    "action": "block",
+                  },
+                ],
+            }
+          description: Configurations containing a list of regular expression rules and associated actions.
+
+    UpdatePolicyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the policy.
+          example: Name and Address policy
+        tags:
+          type: array
+          items:
+            type: string
+          description: Tags attached to the policy for identification and categorization.
+          example: ["org-111", "data-privacy"]
+        config:
+          $ref: "#/components/schemas/Config"
+          example: { "rules": { "address": "block" } }
+          description: Configurations setting specific rules for detecting and handling personal identifiable information (PII).
+        regexConfig:
+          $ref: "#/components/schemas/RegexConfig"
+          example:
+            {
+              "rules":
+                [
+                  {
+                    "definition": "[2-9]\\|[12]\\d\\|3[0-6]",
+                    "action": "block",
+                  },
+                ],
+            }
+          description: Configurations containing a list of regular expression rules and associated actions.
