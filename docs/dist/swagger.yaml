@@ -41,7 +41,7 @@ paths:
       tags:
         - Keys
       summary: List keys
-      description: Listing keys using query parameters.
+      description: This endpoints if for listing keys using query parameters.
       parameters:
         - name: tag
           in: query
@@ -148,7 +148,7 @@ paths:
       tags:
         - Keys
       summary: List keys V2
-      description: Listing keys V2.
+      description: This endpoint is V2 for listing keys.
       requestBody:
         content:
           application/json:
@@ -187,8 +187,8 @@ paths:
     post:
       tags:
         - Reporting
-      summary: Get top spending key IDs
-      description: This endpoint is set up for getting a list of key ids ordered by spend.
+      summary: List top spending keys
+      description: This endpoint is for listing top spending keys ordered by spend.
       requestBody:
         content:
           application/json:
@@ -348,6 +348,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Event"
+        500:
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalError"
 
   /api/v2/events:
     get:
@@ -383,13 +389,11 @@ paths:
         - in: query
           name: start
           type: integer
-          format: int64
           required: true
           description: Start timestamp for filtering events.
         - in: query
           name: end
           type: integer
-          format: int64
           required: true
           description: End timestamp for filtering events.
         - in: query
@@ -411,15 +415,15 @@ paths:
           type: array
           items:
             type: string
-          description: Values can include 'allowed', 'redacted', and 'blocked'.
+          description: Values can include `allowed`, `redacted`, and `blocked`.
         - in: query
           name: costOrder
           type: string
-          description: Order by cost, specify 'asc' or 'desc'.
+          description: Order by cost, specify `asc` or `desc`.
         - in: query
           name: dateOrder
           type: string
-          description: Order by date, specify 'asc' or 'desc'.
+          description: Order by date, specify `asc` or `desc`.
         - in: query
           name: returnCount
           type: boolean
@@ -442,6 +446,19 @@ paths:
                   count:
                     type: integer
                     description: Total number of events returned.
+        500:
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalError"
+
+        400:
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestError"
 
   /api/custom/providers:
     get:
@@ -676,7 +693,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UserCreateRequest"
+              $ref: "#/components/schemas/UserCreationRequest"
       responses:
         200:
           description: Created user.
@@ -700,19 +717,20 @@ paths:
     patch:
       tags:
         - Users
-      summary: Update a user via id and tags
+      summary: Update a user via user id and tags
       description: Update a user based on the provided query params.
       parameters:
         - in: query
           name: userId
           type: string
           required: true
-          description: User id to update.
+          description: Client defined user id to update.
         - in: query
-          name: userId
-          type: string
-          required: true
-          description: Unique identifier of the user to update.
+          name: tags
+          type: array
+          items:
+            type: string
+          description: Array of identifiers associated with the user.
       requestBody:
         content:
           application/json:
@@ -721,7 +739,7 @@ paths:
 
       responses:
         200:
-          description: User updated successfully.
+          description: Updated User.
           content:
             application/json:
               schema:
@@ -750,7 +768,7 @@ paths:
           type: array
           items:
             type: string
-          description: Array of user identifiers.
+          description: Array of client defined user identifiers.
         - in: query
           name: tags
           type: array
@@ -1097,12 +1115,10 @@ components:
           description: Name of the API key.
         createdAt:
           type: integer
-          format: int64
           example: 1257894000
           description: Key configuration creation time in unix timestamp.
         updatedAt:
           type: integer
-          format: int64
           example: 1257894000
           description: Key configuration update time in unix timestamp.
         revoked:
@@ -1448,54 +1464,105 @@ components:
       type: object
       properties:
         id:
-          type: integer
+          type: string
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
+          description: Unique identifier associated with the event.
         created_at:
           type: integer
+          example: 1699933571
+          description: Unix timestamp for creation time.
         tags:
           type: array
           items:
             type: string
+          example: ["YOUR_TAG"]
+          description: Tags associated with the event key.
         key_id:
           type: string
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
+          description: Key ID associated with the proxy request.
         cost_in_usd:
           type: float
+          example: 0.0004
+          description: Cost incurred by the proxy request.
         model:
           type: string
+          example: gpt-4-1105-preview
+          description: Model used in the proxy request.
         provider:
           type: string
+          enum: [openai, anthropic, azure, vllm, deepinfra]
+          example: openai
+          description: Provider for the proxy request.
         status:
           type: integer
+          example: 200
+          description: HTTP status code of the event.
         prompt_token_count:
           type: integer
+          example: 8
+          description: Prompt token count of the proxy request.
         completion_token_count:
           type: integer
+          example: 16
+          description: Completion token counts of the proxy request.
         latency_in_ms:
           type: integer
+          example: 160
+          description: Latency in milliseconds for the proxy request.
         path:
           type: string
+          example: /api/v1/chat/completion
+          description: API path accessed in the proxy request.
         method:
           type: string
+          example: POST
+          description: HTTP method used for the proxy request.
         custom_id:
           type: string
+          example: YOUR_CUSTOM_ID
+          description: Custom ID passed by the user in the headers of proxy requests.
         request:
           type: string
+          example: "{}"
+          description: Request content in bytes sent to providers.
         response:
           type: string
-
+          example: "{}"
+          description: Response content in bytes received from providers.
+        userId:
+          type: string
+          example: test@gg.com
+          description: Client defined user id associated with the event.
+        action:
+          type: string
+          example: allowed
+          description: Action taken as a result of policy.
+          enum: [allowed, warned, redacted, blocked]
+        policyId:
+          type: string
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
+          description: Associated policy ID.
+        routeId:
+          type: string
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
+          description: Associated route ID.        
+        correlationId:
+          type: string
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
+          description: Associated correlation ID.
+          
     Provider:
       type: object
       properties:
         id:
-          type: integer
-          format: int64
+          type: string
           description: Unique identifier associated with the provider.
         created_at:
           type: integer
-          format: int64
           description: Unix timestamp for creation time.
         updated_at:
           type: integer
-          format: int64
           description: Unix timestamp for update time.
         provider:
           type: string
@@ -1610,128 +1677,208 @@ components:
       properties:
         id:
           type: string
+          example: 550e8400-e29b-41d4-a716-446655440000
           description: Unique identifier for the user.
         name:
           type: string
+          example: spike
           description: Name of the user.
         createdAt:
           type: integer
-          format: int64
+          example: 1257894000
           description: Unix timestamp of the user creation.
         updatedAt:
           type: integer
-          format: int64
+          example: 1257894000
           description: Unix timestamp of the last user update.
         tags:
           type: array
           items:
             type: string
+          example: ["org-tag-12345"]
           description: Identifiers associated with the user.
         keyIds:
           type: array
           items:
             type: string
+          example: ["550e8400-e29b-41d4-a716-446655440000"]
           description: Key IDs associated with the user.
         revoked:
           type: boolean
+          example: true
           description: Whether the user is revoked.
         revokedReason:
           type: string
+          example: expired
           description: Reason for user revocation.
+        costLimitInUsd:
+          type: number
+          example: 5.5
+          description: Total spend limit of the user.
+        costLimitInUsdOverTime:
+          type: number
+          example: 2
+          description: Total spend within a specified period. Required if `costLimitInUsdUnit` is specified.
+        costLimitInUsdUnit:
+          type: string
+          example: d
+          enum: [m, h, d, mo]
+          description: Time unit for `costLimitInUsdOverTime`. Possible values are `m`, `h`, `d`, `mo`.
+        rateLimitOverTime:
+          type: integer
+          example: 2
+          description: Rate limit over a specified time period. Required if `rateLimitUnit` is specified.
+        rateLimitUnit:
+          type: string
+          example: m
+          enum: [h, m, s, d]
+          description: Time unit for rate limit. Possible values are `h`, `m`, `s`, `d`.
+        ttl:
+          type: string
+          example: 24h
+          description: Time to live for the user configuration. Available units are `s`, `m`, `h`.
         allowedPaths:
           type: array
           items:
             $ref: "#/components/schemas/PathConfig"
-          description: Allowed API paths for the user.
+          description: List of API paths that the user is allowed to access.
         allowedModels:
           type: array
           items:
             type: string
+          example: ["gpt-4"]
           description: Models that the user can access.
+        userId:
+          type: string
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
+          description: Client defined user ID.
 
-    UserCreateRequest:
+    UserCreationRequest:
       type: object
-      required:
-        - name
-        - path
-        - method
       properties:
         name:
           type: string
+          example: spike
           description: Name of the user.
         tags:
           type: array
           items:
             type: string
+          example: ["org-tag-12345"]
           description: Identifiers associated with the user.
         keyIds:
           type: array
           items:
             type: string
-          description: Unique identifiers for keys.
+          example: ["550e8400-e29b-41d4-a716-446655440000"]
+          description: Key IDs associated with the user.
+        revoked:
+          type: boolean
+          example: true
+          description: Whether the user is revoked.
+        revokedReason:
+          type: string
+          example: expired
+          description: Reason for user revocation.
         costLimitInUsd:
           type: number
-          format: float
+          example: 5.5
           description: Total spend limit of the user.
         costLimitInUsdOverTime:
           type: number
-          format: float
-          description: Total spend within a specified time period.
+          example: 2
+          description: Total spend within a specified period. Required if `costLimitInUsdUnit` is specified.
         costLimitInUsdUnit:
           type: string
+          example: d
           enum: [m, h, d, mo]
-          description: Time unit for costLimitInUsdOverTime.
+          description: Time unit for `costLimitInUsdOverTime`. Possible values are `m`, `h`, `d`, `mo`.
         rateLimitOverTime:
           type: integer
-          description: Rate limit over a specified time period.
+          example: 2
+          description: Rate limit over a specified time period. Required if `rateLimitUnit` is specified.
         rateLimitUnit:
           type: string
+          example: m
           enum: [h, m, s, d]
-          description: Time unit for rateLimitOverTime.
+          description: Time unit for rate limit. Possible values are `h`, `m`, `s`, `d`.
         ttl:
           type: string
-          description: Time to live for the user's session.
+          example: 24h
+          description: Time to live for the user configuration. Available units are `s`, `m`, `h`.
         allowedPaths:
           type: array
           items:
             $ref: "#/components/schemas/PathConfig"
-          description: Allowed API paths for the user.
+          description: List of API paths that the user is allowed to access.
         allowedModels:
           type: array
           items:
             type: string
+          example: ["gpt-4"]
           description: Models that the user can access.
+        userId:
+          type: string
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
+          description: Client defined user ID.
 
     UserUpdateRequest:
       type: object
       properties:
         name:
           type: string
+          example: spike
           description: Name of the user.
         keyIds:
           type: array
           items:
             type: string
-          description: Keys ids associated with the user.
-        costLimitInUsd:
-          type: number
-          format: float
-          description: Total spend limit of the user.
+          example: ["550e8400-e29b-41d4-a716-446655440000"]
+          description: Key IDs associated with the user.
         revoked:
           type: boolean
+          example: true
           description: Whether the user is revoked.
         revokedReason:
           type: string
-          description: Reason for why the user is revoked.
+          example: expired
+          description: Reason for user revocation.
+        costLimitInUsd:
+          type: number
+          example: 5.5
+          description: Total spend limit of the user.
+        costLimitInUsdOverTime:
+          type: number
+          example: 2
+          description: Total spend within a specified period. Required if `costLimitInUsdUnit` is specified.
+        costLimitInUsdUnit:
+          type: string
+          example: d
+          enum: [m, h, d, mo]
+          description: Time unit for `costLimitInUsdOverTime`. Possible values are `m`, `h`, `d`, `mo`.
+        rateLimitOverTime:
+          type: integer
+          example: 2
+          description: Rate limit over a specified time period. Required if `rateLimitUnit` is specified.
+        rateLimitUnit:
+          type: string
+          example: m
+          enum: [h, m, s, d]
+          description: Time unit for rate limit. Possible values are `h`, `m`, `s`, `d`.
+        ttl:
+          type: string
+          example: 24h
+          description: Time to live for the user configuration. Available units are `s`, `m`, `h`.
         allowedPaths:
           type: array
           items:
             $ref: "#/components/schemas/PathConfig"
-          description: Allowed API paths for the user.
+          description: List of API paths that the user is allowed to access.
         allowedModels:
           type: array
           items:
             type: string
+          example: ["gpt-4"]
           description: Models that the user can access.
 
     GetKeysV2Request:
@@ -1772,12 +1919,10 @@ components:
       properties:
         start:
           type: integer
-          format: int64
           example: 1257894000
           description: Start unix timestamp.
         end:
           type: integer
-          format: int64
           example: 1257894000
           description: End unix timestamp.
         keyIds:
@@ -1811,7 +1956,7 @@ components:
         order:
           type: string
           example: asc
-          description: There are the two available values `asc` and `desc`.
+          enum: [asc, desc]
 
     PolicyRequest:
       type: object
@@ -1866,15 +2011,12 @@ components:
       properties:
         id:
           type: integer
-          format: int64
           description: Unique identifier of the policy.
         created_at:
           type: integer
-          format: int64
           description: Timestamp of when the policy was created.
         updated_at:
           type: integer
-          format: int64
           description: Timestamp of the last update to the policy.
         tags:
           type: array
