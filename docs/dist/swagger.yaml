@@ -78,17 +78,17 @@ paths:
                 items:
                   $ref: "#/components/schemas/Key"
         400:
-          description: Bad Request
+          description: Bad request.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/BadRequestError"
         500:
-          description: Internal Server Error
+          description: Internal server error.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/InternalError"
     put:
       tags:
         - Keys
@@ -98,7 +98,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Key"
+              $ref: "#/components/schemas/CreateKeyRequest"
 
       responses:
         200:
@@ -108,17 +108,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/Key"
         400:
-          description: Bad Request.
+          description: Bad request.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/BadRequestError"
         500:
-          description: Internal Server Error.
+          description: Internal server error.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/InternalError"
     patch:
       tags:
         - Keys
@@ -134,7 +134,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Key"
+              $ref: "#/components/schemas/UpdateKeyRequest"
       responses:
         200:
           description: Successfully updated key configuration.
@@ -171,17 +171,17 @@ paths:
                     type: integer
                     example: 123
         400:
-          description: Bad Request
+          description: Bad request.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/BadRequestError"
         500:
-          description: Internal Server Error
+          description: Internal server error.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/InternalError"
 
   /api/reporting/top-keys:
     post:
@@ -204,11 +204,11 @@ paths:
                 $ref: "#/components/schemas/KeyReportingResponse"
 
         400:
-          description: Bad Request
+          description: Bad request.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/BadRequestError"
 
   /api/provider-settings:
     post:
@@ -220,26 +220,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Setting"
+              $ref: "#/components/schemas/ProviderSettingCreationRequest"
       responses:
         200:
           description: Successfully created a provider setting.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Setting"
+                $ref: "#/components/schemas/ProviderSetting"
 
         400:
-          description: Bad Request
+          description: Bad request.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/BadRequestError"
     get:
       tags:
         - Provider Settings
-      summary: Get provider settings
-      description: This endpoint retrieves provider settings.
+      summary: List provider settings
+      description: This endpoints is for listing provider settings.
       parameters:
         - in: query
           name: ids
@@ -250,10 +250,12 @@ paths:
       responses:
         200:
           description: Array of provider settings
-          schema:
-            type: array
-            items:
-              $ref: "#/components/schemas/Setting"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProviderSetting"
 
   /api/provider-settings/{id}:
     patch:
@@ -275,14 +277,16 @@ paths:
       responses:
         200:
           description: Provider setting updated
-          schema:
-            $ref: "#/components/schemas/Setting"
-        400:
-          description: Bad Request
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/ProviderSetting"
+        400:
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestError"
 
   /api/reporting/events:
     post:
@@ -304,11 +308,11 @@ paths:
                 $ref: "#/components/schemas/ReportingEventsResponse"
 
         500:
-          description: Internal Server Error
+          description: Internal server error.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/InternalError"
 
   /api/events:
     get:
@@ -455,17 +459,17 @@ paths:
                 items:
                   $ref: "#/components/schemas/Provider"
         400:
-          description: Bad Request
+          description: Bad request.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/BadRequestError"
         500:
-          description: Internal Server Error
+          description: Internal server error.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/InternalError"
     post:
       tags:
         - Custom Providers
@@ -483,17 +487,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/Provider"
         400:
-          description: Bad Request
+          description: Bad request.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/BadRequestError"
         500:
-          description: Internal Server Error
+          description: Internal server error.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/InternalError"
     patch:
       tags:
         - Custom Providers
@@ -511,17 +515,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/Provider"
         400:
-          description: Bad Request
+          description: Bad request.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/BadRequestError"
         500:
-          description: Internal Server Error
+          description: Internal server error.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/InternalError"
 
   /api/routes:
     post:
@@ -546,13 +550,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/BadRequestError"
         500:
           description: Internal server error.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/InternalError"
     get:
       tags:
         - Routes
@@ -572,7 +576,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/InternalError"
 
   /api/routes/{id}:
     get:
@@ -604,7 +608,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/InternalError"
 
   /api/reporting/users-ids:
     get:
@@ -632,7 +636,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/InternalError"
 
   /api/reporting/custom-ids:
     get:
@@ -660,7 +664,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/InternalError"
 
   /api/users:
     post:
@@ -685,13 +689,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/BadRequestError"
         500:
           description: Internal server error.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/InternalError"
 
     patch:
       tags:
@@ -727,13 +731,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/BadRequestError"
         500:
           description: Internal server error.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/InternalError"
 
     get:
       tags:
@@ -781,13 +785,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/User"
+                $ref: "#/components/schemas/BadRequestError"
         500:
           description: Internal server error.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/InternalError"
 
   /policies:
     post:
@@ -812,7 +816,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/InternalError"
     get:
       tags:
         - Policies
@@ -840,13 +844,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/BadRequestError"
         500:
           description: Internal server error.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/InternalError"
 
   /policies/{id}:
     patch:
@@ -878,13 +882,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/BadRequestError"
         500:
           description: Internal server error.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/InternalError"
 
   /api/users/{id}:
     patch:
@@ -916,13 +920,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/BadRequestError"
         500:
           description: Internal server error.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: "#/components/schemas/InternalError"
 
 components:
   schemas:
@@ -961,6 +965,7 @@ components:
           description: Total spend within period of time. This field is required if costLimitInUsdUnit is specified.
         rateLimitOverTime:
           type: integer
+          example: 5
           description: Rate limit over period of time. This field is required if rateLimitUnit is specified.
         rateLimitUnit:
           type: string
@@ -977,7 +982,7 @@ components:
         settingId:
           type: string
           deprecated: true
-          description: This field is DEPRECATED. Use `settingIds` field instead.
+          description: Use `settingIds` field instead.
         settingIds:
           type: array
           items:
@@ -1001,6 +1006,9 @@ components:
 
     CreateKeyRequest:
       type: object
+      required:
+        - settingIds
+        - key
       properties:
         name:
           type: string
@@ -1016,9 +1024,6 @@ components:
           type: string
           description: API key.
           example: abcdef12345
-        keyId:
-          type: string
-          description: Unique identifier for the API key.
         costLimitInUsd:
           type: number
           example: 5.5
@@ -1052,10 +1057,12 @@ components:
           description: Specifies the API paths that are accessible using this key.
         settingId:
           type: string
+          required: true
           deprecated: true
-          description: Deprecated. Use 'settingIds' instead for identifying associated settings.
+          description: Use 'settingIds' instead for identifying associated settings.
         settingIds:
           type: array
+          required: true
           items:
             type: string
           example: ["98daa3ae-961d-4253-bf6a-322a32fdca3d"]
@@ -1086,55 +1093,98 @@ components:
       properties:
         name:
           type: string
+          example: spike's developer key
+          description: Name of the API key.
         createdAt:
           type: integer
+          format: int64
+          example: 1257894000
+          description: Key configuration creation time in unix timestamp.
         updatedAt:
           type: integer
+          format: int64
+          example: 1257894000
+          description: Key configuration update time in unix timestamp.
         revoked:
           type: boolean
+          example: true
+          description: Indicator for whether the key is revoked.
         revokedReason:
           type: string
+          example: The key has expired
+          description: Reason for why the key is revoked.
         tags:
           type: array
           items:
             type: string
+          example: ["org-tag-12345"]
+          description: Identifiers associated with the key.
         keyId:
           type: string
+          example: 550e8400-e29b-41d4-a716-446655440000
+          description: Unique identifier for the key.
         costLimitInUsd:
           type: number
+          example: 5.5
+          description: Total spend limit of the API key in USD.
         costLimitInUsdOverTime:
           type: number
+          example: 2
+          description: Total spend within a specified period of time. This field is required if costLimitInUsdUnit is specified.
         costLimitInUsdUnit:
           type: string
           enum: [m, h, d, mo]
+          example: d
+          description: Time unit for costLimitInUsdOverTime. Possible values are ['m', 'h', 'd', 'mo'].
         rateLimitOverTime:
           type: integer
+          example: 2
+          description: Rate limit over a specified period of time. This field is required if rateLimitUnit is specified.
         rateLimitUnit:
           type: string
           enum: [h, m, s, d]
+          example: m
+          description: Time unit for rateLimitOverTime. Possible values are ['h', 'm', 's', 'd'].
         ttl:
           type: string
+          example: "2d"
+          description: Time to live for the API key, indicating how long the key remains valid. Available units are ['s', 'm', 'h'].
         allowedPaths:
           type: array
           items:
             $ref: "#/components/schemas/PathConfig"
+          description: List of paths that can be accessed using this key.
         settingId:
           type: string
           deprecated: true
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
+          description: This field is DEPRECATED. Use 'settingIds' field instead.
         settingIds:
           type: array
           items:
             type: string
+          example: ["98daa3ae-961d-4253-bf6a-322a32fdca3d"]
+          description: Array of setting identifiers associated with the key.
         shouldLogRequest:
           type: boolean
+          example: false
+          description: Indicates whether requests made with this key should be logged.
         shouldLogResponse:
           type: boolean
+          example: true
+          description: Indicates whether responses for requests made with this key should be logged.
         rotationEnabled:
           type: boolean
+          example: false
+          description: Indicates whether key rotation is enabled to access third-party endpoints to circumvent rate limits.
         policyId:
           type: string
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
+          description: Policy id associated with the key.
         isKeyNotHashed:
           type: boolean
+          example: false
+          description: Indicates whether or not the key is hashed.
 
     PathConfig:
       type: object
@@ -1165,158 +1215,164 @@ components:
           type: string
         costInUsd:
           type: float
-    Error:
+
+    InternalError:
       type: object
       properties:
         status:
           type: integer
+          example: 500
         title:
           type: string
+          example: request body reader error
         type:
           type: string
+          example: /errors/request-body-read
         detail:
           type: string
+          example: something is wrong
         instance:
           type: string
+          example: /api/key-management/keys
 
-    Setting:
+    BadRequestError:
       type: object
       properties:
-        provider:
+        status:
+          type: integer
+          example: 400
+        title:
           type: string
-          enum:
-            - openai
-            - anthropic
-            - azure
-          description: This value can only be `openai`, `anthropic` and `azure` as for now.
+          example: request is missing `name` filed
+        type:
+          type: string
+          example: /errors/missing-request-paramss
+        detail:
+          type: string
+          example: something is wrong
+        instance:
+          type: string
+          example: /api/key-management/keys
+
+    ProviderSettingUpdateRequest:
+      type: object
+      properties:
         setting:
-          type: object
-          required:
-            - apiKey
-          properties:
-            apiKey:
-              type: string
-              example: xx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-              description: This value is required.
-            url:
-              type: string
-              example: https://your.deployment.url
-              description: This value is required when the provider is `vllm`.
-            resourceName:
-              type: string
-              example: YOUR_AZURE_RESOURCE_NAME
-              description: This value is required when the provider is `azure`.
+          $ref: "#/components/schemas/ProviderSettingMap"
         name:
           type: string
           example: YOUR_PROVIDER_SETTING_NAME
-          description: This field is used for giving a name to provider setting.
+          description: Name assigned to the provider setting.
         allowedModels:
           type: array
           items:
             type: string
           example: ["text-embedding-ada-002"]
-          description: Allowed models for this provider setting.
+          description: Models allowed for use with this provider setting.
         costMap:
-          type: object
-          properties:
-            promptCostPerModel:
-              type: object
-              additionalProperties:
-                type: float
-              example: { "facebook/opt-125m": 0.0003 }
-              description: Customized prompt cost value per 1000 tokens.
-            completionCostPerModel:
-              type: object
-              additionalProperties:
-                type: float
-              example: { "facebook/opt-125m": 0.0003 }
-              description: Customized completion cost per 1000 tokens.
-            embeddingsCostPerModel:
-              type: object
-              additionalProperties:
-                type: float
-              example: { "facebook/opt-125m": 0.0003 }
-              description: Customized embeddings cost per 1000 tokens.
+          $ref: "#/components/schemas/CostMap"
 
-    ProviderSetting:
+    ProviderSettingCreationRequest:
+      required:
+          - setting
+          - provider
       type: object
       properties:
-        createdAt:
-          type: integer
-          format: int64
-          description: Unix timestamp for creation time.
-        updatedAt:
-          type: integer
-          format: int64
-          description: Unix timestamp for update time.
+        setting:
+          $ref: "#/components/schemas/ProviderSettingMap"
         provider:
           type: string
           enum: [openai, anthropic, azure, vllm, deepinfra]
-          description: Provider name.
-        id:
-          type: string
-          description: Unique identifier.
         name:
           type: string
-          description: Provider setting name.
+          example: YOUR_PROVIDER_SETTING_NAME
+          description: Name assigned to the provider setting.
         allowedModels:
           type: array
           items:
             type: string
+          example: ["text-embedding-ada-002"]
+          description: Models allowed for use with this provider setting.
+        costMap:
+          $ref: "#/components/schemas/CostMap"
+
+    ProviderSetting:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
+          description: Unique identifier associated with the provider.
+        created_at:
+          type: integer
+          example: 1699933571
+          description: Unix timestamp for creation time.
+        updated_at:
+          type: integer
+          example: 1699933571
+          description: Unix timestamp for update time.
+        setting:
+          $ref: "#/components/schemas/ProviderSettingMap"
+        provider:
+          type: string
+          example: openai
+          description: This value can only be 'openai' as for now.
+        name:
+          type: string
+          example: YOUR_PROVIDER_SETTING_NAME
+          description: Name assigned to the provider setting.
+        allowedModels:
+          type: array
+          items:
+            type: string
+          example: ["text-embedding-ada-002"]
+          description: Models allowed for use with this provider setting.
         costMap:
           $ref: "#/components/schemas/CostMap"
 
     CostMap:
       type: object
+      description: Customized cost mapping for different models.
+      example: { "promptCostPerModel": { "facebook/opt-125m": 0.0003 }}
       properties:
         promptCostPerModel:
           type: object
           additionalProperties:
-            type: float
+            type: number
+          example: { "facebook/opt-125m": 0.0003 }
+          description: Customized prompt cost value per 1000 tokens.
         completionCostPerModel:
           type: object
           additionalProperties:
-            type: float
+            type: number
+          example: { "facebook/opt-125m": 0.0003 }
+          description: Customized completion cost per 1000 tokens.
         embeddingsCostPerModel:
           type: object
           additionalProperties:
-            type: float
+            type: number
+          example: { "facebook/opt-125m": 0.0003 }
+          description: Customized embeddings cost per 1000 tokens.
 
-    ProviderSettingCreateRequest:
+    ProviderSettingMap:
       type: object
+      description: API Credentials associated with different providers.
+      example: { "apikey": "MY_OPENAI_API_KEY"}
       required:
-        - provider
-        - setting
+        - apikey
       properties:
-        provider:
+        apikey:
           type: string
-          enum: [openai, anthropic, azure, vllm, deepinfra]
-        setting:
-          $ref: "#/components/schemas/Setting"
-        name:
+          example: MY_OPENAI_API_KEY
+          description: My API key associated.
+        url:
           type: string
-        allowedModels:
-          type: array
-          items:
-            type: string
-        costMap:
-          $ref: "#/components/schemas/CostMap"
-
-    ProviderSettingUpdateRequest:
-      type: object
-      required:
-        - setting
-      properties:
-        setting:
-          $ref: "#/components/schemas/Setting"
-        name:
+          example: https://short-terms-smile.loca.lt
+          description: Required for vLLM integrations.
+        resourceName:
           type: string
-        allowedModels:
-          type: array
-          items:
-            type: string
-        costMap:
-          $ref: "#/components/schemas/CostMap"
+          example: MY_AZURE_OPENAI_RESOURCE_NAME
+          description: Required for Azure OpenAI integrations.
 
     ReportingEventsRequest:
       type: object
