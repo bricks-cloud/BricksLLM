@@ -119,7 +119,7 @@ func validateCustomProviderUpdate(existing *custom.Provider, updated *custom.Upd
 func validateCustomProviderCreation(provider *custom.Provider) error {
 	invalidFields := []string{}
 
-	if provider.Provider == "openai" || provider.Provider == "anthropic" {
+	if provider.Provider == "openai" || provider.Provider == "anthropic" || provider.Provider == "azure" || provider.Provider == "deepinfra" || provider.Provider == "vllm" {
 		return internal_errors.NewValidationError("provider cannot be named openai or anthropic")
 	}
 
