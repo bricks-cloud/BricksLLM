@@ -36,6 +36,7 @@ paths:
       responses:
         200:
           description: Service is up and running.
+
   /api/key-management/keys:
     get:
       tags:
@@ -44,30 +45,21 @@ paths:
       description: This endpoints if for listing keys using query parameters.
       parameters:
         - name: tag
+          example: org-1
           in: query
           description: Identifier attached to a key configuration.
-          required: false
-          type: string
         - name: tags
           in: query
+          example: org-1
           description: List of tags.
-          required: false
-          type: array
-          items:
-            type: string
         - name: provider
           in: query
+          example: openai
           description: Provider attached to a key provider configuration.
-          required: false
-          type: string
-          enum: [openai, azure, vllm, deepinfra, anthropic]
         - name: keyIds
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           in: query
           description: List of key IDs.
-          required: false
-          type: array
-          items:
-            type: string
       responses:
         200:
           description: List of keys.
@@ -122,12 +114,12 @@ paths:
     patch:
       tags:
         - Keys
-      summary: Update key
+      summary: Update a key
       description: This endpoint is for updating a key using a key ID.
       parameters:
         - in: path
           name: keyId
-          type: string
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           required: true
           description: Unique key configuration identifier.
       requestBody:
@@ -247,10 +239,8 @@ paths:
       description: This endpoints is for listing provider settings.
       parameters:
         - in: query
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           name: ids
-          type: array
-          items:
-            type: string
           description: Provider setting IDs
       responses:
         200:
@@ -271,7 +261,7 @@ paths:
       parameters:
         - in: path
           name: id
-          type: string
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           required: true
           description: Unique identifier for the provider setting to update.
       requestBody:
@@ -327,22 +317,20 @@ paths:
       description: This endpoint is for getting events based on query parameters.
       parameters:
         - in: query
+          example: customId
           name: customId
-          type: string
           description: Custom identifier attached to an event.
         - in: query
           name: keyIds
-          type: array
-          items:
-            type: string
+          exmaple: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           description: List of key IDs.
         - in: query
           name: start
-          type: integer
+          example: 1718581437
           description: Start timestamp, required if `keyIds` is specified.
         - in: query
           name: end
-          type: integer
+          example: 1718581437
           description: End timestamp, required if `keyIds` is specified.
       responses:
         200:
@@ -369,73 +357,61 @@ paths:
       parameters:
         - in: query
           name: userIds
-          type: array
-          items:
-            type: string
+          example: my-user-id
           description: List of user IDs to filter events by specific users.
         - in: query
           name: customIds
-          type: array
-          items:
-            type: string
+          example: customId
           description: List of custom identifiers for filtering events.
         - in: query
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           name: keyIds
-          type: array
-          items:
-            type: string
           description: List of key IDs used to filter events.
         - in: query
+          example: my-org-1
           name: tags
-          type: array
-          items:
-            type: string
           description: List of tags associated with events for filtering.
         - in: query
+          example: 1718581614
           name: start
-          type: integer
           required: true
           description: Start timestamp for filtering events.
         - in: query
+          example: 1718581614
           name: end
-          type: integer
           required: true
           description: End timestamp for filtering events.
         - in: query
+          example: 20
           name: limit
-          type: integer
           description: Maximum number of events to return.
         - in: query
+          example: 10
           name: offset
-          type: integer
           description: Offset for pagination.
         - in: query
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           name: policyIds
-          type: array
-          items:
-            type: string
           description: List of policy IDs to filter events related to specific policies.
         - in: query
+          example: allowed
           name: actions
-          type: array
-          items:
-            type: string
           description: Values can include `allowed`, `redacted`, and `blocked`.
         - in: query
+          example: asc
           name: costOrder
-          type: string
           description: Order by cost, specify `asc` or `desc`.
         - in: query
+          example: desc
           name: dateOrder
-          type: string
           description: Order by date, specify `asc` or `desc`.
         - in: query
+          example: true
           name: returnCount
-          type: boolean
           description: Whether to return the count of events instead of event details.
         - in: query
+          example: 400
           name: status
-          type: integer
           description: Event HTTP status code.
       responses:
         200:
@@ -611,7 +587,7 @@ paths:
       parameters:
         - in: path
           name: id
-          type: string
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           required: true
           description: Unique identifier for the route.
       responses:
@@ -643,7 +619,7 @@ paths:
       parameters:
         - in: query
           name: keyId
-          type: string
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           required: true
           description: Key ID for which to retrieve user IDs.
       responses:
@@ -671,7 +647,7 @@ paths:
       parameters:
         - in: query
           name: keyId
-          type: string
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           required: true
           description: Key ID for which to retrieve custom IDs.
       responses:
@@ -729,14 +705,12 @@ paths:
       parameters:
         - in: query
           name: userId
-          type: string
+          example: my-user-id
           required: true
           description: Client defined user id to update.
         - in: query
+          example: org-1
           name: tags
-          type: array
-          items:
-            type: string
           description: Array of identifiers associated with the user.
       requestBody:
         content:
@@ -771,30 +745,24 @@ paths:
       description: This endpoint is for getting users based on query parameters.
       parameters:
         - in: query
+          example: my-user-id
           name: userIds
-          type: array
-          items:
-            type: string
           description: Array of client defined user identifiers.
         - in: query
+          example: org-1
           name: tags
-          type: array
-          items:
-            type: string
           description: Array of identifiers associated with a user.
         - in: query
+          example: 10
           name: offset
-          type: integer
           description: Pagination offset.
         - in: query
+          example: 20
           name: limit
-          type: integer
           description: Pagination limit.
         - in: query
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           name: keyIds
-          type: array
-          items:
-            type: string
           description: Array of key IDs associated with a user.
       responses:
         200:
@@ -849,10 +817,8 @@ paths:
       description: This endpoint is for listing policies filtered by tags.
       parameters:
         - in: query
+          example: org-1
           name: tags
-          type: array
-          items:
-            type: string
           required: true
           description: Tags attached to the policies.
       responses:
@@ -890,8 +856,8 @@ paths:
               $ref: "#/components/schemas/UpdatePolicyRequest"
       parameters:
         - in: path
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           name: id
-          type: string
           required: true
           description: Unique identifier of the policy to update.
 
@@ -923,8 +889,8 @@ paths:
       description: This endpoint is for updating a user based on the provided id.
       parameters:
         - in: path
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           name: id
-          type: string
           required: true
           description: Unique identifier of the user to update.
       requestBody:
