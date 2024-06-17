@@ -170,7 +170,7 @@ The configuration server runs on Port `8001`.
 > | `X-API-KEY` |  optional  | `string`         | Key authentication header.
 
 ##### Documentation
-[Swagger Doc](https://bricks-cloud.github.io/BricksLLM/#/)
+[Swagger Doc](https://bricks-cloud.github.io/BricksLLM/admin)
 
 # Proxy Health Check
 <details>
