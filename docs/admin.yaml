@@ -489,6 +489,7 @@ paths:
           description: Event HTTP status code.
       responses:
         200:
+          description: Successful retrieval of a v2 event response.
           content:
             application/json:
               schema:
