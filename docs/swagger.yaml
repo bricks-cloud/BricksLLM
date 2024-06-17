@@ -45,19 +45,32 @@ paths:
       description: This endpoints if for listing keys using query parameters.
       parameters:
         - name: tag
+          schema:
+            type: string
           example: org-1
           in: query
           description: Identifier attached to a key configuration.
         - name: tags
+          schema:
+            type: array
+            items:
+              type: string
           in: query
-          example: org-1
+          example: [org-1]
           description: List of tags.
         - name: provider
+          schema:
+            type: string
+            enum: [openai, anthropic, deepinfra, vllm, azure]
           in: query
           example: openai
           description: Provider attached to a key provider configuration.
         - name: keyIds
-          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
+          schema:
+            type: array
+            items:
+              type: string
+          example: [98daa3ae-961d-4253-bf6a-322a32fdca3d]
           in: query
           description: List of key IDs.
       responses:
@@ -119,6 +132,8 @@ paths:
       parameters:
         - in: path
           name: keyId
+          schema:
+            type: string
           example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           required: true
           description: Unique key configuration identifier.
@@ -239,7 +254,11 @@ paths:
       description: This endpoints is for listing provider settings.
       parameters:
         - in: query
-          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
+          schema:
+            type: array
+            items:
+              type: string
+          example: [98daa3ae-961d-4253-bf6a-322a32fdca3d]
           name: ids
           description: Provider setting IDs
       responses:
@@ -261,6 +280,8 @@ paths:
       parameters:
         - in: path
           name: id
+          schema:
+            type: string
           example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           required: true
           description: Unique identifier for the provider setting to update.
@@ -318,18 +339,28 @@ paths:
       parameters:
         - in: query
           example: customId
+          schema:
+            type: string
           name: customId
           description: Custom identifier attached to an event.
         - in: query
           name: keyIds
-          exmaple: 98daa3ae-961d-4253-bf6a-322a32fdca3d
+          schema:
+            type: array
+            items:
+              type: string
+          example: [98daa3ae-961d-4253-bf6a-322a32fdca3d]
           description: List of key IDs.
         - in: query
           name: start
+          schema:
+            type: integer
           example: 1718581437
           description: Start timestamp, required if `keyIds` is specified.
         - in: query
           name: end
+          schema:
+            type: integer
           example: 1718581437
           description: End timestamp, required if `keyIds` is specified.
       responses:
@@ -357,21 +388,39 @@ paths:
       parameters:
         - in: query
           name: userIds
-          example: my-user-id
+          schema:
+            type: array
+            items:
+              type: string
+          example: [my-user-id]
           description: List of user IDs to filter events by specific users.
         - in: query
           name: customIds
-          example: customId
+          schema:
+            type: array
+            items:
+              type: string
+          example: [customId]
           description: List of custom identifiers for filtering events.
         - in: query
-          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
+          example: [98daa3ae-961d-4253-bf6a-322a32fdca3d]
           name: keyIds
+          schema:
+            type: array
+            items:
+              type: string
           description: List of key IDs used to filter events.
         - in: query
-          example: my-org-1
+          example: [my-org-1]
           name: tags
+          schema:
+            type: array
+            items:
+              type: string
           description: List of tags associated with events for filtering.
         - in: query
+          schema:
+            type: integer
           example: 1718581614
           name: start
           required: true
@@ -379,38 +428,63 @@ paths:
         - in: query
           example: 1718581614
           name: end
+          schema:
+            type: integer
           required: true
           description: End timestamp for filtering events.
         - in: query
           example: 20
+          schema:
+            type: integer
           name: limit
           description: Maximum number of events to return.
         - in: query
+          schema:
+            type: integer
           example: 10
           name: offset
           description: Offset for pagination.
         - in: query
-          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
+          example: [98daa3ae-961d-4253-bf6a-322a32fdca3d]
           name: policyIds
+          schema:
+            type: array
+            items:
+              type: string
           description: List of policy IDs to filter events related to specific policies.
         - in: query
-          example: allowed
+          example: [allowed]
           name: actions
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [allowed, redacted, blocked]
           description: Values can include `allowed`, `redacted`, and `blocked`.
         - in: query
           example: asc
+          schema:
+            type: string
+            enum: [asc, desc]
           name: costOrder
           description: Order by cost, specify `asc` or `desc`.
         - in: query
           example: desc
+          schema:
+            type: string
+            enum: [asc, desc]
           name: dateOrder
           description: Order by date, specify `asc` or `desc`.
         - in: query
           example: true
+          schema:
+            type: boolean
           name: returnCount
           description: Whether to return the count of events instead of event details.
         - in: query
           example: 400
+          schema:
+            type: integer
           name: status
           description: Event HTTP status code.
       responses:
@@ -586,6 +660,8 @@ paths:
       description: This endpint is for getting a route based on its unique identifier.
       parameters:
         - in: path
+          schema:
+            type: string
           name: id
           example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           required: true
@@ -618,6 +694,8 @@ paths:
       description: This endpoint is for listing user IDs associated with a given key ID.
       parameters:
         - in: query
+          schema:
+            type: string
           name: keyId
           example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           required: true
@@ -646,6 +724,8 @@ paths:
       description: This endpoint is for listing custom IDs associated with a given key ID.
       parameters:
         - in: query
+          schema:
+            type: string
           name: keyId
           example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           required: true
@@ -704,12 +784,18 @@ paths:
       description: This endpoint is for updating a user based on the provided query params.
       parameters:
         - in: query
+          schema:
+            type: string
           name: userId
           example: my-user-id
           required: true
           description: Client defined user id to update.
         - in: query
-          example: org-1
+          example: [org-1]
+          schema:
+            type: array
+            items:
+              type: string
           name: tags
           description: Array of identifiers associated with the user.
       requestBody:
@@ -745,23 +831,37 @@ paths:
       description: This endpoint is for getting users based on query parameters.
       parameters:
         - in: query
+          schema:
+            type: string
           example: my-user-id
           name: userIds
           description: Array of client defined user identifiers.
         - in: query
-          example: org-1
+          example: [org-1]
+          schema:
+            type: array
+            items:
+              type: string
           name: tags
           description: Array of identifiers associated with a user.
         - in: query
+          schema:
+            type: integer
           example: 10
           name: offset
           description: Pagination offset.
         - in: query
+          schema:
+            type: integer
           example: 20
           name: limit
           description: Pagination limit.
         - in: query
-          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
+          schema:
+            type: array
+            items:
+              type: string
+          example: [98daa3ae-961d-4253-bf6a-322a32fdca3d]
           name: keyIds
           description: Array of key IDs associated with a user.
       responses:
@@ -817,7 +917,11 @@ paths:
       description: This endpoint is for listing policies filtered by tags.
       parameters:
         - in: query
-          example: org-1
+          example: [org-1]
+          schema:
+            type: array
+            items:
+              type: string
           name: tags
           required: true
           description: Tags attached to the policies.
@@ -856,6 +960,8 @@ paths:
               $ref: "#/components/schemas/UpdatePolicyRequest"
       parameters:
         - in: path
+          schema:
+            type: string
           example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           name: id
           required: true
@@ -889,6 +995,8 @@ paths:
       description: This endpoint is for updating a user based on the provided id.
       parameters:
         - in: path
+          schema:
+            type: string
           example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
           name: id
           required: true

@@ -2,7 +2,7 @@
 <img src="./assets/bricks-logo.png" width="150" />
 </p>
 
-# **BricksLLM: AI Gateway For Putting LLM In Production**
+# **BricksLLM: AI Gateway For Putting LLMs In Production**
 
 <p align="center">
    <a href='https://www.ycombinator.com/'><img alt='YCombinator S22' src='https://img.shields.io/badge/Y%20Combinator-2022-orange'/></a>
