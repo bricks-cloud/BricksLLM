@@ -1,0 +1,855 @@
+openapi: 3.1.0
+info:
+  title: BricksLLM
+  contact:
+    email: spike@bricks-tech.com
+  license:
+    name: The MIT License
+    url: https://opensource.org/license/mit
+  version: 1.28.4
+
+tags:
+  - name: Health Check
+  - name: OpenAI
+  - name: DeepInfra
+  - name: vLLM
+  - name: Anthropic
+  - name: Azure
+  - name: Custom Providers
+  - name: Route
+
+servers:
+  - url: localhost:8002
+    description: Proxy server for forwarding requests to LLMs.
+    variables:
+      protocol:
+        enum: [http]
+        default: http
+paths:
+  /api/health:
+    get:
+      tags:
+        - Health Check
+      summary: Health check
+      description: This endpoint is for checking the health status of the server.
+      responses:
+        200:
+          description: Service is up and running.
+
+  /api/providers/openai/v1/chat/completions:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: OpenAI Chat Completions
+      description: This endpoint is set up for proxying OpenAI chat completion requests. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/chat).
+
+  /api/providers/openai/v1/embeddings:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Call OpenAI embeddings
+      description: This endpoint is set up for proxying OpenAI embedding requests. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/embeddings/create).
+
+  /api/providers/openai/v1/moderations:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Call OpenAI moderations
+      description: This endpoint is set up for proxying OpenAI moderation requests. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/moderations/create).
+
+  /api/providers/openai/v1/models:
+    get:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Get OpenAI models
+      description: This endpoint is set up for retrieving OpenAI models. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/models/list).
+
+  /api/providers/openai/v1/models/{model}:
+    get:
+      tags:
+        - OpenAI
+      summary: Retrieve an OpenAI model
+      description: This endpoint is set up for retrieving an OpenAI model. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/models/retrieve).
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: path
+          name: model
+          required: true
+          schema:
+            type: string
+          description: Model identifier
+
+  /api/providers/openai/v1/files:
+    get:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: List files
+      description: This endpoint is set up to list OpenAI files. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/files/list).
+
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Upload a file
+      description: This endpoint is set up for creating an OpenAI file. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/files/create).
+
+  /api/providers/openai/v1/files/{file_id}:
+    post:
+      tags:
+        - OpenAI
+      summary: Delete a file
+      description: This endpoint is set up for deleting an OpenAI file. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/files/delete).
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: path
+          name: file_id
+          required: true
+          schema:
+            type: string
+          description: File identifier
+
+    get:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Retrieve a file
+      description: This endpoint is set up for retrieving an OpenAI file. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/files/retrieve).
+
+  /api/providers/openai/v1/files/{file_id}/content:
+    get:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Retrieve file content
+      description: This endpoint is set up for retrieving an OpenAI file content. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/files/retrieve-contents).
+
+  /api/providers/openai/v1/batches:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Create a batch
+      description: This endpoint is set up for creating a batch. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/batch/create).
+
+    get:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: List batches
+      description: This endpoint is set up for listing batches. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/batch/list).
+
+  /api/providers/openai/v1/batches/{batch_id}:
+    get:
+      tags:
+        - OpenAI
+      summary: Retrieve a batch
+      description: This endpoint is set up for retrieving a batch. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/batch/retrieve).
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: path
+          name: batch_id
+          required: true
+          schema:
+            type: string
+          description: Batch identifier
+
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Cancel a batch
+      description: This endpoint is set up for canceling a batch. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/batch/cancel).
+
+  /api/providers/openai/v1/images/generations:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Generate images
+      description: This endpoint is set up for generating OpenAI images. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/images/create).
+
+  /api/providers/openai/v1/images/edits:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Edit images
+      description: This endpoint is set up for editing OpenAI generated images. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/images/createEdit).
+
+  /api/providers/openai/v1/images/variations:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Create image variations
+      description: This endpoint is set up for creating OpenAI image variations. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/images/createVariation).
+
+  /api/providers/openai/v1/audio/speech:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Create speech
+      description: This endpoint is set up for creating speeches. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/audio/createSpeech).
+
+  /api/providers/openai/v1/audio/transcriptions:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Create transcriptions
+      description: This endpoint is set up for editing generated images. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/audio/createTranscription).
+
+  /api/providers/openai/v1/audios/translations:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Create translations
+      description: This endpoint is set up for creating translations. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/audio/createTranslation).
+
+  /api/providers/openai/v1/assistants:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Create assistant
+      description: This endpoint is set up for creating an OpenAI assistant. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/createAssistant).
+
+    get:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: List assistants
+      description: This endpoint is set up for listing OpenAI assistants. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/listAssistants).
+
+  /api/providers/openai/v1/assistants/{assistant_id}:
+    get:
+      tags:
+        - OpenAI
+      summary: Retrieve assistant
+      description: This endpoint is set up for retrieving an OpenAI assistant. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/getAssistant).
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: path
+          name: assistant_id
+          required: true
+          schema:
+            type: string
+          description: Assistant identifier
+
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Modify assistant
+      description: This endpoint is set up for modifying an OpenAI assistant. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/modifyAssistant).
+
+    delete:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Delete assistant
+      description: This endpoint is set up for deleting an OpenAI assistant. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/deleteAssistant).
+
+  /api/providers/openai/v1/assistants/{assistant_id}/files:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Create assistant file
+      description: This endpoint is set up for creating an OpenAI assistant file. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/createAssistantFile).
+
+    get:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: List assistant files
+      description: This endpoint is set up for retrieving OpenAI assistant files. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/listAssistantFiles).
+
+  /api/providers/openai/v1/assistants/{assistant_id}/files/{file_id}:
+    get:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Retrieve assistant file
+      description: This endpoint is set up for retrieving an OpenAI assistant file. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/getAssistantFile).
+
+    delete:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Delete assistant file
+      description: This endpoint is set up for deleting an OpenAI assistant file. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/deleteAssistantFile).
+
+  /api/providers/openai/v1/threads:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Create thread
+      description: This endpoint is set up for creating an OpenAI thread. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/threads/createThread).
+
+  /api/providers/openai/v1/threads/{thread_id}:
+    get:
+      tags:
+        - OpenAI
+      summary: Retrieve thread
+      description: This endpoint is set up for retrieving an OpenAI thread. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/threads/getThread).
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: path
+          name: thread_id
+          required: true
+          schema:
+            type: string
+          description: Thread identifier
+
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Modify thread
+      description: This endpoint is set up for modifying an OpenAI thread. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/threads/modifyThread).
+
+    delete:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Delete thread
+      description: This endpoint is set up for deleting an OpenAI thread. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/threads/deleteThread).
+
+  /api/providers/openai/v1/threads/{thread_id}/messages:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Create message
+      description: This endpoint is set up for creating an OpenAI message. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/messages/createMessage).
+
+    get:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.s
+      tags:
+        - OpenAI
+      summary: List messages
+      description: This endpoint is set up for listing OpenAI messages. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/messages/listMessages).
+
+  /api/providers/openai/v1/threads/{thread_id}/messages/{message_id}:
+    get:
+      tags:
+        - OpenAI
+      summary: Retrieve message
+      description: This endpoint is set up for retrieving an OpenAI message. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/messages/getMessage).
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: path
+          name: message_id
+          required: true
+          schema:
+            type: string
+          description: Message identifier
+
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Modify message
+      description: This endpoint is set up for modifying an OpenAI message. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/messages/modifyMessage).
+
+  ? /api/providers/openai/v1/threads/{thread_id}/messages/{message_id}/files/{file_id}
+  : get:
+      tags:
+        - OpenAI
+      summary: Retrieve message file
+      description: This endpoint is set up for retrieving an OpenAI message file. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/messages/getMessageFile).
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: path
+          name: file_id
+          required: true
+          schema:
+            type: string
+          description: File identifier
+
+  /api/providers/openai/v1/threads/{thread_id}/messages/{message_id}/files:
+    get:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: List message files
+      description: This endpoint is set up for retrieving OpenAI message files. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/messages/listMessageFiles).
+
+  /api/providers/openai/v1/threads/{thread_id}/runs:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Create run
+      description: This endpoint is set up for creating an OpenAI run. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/createRun).
+
+    get:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: List runs
+      description: This endpoint is set up for retrieving OpenAI runs. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/listRuns).
+
+  /api/providers/openai/v1/threads/{thread_id}/runs/{run_id}:
+    get:
+      tags:
+        - OpenAI
+      summary: Retrieve run
+      description: This endpoint is set up for retrieving an OpenAI run. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/getRun).
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: path
+          name: run_id
+          required: true
+          schema:
+            type: string
+          description: Run identifier
+
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Modify run
+      description: This endpoint is set up for modifying an OpenAI run. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/modifyRun).
+
+  /api/providers/openai/v1/threads/{thread_id}/runs/{run_id}/cancel:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Cancel a run
+      description: This endpoint is set up for cancelling an OpenAI run. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/cancelRun).
+
+  /api/providers/openai/v1/threads/runs:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: Create thread and run
+      description: This endpoint is set up for creating an OpenAI thread and run. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/createThreadAndRun).
+
+  /api/providers/openai/v1/threads/{thread_id}/runs/{run_id}/steps/{step_id}:
+    get:
+      tags:
+        - OpenAI
+      summary: Retrieve run step
+      description: This endpoint is set up for retrieving an OpenAI run step. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/getRunStep).
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: path
+          name: step_id
+          required: true
+          schema:
+            type: string
+          description: Step identifier
+
+  /api/providers/openai/v1/threads/{thread_id}/runs/{run_id}/steps:
+    get:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - OpenAI
+      summary: List run steps
+      description: This endpoint is set up for listing OpenAI run steps. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/listRunSteps).
+
+  /api/providers/azure/openai/deployments/{deployment_id}/chat/completions:
+    post:
+      tags:
+        - Azure
+      summary: Create Azure OpenAI chat completion
+      description: This endpoint is set up for proxying Azure OpenAI completion requests. Documentation for this endpoint can be found [here](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference).
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: path
+          name: deployment_id
+          required: true
+          schema:
+            type: string
+          description: Deployment ID
+        - in: query
+          name: api-version
+          required: true
+          schema:
+            type: string
+          description: API version
+
+  /api/providers/azure/openai/deployments/{deployment_id}/embeddings:
+    post:
+      tags:
+        - Azure
+      summary: Create Azure OpenAI embeddings
+      description: This endpoint is set up for proxying Azure OpenAI embedding requests. Documentation for this endpoint can be found [here](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference).
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: path
+          name: deployment_id
+          required: true
+          schema:
+            type: string
+          description: Deployment ID
+        - in: query
+          name: api-version
+          required: true
+          schema:
+            type: string
+          description: API version
+
+  /api/providers/anthropic/v1/complete:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - Anthropic
+      summary: Create Anthropic completion
+      description: This endpoint is set up for proxying Anthropic completion requests. Documentation for this endpoint can be found [here](https://docs.anthropic.com/claude/reference/complete_post).
+
+  /api/providers/anthropic/v1/messages:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - Anthropic
+      summary: Create Anthropic messages
+      description: This endpoint is set up for proxying Anthropic messages requests. Documentation for this endpoint can be found [here](https://docs.anthropic.com/claude/reference/messages_post).
+
+  /api/providers/vllm/v1/chat/completions:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - vLLM
+      summary: Create chat completions
+      description: This endpoint is set up for proxying vLLM chat completions requests. Documentation for this endpoint can be found [here](https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html).
+
+  /api/providers/vllm/v1/completions:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - vLLM
+      summary: Create completions
+      description: This endpoint is set up for proxying vLLM completions requests. Documentation for this endpoint can be found [here](https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html).
+
+  /api/providers/deepinfra/v1/chat/completions:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - DeepInfra
+      summary: Create chat completions
+      description: This endpoint is set up for proxying deepinfra chat completions requests. Documentation for this endpoint can be found [here](https://deepinfra.com/docs/advanced/openai_api).
+
+  /api/providers/deepinfra/v1/completions:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - DeepInfra
+      summary: Create completions
+      description: This endpoint is set up for proxying deepinfra completions requests. Documentation for this endpoint can be found [here](https://deepinfra.com/docs/advanced/openai_api).
+
+  /api/providers/deepinfra/v1/embeddings:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - DeepInfra
+      summary: Create embeddings
+      description: This endpoint is set up for proxying deepinfra embeddings requests. Documentation for this endpoint can be found [here](https://deepinfra.com/docs/advanced/openai_api).
+
+  /api/custom/providers/{provider}/*:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - Custom Providers
+      summary: Call custom providers
+      description: First you need to use create custom providers endpoint to create custom providers. Then create corresponding provider setting for the newly created custom provider. |
+      Afterward, you can start creating keys associated with the custom provider, and use the keys to access this endpoint by placing the created key in `Authorization: Bearer YOUR_BRICKSLLM_KEY` as part of your HTTP request headers.
+
+  /api/route/*:
+    post:
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+      tags:
+        - Route
+      summary: Call a route
+      description: Route helps you interpolate different models (embeddings or chat completion models) and providers (OpenAI or Azure OpenAI) to guarantee API responses. First you need to use create route endpoint to create routes. If the route uses both Azure and OpenAI, you need to create API keys with corresponding provider settings as well. If the route is for chat completion, just call the route using the [OpenAI chat completion format](https://platform.openai.com/docs/api-reference/chat). On the other hand, if the route is for embeddings, just call the route using the [embeddings format](https://platform.openai.com/docs/api-reference/embeddings).

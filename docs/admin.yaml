@@ -32,7 +32,7 @@ paths:
       tags:
         - Health Check
       summary: Health check
-      description: This endpoint is for checking the health status of the service.
+      description: This endpoint is for checking the health status of the server.
       responses:
         200:
           description: Service is up and running.
@@ -1156,12 +1156,10 @@ components:
           description: Specifies the API paths that are accessible using this key.
         settingId:
           type: string
-          required: true
           deprecated: true
           description: Use 'settingIds' instead for identifying associated settings.
         settingIds:
           type: array
-          required: true
           items:
             type: string
           example: ["98daa3ae-961d-4253-bf6a-322a32fdca3d"]
@@ -2407,3 +2405,10 @@ components:
                 ],
             }
           description: Configurations containing a list of regular expression rules and associated actions.
+
+  securitySchemes:
+    apikey:
+      type: apiKey
+      description: This header is needed required if env variable `ADMIN_PASS` is set.
+      name: X-API-KEY
+      in: header
