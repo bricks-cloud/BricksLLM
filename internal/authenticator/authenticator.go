@@ -136,6 +136,7 @@ func (a *Authenticator) getProviderSettingsThatCanAccessCustomRoute(path string,
 
 	source := map[string]*provider.Setting{}
 	for _, s := range settings {
+		source[s.Name] = s
 		source[s.Provider] = s
 	}
 

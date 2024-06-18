@@ -78,7 +78,7 @@ func addDefaultValues(r *route.Route) {
 }
 
 func checkModelValidity(provider, model string) bool {
-	if provider == "azure" {
+	if strings.HasPrefix(strings.ToLower(provider), "azure") {
 		return contains(model, azureSupportedModels)
 	}
 
@@ -227,11 +227,13 @@ func (m *RouteManager) validateRoute(r *route.Route) error {
 			fields = append(fields, fmt.Sprintf("steps.[%d].provider", index))
 		}
 
-		if !contains(step.Provider, supportedProviders) {
+		isAzure := strings.HasPrefix(strings.ToLower(step.Provider), "azure")
+
+		if !isAzure && !contains(step.Provider, supportedProviders) {
 			return fmt.Errorf("steps.[%d].provider is not supported. Only azure and openai are supported", index)
 		}
 
-		if step.Provider == "azure" {
+		if isAzure {
 			apiVersion := step.Params["apiVersion"]
 			if len(apiVersion) == 0 {
 				fields = append(fields, fmt.Sprintf("steps.[%d].params.apiVersion", index))

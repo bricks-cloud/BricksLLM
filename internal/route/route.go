@@ -164,6 +164,7 @@ func (r *Route) ValidateSettings(settings []*provider.Setting) bool {
 
 	source := map[string]bool{}
 	for _, s := range settings {
+		source[s.Name] = true
 		source[s.Provider] = true
 	}
 
@@ -238,8 +239,8 @@ func (r *Route) RunSteps(req *Request, rec recorder, log *zap.Logger) (*Response
 	for idx, step := range r.Steps {
 		resourceName := ""
 
-		if step.Provider == "azure" {
-			val, err := req.GetSettingValue("azure", "resourceName")
+		if strings.HasPrefix(strings.ToLower(step.Provider), "azure") {
+			val, err := req.GetSettingValue(step.Provider, "resourceName")
 			if err != nil {
 				return nil, err
 			}
@@ -429,6 +430,12 @@ type Request struct {
 
 func (r *Request) GetSettingValue(provider string, param string) (string, error) {
 	for _, setting := range r.Settings {
+		if setting.Name == provider {
+			val, ok := setting.Setting[param]
+			if ok {
+				return val, nil
+			}
+		}
 		if setting.Provider == provider {
 			val, ok := setting.Setting[param]
 			if ok {
@@ -461,12 +468,13 @@ func buildRequestUrl(provider string, runEmbeddings bool, resourceName string, p
 
 	deploymentId := params["deploymentId"]
 	apiVersion := params["apiVersion"]
+	isAzure := strings.HasPrefix(strings.ToLower(provider), "azure")
 
-	if provider == "azure" && runEmbeddings {
+	if isAzure && runEmbeddings {
 		return fmt.Sprintf("https://%s.openai.azure.com/openai/deployments/%s/embeddings?api-version=%s", resourceName, deploymentId, apiVersion)
 	}
 
-	if provider == "azure" && !runEmbeddings {
+	if isAzure && !runEmbeddings {
 		return fmt.Sprintf("https://%s.openai.azure.com/openai/deployments/%s/chat/completions?api-version=%s", resourceName, deploymentId, apiVersion)
 	}
 
@@ -474,7 +482,7 @@ func buildRequestUrl(provider string, runEmbeddings bool, resourceName string, p
 }
 
 func setHttpRequestAuthHeader(provider string, req *http.Request, key string) {
-	if provider == "azure" {
+	if strings.HasPrefix(strings.ToLower(provider), "azure") {
 		req.Header.Set("api-key", key)
 		return
 	}
