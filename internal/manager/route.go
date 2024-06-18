@@ -106,6 +106,7 @@ var (
 		"gpt-35-turbo-0613",
 		"gpt-35-turbo-16k",
 		"gpt-35-turbo-16k-0613",
+		"text-embedding-ada-002",
 		"ada",
 	}
 

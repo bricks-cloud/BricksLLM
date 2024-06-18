@@ -20,6 +20,7 @@ var AzureOpenAiPerThousandTokenCost = map[string]map[string]float64{
 	},
 	"embeddings": {
 		"ada": 0.0001,
+		"text-embedding-ada-002": 0.0001,
 	},
 	"completion": {
 		"gpt-4o":                0.015,
