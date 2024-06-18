@@ -1415,7 +1415,7 @@ components:
         name:
           type: string
           example: YOUR_PROVIDER_SETTING_NAME
-          description: Name assigned to the provider setting.
+          description: Name assigned to the provider setting. For configurations with multiple Azure providers or endpoints, ensure the name starts with the 'azure' prefix to identify and differentiate them properly.
         allowedModels:
           type: array
           items:
@@ -1874,9 +1874,8 @@ components:
       properties:
         provider:
           type: string
-          enum: [azure, openai]
           example: azure
-          description: Provider for the step. Can only be either 'azure' or 'openai'.
+          description: Provider for the step. Can be either 'openai', 'azure' for the provider. But if multiple Azure providers are configured, you can specify the name of the desired Azure provider for this step.
         model:
           type: string
           example: "gpt-3.5-turbo"

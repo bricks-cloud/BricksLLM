@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
@@ -232,7 +233,7 @@ func parseResult(c *gin.Context, runEmbeddings bool, bytes []byte, e estimator, 
 			promptTokenCounts = chatRes.Usage.PromptTokens
 		}
 
-		if provider == "azure" {
+		if strings.HasPrefix(strings.ToLower(provider), "azure") {
 			ecost, err := aoe.EstimateEmbeddingsInputCost(model, totalTokens)
 			if err != nil {
 				return err
@@ -266,7 +267,7 @@ func parseResult(c *gin.Context, runEmbeddings bool, bytes []byte, e estimator, 
 		promptTokenCounts = chatRes.Usage.PromptTokens
 		completionTokenCounts = chatRes.Usage.CompletionTokens
 
-		if provider == "azure" {
+		if strings.HasPrefix(strings.ToLower(provider), "azure") {
 			cost, err = aoe.EstimateTotalCost(chatRes.Model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
 			if err != nil {
 				return err
