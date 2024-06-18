@@ -151,7 +151,7 @@ docker pull luyuanxin1995/bricksllm:1.4.0
 > | `REDIS_READ_TIME_OUT`         | optional | Timeout for Redis read operations | `1s` |
 > | `REDIS_WRITE_TIME_OUT`         | optional | Timeout for Redis write operations | `500ms` |
 > | `IN_MEMORY_DB_UPDATE_INTERVAL`         | optional | The interval BricksLLM API gateway polls Postgresql DB for latest key configurations | `1s` |
-> | `STATS_PROVIDER`         | optional | This value can only be datadog. Required for integration with Datadog.  |
+> | `STATS_PROVIDER`         | optional | "datadog" or Host:Port(127.0.0.1:8125) for statsd.  |
 > | `PROXY_TIMEOUT`         | optional | Timeout for proxy HTTP requests. | `600s` |
 > | `NUMBER_OF_EVENT_MESSAGE_CONSUMERS`         | optional | Number of event message consumers that help handle counting tokens and inserting event into db.  | `3` |
 > | `AWS_SECRET_ACCESS_KEY`         | optional | It is for PII detection feature.  | `5s` |

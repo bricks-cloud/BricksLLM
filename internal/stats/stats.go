@@ -22,6 +22,12 @@ func InitializeClient(provider string) error {
 				return err
 			}
 			instance.statsdc = statsd
+		} else {
+			statsd, err := statsd.New(provider)
+			if err != nil {
+				return err
+			}
+			instance.statsdc = statsd
 		}
 
 		return nil
