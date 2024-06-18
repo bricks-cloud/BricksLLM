@@ -273,6 +273,7 @@ func (r *Route) RunSteps(req *Request, rec recorder, log *zap.Logger) (*Response
 				Path:          req.Forwarded.URL.Path,
 				Model:         step.Model,
 				Action:        req.Action,
+				Request:       []byte(`{}`),
 				Response:      []byte(`{}`),
 				CustomId:      req.Forwarded.Header.Get("X-CUSTOM-EVENT-ID"),
 				UserId:        req.UserId,
