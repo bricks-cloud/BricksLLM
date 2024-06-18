@@ -355,6 +355,10 @@ func (r *Route) RunSteps(req *Request, rec recorder, log *zap.Logger) (*Response
 					continue
 				}
 
+				if strings.ToLower(k) == "accept-encoding" {
+					continue
+				}
+
 				hreq.Header.Set(k, req.Forwarded.Header.Get(k))
 			}
 
