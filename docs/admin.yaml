@@ -380,113 +380,16 @@ paths:
                 $ref: "#/components/schemas/InternalError"
 
   /api/v2/events:
-    get:
+    post:
       tags:
         - Events
       summary: Get events V2
       description: This endpoint is for listing events based on provided filters.
-      parameters:
-        - in: query
-          name: userIds
-          schema:
-            type: array
-            items:
-              type: string
-          example: [my-user-id]
-          description: List of user IDs to filter events by specific users.
-        - in: query
-          name: customIds
-          schema:
-            type: array
-            items:
-              type: string
-          example: [customId]
-          description: List of custom identifiers for filtering events.
-        - in: query
-          example: [98daa3ae-961d-4253-bf6a-322a32fdca3d]
-          name: keyIds
-          schema:
-            type: array
-            items:
-              type: string
-          description: List of key IDs used to filter events.
-        - in: query
-          example: [my-org-1]
-          name: tags
-          schema:
-            type: array
-            items:
-              type: string
-          description: List of tags associated with events for filtering.
-        - in: query
-          schema:
-            type: integer
-          example: 1718581614
-          name: start
-          required: true
-          description: Start timestamp for filtering events.
-        - in: query
-          example: 1718581614
-          name: end
-          schema:
-            type: integer
-          required: true
-          description: End timestamp for filtering events.
-        - in: query
-          example: 20
-          schema:
-            type: integer
-          name: limit
-          description: Maximum number of events to return.
-        - in: query
-          schema:
-            type: integer
-          example: 10
-          name: offset
-          description: Offset for pagination.
-        - in: query
-          example: [98daa3ae-961d-4253-bf6a-322a32fdca3d]
-          name: policyIds
-          schema:
-            type: array
-            items:
-              type: string
-          description: List of policy IDs to filter events related to specific policies.
-        - in: query
-          example: [allowed]
-          name: actions
-          schema:
-            type: array
-            items:
-              type: string
-              enum: [allowed, redacted, blocked]
-          description: Values can include `allowed`, `redacted`, and `blocked`.
-        - in: query
-          example: asc
-          schema:
-            type: string
-            enum: [asc, desc]
-          name: costOrder
-          description: Order by cost, specify `asc` or `desc`.
-        - in: query
-          example: desc
-          schema:
-            type: string
-            enum: [asc, desc]
-          name: dateOrder
-          description: Order by date, specify `asc` or `desc`.
-        - in: query
-          example: true
-          schema:
-            type: boolean
-          name: returnCount
-          description: Whether to return the count of events instead of event details.
-        - in: query
-          example: 400
-          schema:
-            type: integer
-          name: status
-          description: Event HTTP status code.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GetEventsV2Request"
       responses:
         200:
           description: Successful retrieval of a v2 event response.
@@ -2406,6 +2309,111 @@ components:
                 ],
             }
           description: Configurations containing a list of regular expression rules and associated actions.
+
+    GetEventsV2Request:
+      type: object
+      required:
+        - start
+        - end
+      properties:
+        userIds:
+          name: userIds
+          schema:
+            type: array
+            items:
+              type: string
+          example: ["my-user-id"]
+          description: List of user IDs to filter events by specific users.
+        customIds:
+          name: customIds
+          schema:
+            type: array
+            items:
+              type: string
+          example: ["customId"]
+          description: List of custom identifiers for filtering events.
+        keyIds:
+          name: keyIds
+          schema:
+            type: array
+            items:
+              type: string
+          example: ["98daa3ae-961d-4253-bf6a-322a32fdca3d"]
+          description: List of key IDs used to filter events.
+        tags:
+          name: tags
+          schema:
+            type: array
+            items:
+              type: string
+          example: ["my-org-1"]
+          description: List of tags associated with events for filtering.
+        start:
+          name: start
+          schema:
+            type: integer
+          example: 1718581614
+          description: Start timestamp for filtering events.
+        end:
+          name: end
+          schema:
+            type: integer
+          example: 1718581614
+          description: End timestamp for filtering events.
+        limit:
+          name: limit
+          schema:
+            type: integer
+          example: 20
+          description: Maximum number of events to return.
+        offset:
+          name: offset
+          schema:
+            type: integer
+          example: 10
+          description: Offset for pagination.
+        policyIds:
+          name: policyIds
+          schema:
+            type: array
+            items:
+              type: string
+          example: ["98daa3ae-961d-4253-bf6a-322a32fdca3d"]
+          description: List of policy IDs to filter events related to specific policies.
+        actions:
+          name: actions
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [allowed, redacted, blocked]
+          example: ["allowed"]
+          description: Values can include `allowed`, `redacted`, and `blocked`.
+        costOrder:
+          name: costOrder
+          schema:
+            type: string
+            enum: [asc, desc]
+          example: "asc"
+          description: Order by cost, specify `asc` or `desc`.
+        dateOrder:
+          name: dateOrder
+          schema:
+            type: string
+            enum: [asc, desc]
+          example: "desc"
+          description: Order by date, specify `asc` or `desc`.
+        returnCount:
+          name: returnCount
+          schema:
+            type: boolean
+          description: Whether to return the count of events instead of event details.
+        status:
+          name: status
+          schema:
+            type: integer
+          example: 400
+          description: Event HTTP status code.
 
   securitySchemes:
     apikey:
