@@ -8,18 +8,20 @@ import (
 
 var AnthropicPerMillionTokenCost = map[string]map[string]float64{
 	"prompt": {
-		"claude-instant":  0.8,
-		"claude":          8,
-		"claude-3-opus":   15,
-		"claude-3-sonnet": 3,
-		"claude-3-haiku":  0.25,
+		"claude-instant":    0.8,
+		"claude":            8,
+		"claude-3-opus":     15,
+		"claude-3-sonnet":   3,
+		"claude-3.5-sonnet": 3,
+		"claude-3-haiku":    0.25,
 	},
 	"completion": {
-		"claude-instant":  2.4,
-		"claude":          24,
-		"claude-3-opus":   75,
-		"claude-3-sonnet": 15,
-		"claude-3-haiku":  1.25,
+		"claude-instant":    2.4,
+		"claude":            24,
+		"claude-3-opus":     75,
+		"claude-3-sonnet":   15,
+		"claude-3.5-sonnet": 15,
+		"claude-3-haiku":    1.25,
 	},
 }
 
@@ -75,6 +77,8 @@ func selectModel(model string) string {
 		return "claude-3-opus"
 	} else if strings.HasPrefix(model, "claude-3-sonnet") {
 		return "claude-3-sonnet"
+	} else if strings.HasPrefix(model, "claude-3.5-sonnet") {
+		return "claude-3.5-sonnet"
 	} else if strings.HasPrefix(model, "claude-3-haiku") {
 		return "claude-3-haiku"
 	} else if strings.HasPrefix(model, "claude-instant") {
