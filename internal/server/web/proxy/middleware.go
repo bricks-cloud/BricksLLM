@@ -643,6 +643,27 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			policyInput = ccr
 		}
 
+		if c.FullPath() == "/api/providers/azure/openai/deployments/:deployment_id/completions" {
+			cr := &goopenai.CompletionRequest{}
+			err = json.Unmarshal(body, cr)
+			if err != nil {
+				logError(logWithCid, "error when unmarshalling azure openai completions request", prod, err)
+				return
+			}
+
+			userId = cr.User
+			enrichedEvent.Request = cr
+			c.Set("model", cr.Model)
+
+			logAzureCompletionsRequest(logWithCid, prod, private, cr)
+
+			if cr.Stream {
+				c.Set("stream", true)
+			}
+
+			policyInput = cr
+		}
+
 		if c.FullPath() == "/api/providers/azure/openai/deployments/:deployment_id/embeddings" {
 			er := &goopenai.EmbeddingRequest{}
 			err = json.Unmarshal(body, er)

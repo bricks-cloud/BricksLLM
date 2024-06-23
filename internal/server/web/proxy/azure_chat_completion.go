@@ -23,6 +23,10 @@ func buildAzureUrl(path, deploymentId, apiVersion, resourceName string) string {
 		return fmt.Sprintf("https://%s.openai.azure.com/openai/deployments/%s/chat/completions?api-version=%s", resourceName, deploymentId, apiVersion)
 	}
 
+	if path == "/api/providers/azure/openai/deployments/:deployment_id/completions" {
+		return fmt.Sprintf("https://%s.openai.azure.com/openai/deployments/%s/completions?api-version=%s", resourceName, deploymentId, apiVersion)
+	}
+
 	return fmt.Sprintf("https://%s.openai.azure.com/openai/deployments/%s/embeddings?api-version=%s", resourceName, deploymentId, apiVersion)
 }
 

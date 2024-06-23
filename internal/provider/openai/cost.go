@@ -246,6 +246,61 @@ func (ce *CostEstimator) EstimateChatCompletionStreamCostWithTokenCounts(model s
 	return tks, cost, nil
 }
 
+func (ce *CostEstimator) EstimateCompletionsRequestCostWithTokenCounts(model string, content any) (int, float64, error) {
+	if len(model) == 0 {
+		return 0, 0, errors.New("model is not provided")
+	}
+
+	input := ""
+	str, ok := content.(string)
+	if ok {
+		input = str
+	}
+
+	arr, ok := content.([]interface{})
+	if ok {
+		for _, inter := range arr {
+			str, ok := inter.(string)
+			if ok {
+				input += str
+				continue
+			}
+
+			return 0, 0, errors.New("prompt includes non string entry")
+		}
+	}
+
+	tks, err := ce.tc.Count(model, input)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	cost, err := ce.EstimatePromptCost(model, tks)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return tks, cost, nil
+}
+
+func (ce *CostEstimator) EstimateCompletionsStreamCostWithTokenCounts(model string, content string) (int, float64, error) {
+	if len(model) == 0 {
+		return 0, 0, errors.New("model is not provided")
+	}
+
+	tks, err := ce.tc.Count(model, content)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	cost, err := ce.EstimateCompletionCost(model, tks)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return tks, cost, nil
+}
+
 func (ce *CostEstimator) EstimateTranscriptionCost(secs float64, model string) (float64, error) {
 	costMap, ok := ce.tokenCostMap["audio"]
 	if !ok {

@@ -28,6 +28,8 @@ type anthropicEstimator interface {
 }
 
 type estimator interface {
+	EstimateCompletionsRequestCostWithTokenCounts(model string, content any) (int, float64, error)
+	EstimateCompletionsStreamCostWithTokenCounts(model string, content string) (int, float64, error)
 	EstimateSpeechCost(input string, model string) (float64, error)
 	EstimateChatCompletionPromptCostWithTokenCounts(r *goopenai.ChatCompletionRequest) (int, float64, error)
 	EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (float64, error)
@@ -504,6 +506,52 @@ func (h *Handler) decorateEvent(m Message) error {
 
 			if e.Event.Status == http.StatusOK {
 				e.Event.CostInUsd = cost + completionCost
+				if e.CostMap != nil {
+					newCost, err := provider.EstimateTotalCostWithCostMaps(e.Event.Model, tks, completiontks, 1000, e.CostMap.PromptCostPerModel, e.CostMap.CompletionCostPerModel)
+					if err != nil {
+						stats.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
+					}
+
+					if newCost != 0 {
+						e.Event.CostInUsd = newCost
+					}
+				}
+			}
+		}
+	}
+
+	if strings.HasPrefix(e.Event.Path, "/api/providers/azure/openai/deployments") && strings.HasSuffix(e.Event.Path, "/completions") {
+		cr, ok := e.Request.(*goopenai.CompletionRequest)
+		if !ok {
+			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
+			h.log.Debug("event contains data that cannot be converted to azure openai completions request", zap.Any("data", m.Data))
+			return errors.New("event request data cannot be parsed as azure openai completions request")
+		}
+
+		if cr.Stream {
+			model := "gpt-3.5-turbo"
+
+			if strings.HasPrefix(e.Event.Model, "gpt-4o") {
+				model = "gpt-4o"
+			}
+
+			tks, promptCost, err := h.e.EstimateCompletionsRequestCostWithTokenCounts(model, cr.Prompt)
+			if err != nil {
+				stats.Incr("bricksllm.message.decorate_event.estimate_chat_completion_prompt_token_counts_error", nil, 1)
+				return err
+			}
+
+			completiontks, completionCost, err := h.aze.EstimateChatCompletionStreamCostWithTokenCounts(e.Event.Model, e.Content)
+			if err != nil {
+				stats.Incr("bricksllm.message.decorate_event.estimate_chat_completion_stream_cost_with_token_counts_error", nil, 1)
+				return err
+			}
+
+			e.Event.PromptTokenCount = tks
+			e.Event.CompletionTokenCount = completiontks
+
+			if e.Event.Status == http.StatusOK {
+				e.Event.CostInUsd = promptCost + completionCost
 				if e.CostMap != nil {
 					newCost, err := provider.EstimateTotalCostWithCostMaps(e.Event.Model, tks, completiontks, 1000, e.CostMap.PromptCostPerModel, e.CostMap.CompletionCostPerModel)
 					if err != nil {

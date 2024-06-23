@@ -175,6 +175,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	// azure
 	router.POST("/api/providers/azure/openai/deployments/:deployment_id/chat/completions", getAzureChatCompletionHandler(prod, private, client, aoe, timeOut))
 	router.POST("/api/providers/azure/openai/deployments/:deployment_id/embeddings", getAzureEmbeddingsHandler(prod, private, client, aoe, timeOut))
+	router.POST("/api/providers/azure/openai/deployments/:deployment_id/completions", getAzureCompletionsHandler(prod, private, client, aoe, timeOut))
 
 	// anthropic
 	router.POST("/api/providers/anthropic/v1/complete", getCompletionHandler(prod, private, client, timeOut))
