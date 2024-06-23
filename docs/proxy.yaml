@@ -861,6 +861,30 @@ paths:
             type: string
           description: API version
 
+  /api/providers/azure/openai/deployments/{deployment_id}/completions:
+    post:
+      tags:
+        - Azure
+      summary: Create Azure OpenAI completions
+      description: This endpoint is set up for proxying Azure Completions requests. Documentation for this endpoint can be found [here](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference).
+      parameters:
+        - in: header
+          name: x-custom-event-id
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: path
+          name: deployment_id
+          required: true
+          schema:
+            type: string
+          description: Deployment ID
+        - in: query
+          name: api-version
+          required: true
+          schema:
+            type: string
+          description: API version
   /api/providers/azure/openai/deployments/{deployment_id}/embeddings:
     post:
       tags:
