@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	goopenai "github.com/sashabaranov/go-openai"
 )
 
@@ -124,31 +125,15 @@ func (ce *CostEstimator) EstimateChatCompletionStreamCostWithTokenCounts(model s
 func (ce *CostEstimator) EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (float64, error) {
 	model := "ada"
 
-	if inputs, ok := r.Input.([]interface{}); ok {
-		textStr := ""
-		for _, input := range inputs {
-			converted, ok := input.(string)
-			if !ok {
-				return 0, errors.New("input is not string")
-			}
-
-			textStr += converted
-		}
-
-		tks, err := Count(model, textStr)
-		if err != nil {
-			return 0, err
-		}
-
-		return ce.EstimateEmbeddingsInputCost(model, tks)
-	} else if input, ok := r.Input.(string); ok {
-		tks, err := Count(model, input)
-		if err != nil {
-			return 0, err
-		}
-
-		return ce.EstimateEmbeddingsInputCost(model, tks)
+	input, err := util.ConvertAnyToStr(r.Input)
+	if err != nil {
+		return 0, err
 	}
 
-	return 0, errors.New("input format is not recognized")
+	tks, err := Count(model, input)
+	if err != nil {
+		return 0, err
+	}
+
+	return ce.EstimateEmbeddingsInputCost(model, tks)
 }

@@ -7,6 +7,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	goopenai "github.com/sashabaranov/go-openai"
 )
 
@@ -251,23 +252,9 @@ func (ce *CostEstimator) EstimateCompletionsRequestCostWithTokenCounts(model str
 		return 0, 0, errors.New("model is not provided")
 	}
 
-	input := ""
-	str, ok := content.(string)
-	if ok {
-		input = str
-	}
-
-	arr, ok := content.([]interface{})
-	if ok {
-		for _, inter := range arr {
-			str, ok := inter.(string)
-			if ok {
-				input += str
-				continue
-			}
-
-			return 0, 0, errors.New("prompt includes non string entry")
-		}
+	input, err := util.ConvertAnyToStr(content)
+	if err != nil {
+		return 0, 0, err
 	}
 
 	tks, err := ce.tc.Count(model, input)
@@ -348,33 +335,17 @@ func (ce *CostEstimator) EstimateEmbeddingsCost(r *goopenai.EmbeddingRequest) (f
 		return 0, errors.New("model is not provided")
 	}
 
-	if inputs, ok := r.Input.([]interface{}); ok {
-		total := 0
-		for _, input := range inputs {
-			converted, ok := input.(string)
-			if !ok {
-				return 0, errors.New("input is not string")
-			}
-
-			tks, err := ce.tc.Count(string(r.Model), converted)
-			if err != nil {
-				return 0, err
-			}
-
-			total += tks
-		}
-
-		return ce.EstimateEmbeddingsInputCost(string(r.Model), total)
-	} else if input, ok := r.Input.(string); ok {
-		tks, err := ce.tc.Count(string(r.Model), input)
-		if err != nil {
-			return 0, err
-		}
-
-		return ce.EstimateEmbeddingsInputCost(string(r.Model), tks)
+	input, err := util.ConvertAnyToStr(r.Input)
+	if err != nil {
+		return 0, err
 	}
 
-	return 0, errors.New("input format is not recognized")
+	tks, err := ce.tc.Count(string(r.Model), input)
+	if err != nil {
+		return 0, err
+	}
+
+	return ce.EstimateEmbeddingsInputCost(string(r.Model), tks)
 }
 
 func countFunctionTokens(model string, r *goopenai.ChatCompletionRequest, tc tokenCounter) (int, error) {

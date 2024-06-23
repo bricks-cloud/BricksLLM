@@ -25,15 +25,7 @@ func logCreateModerationRequest(log *zap.Logger, data []byte, prod, private bool
 		fields := []zapcore.Field{}
 
 		if !private {
-			strInput, ok := mr.Input.(string)
-			if ok {
-				fields = append(fields, zap.String("input", strInput))
-			}
-
-			arrInput, ok := mr.Input.([]interface{})
-			if ok {
-				fields = append(fields, zap.Any("input", arrInput))
-			}
+			fields = append(fields, zap.Any("input", mr.Input))
 		}
 
 		log.Info("openai create moderation request", fields...)

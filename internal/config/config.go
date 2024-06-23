@@ -30,7 +30,7 @@ type Config struct {
 	PostgresqlReadTimeout         time.Duration `koanf:"postgresql_read_time_out" env:"POSTGRESQL_READ_TIME_OUT" envDefault:"2m"`
 	PostgresqlWriteTimeout        time.Duration `koanf:"postgresql_write_time_out" env:"POSTGRESQL_WRITE_TIME_OUT" envDefault:"5s"`
 	InMemoryDbUpdateInterval      time.Duration `koanf:"in_memory_db_update_interval" env:"IN_MEMORY_DB_UPDATE_INTERVAL" envDefault:"5s"`
-	StatsProvider                 string        `koanf:"stats_provider" env:"STATS_PROVIDER"`
+	StatsProvider                 string        `koanf:"stats_provider" env:"STATS_PROVIDER" envDefault:"127.0.0.1:8125"`
 	AdminPass                     string        `koanf:"admin_pass" env:"ADMIN_PASS"`
 	ProxyTimeout                  time.Duration `koanf:"proxy_timeout" env:"PROXY_TIMEOUT" envDefault:"600s"`
 	NumberOfEventMessageConsumers int           `koanf:"number_of_event_message_consumers" env:"NUMBER_OF_EVENT_MESSAGE_CONSUMERS" envDefault:"3"`

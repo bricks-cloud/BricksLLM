@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/bricks-cloud/bricksllm/internal/util"
 )
 
 type CostEstimator struct {
@@ -21,20 +23,9 @@ func NewCostEstimator(tc tokenCounter) *CostEstimator {
 }
 
 func (ce *CostEstimator) EstimateCompletionPromptToken(r *CompletionRequest) int {
-	content := ""
-
-	if p, ok := r.Prompt.(string); ok {
-		content = p
-	}
-
-	ps, ok := r.Prompt.([]interface{})
-	if ok {
-		for _, p := range ps {
-			converted, ok := p.(string)
-			if ok {
-				content += converted
-			}
-		}
+	content, err := util.ConvertAnyToStr(r.Prompt)
+	if err != nil {
+		return 0
 	}
 
 	if len(content) == 0 {

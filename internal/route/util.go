@@ -3,6 +3,7 @@ package route
 import (
 	"fmt"
 
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	goopenai "github.com/sashabaranov/go-openai"
 )
 
@@ -11,17 +12,7 @@ func ComputeCacheKeyForEmbeddingsRequest(path string, req *goopenai.EmbeddingReq
 		return ""
 	}
 
-	input := ""
-	if arr, ok := req.Input.([]interface{}); ok {
-		for _, ele := range arr {
-			converted, ok := ele.(string)
-			if ok {
-				input += converted
-			}
-		}
-	} else if ele, ok := req.Input.(string); ok {
-		input += ele
-	}
+	input, _ := util.ConvertAnyToStr(req.Input)
 
 	return fmt.Sprintf("%s-%s-%s-%s", path, input, req.EncodingFormat, req.User)
 }
