@@ -1,9 +1,7 @@
 package proxy
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -63,6 +61,7 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 
 		if shouldCache {
 			bytes, err := ca.GetBytes(cacheKey)
+
 			if err == nil && len(bytes) != 0 {
 				stats.Incr("bricksllm.proxy.get_route_handeler.success", nil, 1)
 				stats.Timing("bricksllm.proxy.get_route_handeler.success_latency", time.Since(trueStart), nil, 1)
@@ -108,16 +107,8 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 			rreq.Request = bs
 		}
 
-		runRes, err := rc.RunSteps(rreq, rec, log)
-
+		runRes, err := rc.RunStepsV2(rreq, rec, log, kc)
 		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				stats.Incr("bricksllm.proxy.get_route_handeler.timeout", tags, 1)
-				logError(log, "running steps time out", prod, err)
-				JSON(c, http.StatusRequestTimeout, "[BricksLLM] request timeout")
-				return
-			}
-
 			stats.Incr("bricksllm.proxy.get_route_handeler.run_steps_error", tags, 1)
 			logError(log, "error when running steps", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot run route steps")
@@ -130,19 +121,22 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 		c.Set("provider", runRes.Provider)
 
 		res := runRes.Response
+
 		defer res.Body.Close()
 
 		dur := time.Since(start)
 		stats.Timing("bricksllm.proxy.get_route_handeler.latency", dur, nil, 1)
 
-		bytes, err := io.ReadAll(res.Body)
-		if err != nil {
-			logError(log, "error when reading route response body", prod, err)
-			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read route response body")
-			return
-		}
+		bytes := runRes.Data
 
 		if res.StatusCode == http.StatusOK {
+			bytes, err = io.ReadAll(res.Body)
+			if err != nil {
+				logError(log, "error when reading route response body", prod, err)
+				JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to read route response body")
+				return
+			}
+
 			stats.Incr("bricksllm.proxy.get_route_handeler.success", nil, 1)
 			stats.Timing("bricksllm.proxy.get_route_handeler.success_latency", dur, nil, 1)
 
@@ -161,18 +155,18 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 
 			}
 
-			err := parseResult(c, rc.ShouldRunEmbeddings(), bytes, e, aoe, runRes.Model, runRes.Provider)
+			err = parseResult(c, rc.ShouldRunEmbeddings(), bytes, e, aoe, runRes.Model, runRes.Provider)
 			if err != nil {
 				logError(log, "error when parsing run steps result", prod, err)
 			}
 		}
 
 		if res.StatusCode != http.StatusOK {
-			stats.Timing("bricksllm.proxy.get_azure_embeddings_handler.error_latency", dur, nil, 1)
-			stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.error_response", nil, 1)
+			stats.Timing("bricksllm.proxy.get_route_handeler.error_latency", dur, nil, 1)
+			stats.Incr("bricksllm.proxy.get_route_handeler.error_response", nil, 1)
 
 			errorRes := &goopenai.ErrorResponse{}
-			err = json.Unmarshal(bytes, errorRes)
+			err = json.Unmarshal(runRes.Data, errorRes)
 			if err != nil {
 				logError(log, "error when unmarshalling azure openai embedding error response body", prod, err)
 			}

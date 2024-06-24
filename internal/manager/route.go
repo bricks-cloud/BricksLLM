@@ -220,6 +220,10 @@ func (m *RouteManager) validateRoute(r *route.Route) error {
 		fields = append(fields, "steps")
 	}
 
+	if len(r.RetryStrategy) != 0 && r.RetryStrategy != "exponential" && r.RetryStrategy != "constant" {
+		fields = append(fields, "retryStrategy")
+	}
+
 	containAda := false
 
 	for index, step := range r.Steps {

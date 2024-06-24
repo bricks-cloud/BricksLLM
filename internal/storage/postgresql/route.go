@@ -35,7 +35,7 @@ func (s *Store) CreateRoutesTable() error {
 
 func (s *Store) AlterRoutesTable() error {
 	alterTableQuery := `
-		ALTER TABLE routes ADD COLUMN IF NOT EXISTS request_format VARCHAR(255) NOT NULL DEFAULT '';
+		ALTER TABLE routes ADD COLUMN IF NOT EXISTS request_format VARCHAR(255) NOT NULL DEFAULT '', ADD COLUMN IF NOT EXISTS retry_strategy VARCHAR(255) NOT NULL DEFAULT '';
 	`
 
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
@@ -69,12 +69,13 @@ func (s *Store) CreateRoute(r *route.Route) (*route.Route, error) {
 		sbytes,
 		cbytes,
 		r.RequestFormat,
+		r.RetryStrategy,
 	}
 
 	query := `
-	INSERT INTO routes (id, created_at, updated_at, name, path, key_ids, steps, cache_config, request_format)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	RETURNING id, created_at, updated_at, name, path, key_ids, steps, cache_config, request_format
+	INSERT INTO routes (id, created_at, updated_at, name, path, key_ids, steps, cache_config, request_format, retry_strategy)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	RETURNING id, created_at, updated_at, name, path, key_ids, steps, cache_config, request_format, retry_strategy
 `
 
 	created := &route.Route{}
@@ -95,6 +96,7 @@ func (s *Store) CreateRoute(r *route.Route) (*route.Route, error) {
 		&sdata,
 		&cdata,
 		&created.RequestFormat,
+		&created.RetryStrategy,
 	); err != nil {
 		return nil, err
 	}
@@ -128,6 +130,7 @@ func (s *Store) GetRoute(id string) (*route.Route, error) {
 		&sdata,
 		&cdata,
 		&created.RequestFormat,
+		&created.RetryStrategy,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, internal_errors.NewNotFoundError("custom provider is not found")
@@ -165,6 +168,7 @@ func (s *Store) GetRouteByPath(path string) (*route.Route, error) {
 		&sdata,
 		&cdata,
 		&created.RequestFormat,
+		&created.RetryStrategy,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, internal_errors.NewNotFoundError("route is not found")
@@ -210,6 +214,7 @@ func (s *Store) GetUpdatedRoutes(updatedAt int64) ([]*route.Route, error) {
 			&sdata,
 			&cdata,
 			&r.RequestFormat,
+			&r.RetryStrategy,
 		); err != nil {
 			return nil, err
 		}
@@ -254,6 +259,7 @@ func (s *Store) GetRoutes() ([]*route.Route, error) {
 			&sdata,
 			&cdata,
 			&r.RequestFormat,
+			&r.RetryStrategy,
 		); err != nil {
 			return nil, err
 		}

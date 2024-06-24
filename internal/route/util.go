@@ -3,6 +3,7 @@ package route
 import (
 	"fmt"
 
+	"github.com/bricks-cloud/bricksllm/internal/hasher"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	goopenai "github.com/sashabaranov/go-openai"
 )
@@ -14,7 +15,7 @@ func ComputeCacheKeyForEmbeddingsRequest(path string, req *goopenai.EmbeddingReq
 
 	input, _ := util.ConvertAnyToStr(req.Input)
 
-	return fmt.Sprintf("%s-%s-%s-%s", path, input, req.EncodingFormat, req.User)
+	return hasher.Hash(fmt.Sprintf("%s-%s-%s-%s", path, input, req.EncodingFormat, req.User))
 }
 
 func ComputeCacheKeyForChatCompletionRequest(path string, req *goopenai.ChatCompletionRequest) string {
@@ -29,5 +30,9 @@ func ComputeCacheKeyForChatCompletionRequest(path string, req *goopenai.ChatComp
 		input += m.Content
 	}
 
-	return fmt.Sprintf("%s-%s-%s-%s", path, input, req.User, req.ResponseFormat)
+	if req.ResponseFormat != nil && len(req.ResponseFormat.Type) != 0 {
+		return hasher.Hash(fmt.Sprintf("%s-%s-%s-%s", path, input, req.User, string(req.ResponseFormat.Type)))
+	}
+
+	return hasher.Hash(fmt.Sprintf("%s-%s-%s", path, input, req.User))
 }

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	goopenai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 
@@ -31,6 +32,7 @@ type CacheConfig struct {
 
 type Step struct {
 	Retries       int               `json:"retries"`
+	RetryInterval string            `json:"retryInterval"`
 	Provider      string            `json:"provider"`
 	RequestParams map[string]any    `json:"requestParams"`
 	Params        map[string]string `json:"params"`
@@ -68,6 +70,40 @@ func ConvertToMapOfIntegers(input any) map[string]int {
 	}
 
 	return result
+}
+
+func (s *Step) DecorateRequest(provider string, body []byte, isEmbedding bool) ([]byte, error) {
+	if provider != "azure" {
+		if isEmbedding {
+			embeddingsReq := &goopenai.EmbeddingRequest{}
+
+			err := json.Unmarshal(body, embeddingsReq)
+			if err != nil {
+				return nil, err
+			}
+
+			embeddingsReq.Model = goopenai.EmbeddingModel(s.Model)
+
+			return json.Marshal(embeddingsReq)
+		}
+	}
+
+	if !isEmbedding {
+		completionReq := &goopenai.ChatCompletionRequest{}
+
+		err := json.Unmarshal(body, completionReq)
+		if err != nil {
+			return nil, err
+		}
+
+		completionReq.Model = s.Model
+
+		s.DecorateChatCompletionRequest(completionReq)
+
+		return json.Marshal(completionReq)
+	}
+
+	return body, nil
 }
 
 func (s *Step) DecorateChatCompletionRequest(req *goopenai.ChatCompletionRequest) {
@@ -146,6 +182,7 @@ func (s *Step) DecorateChatCompletionRequest(req *goopenai.ChatCompletionRequest
 
 type Route struct {
 	Id            string       `json:"id"`
+	RetryStrategy string       `json:"retryStrategy"`
 	RequestFormat string       `json:"requestFormat"`
 	CreatedAt     int64        `json:"createdAt"`
 	UpdatedAt     int64        `json:"updatedAt"`
@@ -194,6 +231,157 @@ func (r *Route) ShouldRunEmbeddings() bool {
 	}
 
 	return false
+}
+
+func InitializeBackoff(strategy string, dur time.Duration) backoff.BackOff {
+	if strategy == "exponential" {
+		b := backoff.NewExponentialBackOff()
+
+		return b
+	}
+
+	return backoff.NewConstantBackOff(dur)
+}
+
+func (r *Route) RunStepsV2(req *Request, rec recorder, log *zap.Logger, kc *key.ResponseKey) (*Response, error) {
+	if len(r.Steps) == 0 {
+		return nil, errors.New("steps are empty")
+	}
+
+	body, err := io.ReadAll(req.Forwarded.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	events := []*event.Event{}
+	response := &Response{}
+
+	for _, step := range r.Steps {
+		dur := time.Second
+		if len(step.RetryInterval) != 0 {
+			parsed, err := time.ParseDuration(step.RetryInterval)
+			if err != nil {
+				return nil, err
+			}
+
+			dur = parsed
+		}
+
+		b := InitializeBackoff(r.RetryStrategy, dur)
+		withRetries := backoff.WithMaxRetries(b, uint64(step.Retries))
+
+		do := func() error {
+			start := time.Now()
+
+			evt := &event.Event{
+				Id:            util.NewUuid(),
+				CreatedAt:     time.Now().Unix(),
+				Tags:          kc.Tags,
+				KeyId:         kc.KeyId,
+				Provider:      step.Provider,
+				Method:        req.Forwarded.Method,
+				Path:          req.Forwarded.URL.Path,
+				Model:         step.Model,
+				Action:        req.Action,
+				Request:       []byte(`{}`),
+				Response:      []byte(`{}`),
+				CustomId:      req.Forwarded.Header.Get("X-CUSTOM-EVENT-ID"),
+				UserId:        req.UserId,
+				PolicyId:      req.PolicyId,
+				RouteId:       r.Id,
+				CorrelationId: req.CorrelationId,
+			}
+
+			defer func() {
+				evt.LatencyInMs = int(time.Since(start).Milliseconds())
+			}()
+
+			events = append(events, evt)
+
+			if kc.ShouldLogRequest {
+				evt.Request = body
+			}
+
+			parsed, err := time.ParseDuration(step.Timeout)
+			if err != nil {
+				return err
+			}
+
+			shouldNotCancel := false
+			ctx, cancel := context.WithTimeout(context.Background(), parsed)
+			defer func() {
+				if !shouldNotCancel {
+					cancel()
+				}
+			}()
+
+			hreq, err := req.createHttpRequest(ctx, step.Provider, r.ShouldRunEmbeddings(), step.Params, body)
+			if err != nil {
+				return err
+			}
+
+			res, err := req.Client.Do(hreq)
+			if err != nil {
+				return err
+			}
+
+			response.Provider = step.Provider
+			response.Model = step.Model
+			response.Response = res
+			response.Cancel = cancel
+			evt.Status = res.StatusCode
+
+			if res.StatusCode != http.StatusOK {
+				defer res.Body.Close()
+
+				bytes, err := io.ReadAll(res.Body)
+				if err != nil {
+					return err
+				}
+
+				response.Data = bytes
+				return errors.New("response is not okay")
+			}
+
+			if kc.ShouldLogResponse {
+				evt.Response = body
+			}
+
+			if res.StatusCode == http.StatusOK {
+				shouldNotCancel = true
+			}
+
+			return nil
+		}
+
+		notify := func(err error, t time.Duration) {
+			log.Debug("error when requesting external api via route", zap.Error(err), zap.Duration("duration", t))
+		}
+
+		err := backoff.RetryNotify(do, withRetries, notify)
+		if err == nil {
+			break
+		}
+	}
+
+	for idx, evt := range events {
+		if idx != len(events)-1 {
+			go func() {
+				err := rec.RecordEvent(evt)
+				if err != nil {
+					log.Debug("error when recording event", zap.Error(err))
+				}
+			}()
+
+			continue
+		}
+	}
+
+	if response.Response != nil {
+		return response, nil
+	}
+
+	return nil, errors.New("no responses")
 }
 
 func (r *Route) RunSteps(req *Request, rec recorder, log *zap.Logger) (*Response, error) {
@@ -448,11 +636,11 @@ func (r *Request) GetSettingValue(provider string, param string) (string, error)
 }
 
 type Response struct {
-	Provider      string
-	Model         string
-	CorrelationId string
-	Cancel        context.CancelFunc
-	Response      *http.Response
+	Provider string
+	Model    string
+	Data     []byte
+	Cancel   context.CancelFunc
+	Response *http.Response
 }
 
 func buildRequestUrl(provider string, runEmbeddings bool, resourceName string, params map[string]string) string {
@@ -485,4 +673,52 @@ func setHttpRequestAuthHeader(provider string, req *http.Request, key string) {
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", key))
+}
+
+func (r *Request) createHttpRequest(ctx context.Context, provider string, runEmbeddings bool, params map[string]string, data []byte) (*http.Request, error) {
+	resourceName := ""
+	if provider == "azure" {
+		val, err := r.GetSettingValue("azure", "resourceName")
+		if err != nil {
+			return nil, err
+		}
+
+		resourceName = val
+	}
+
+	key, err := r.GetSettingValue(provider, "apikey")
+	if err != nil {
+		return nil, err
+	}
+
+	url := buildRequestUrl(provider, runEmbeddings, resourceName, params)
+	if len(url) == 0 {
+		return nil, errors.New("request url is empty")
+	}
+
+	hreq, err := http.NewRequestWithContext(ctx, r.Forwarded.Method, url, io.NopCloser(bytes.NewReader(data)))
+
+	if provider == "azure" {
+		hreq.Header.Set("api-key", key)
+	} else {
+		hreq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", key))
+	}
+
+	for k := range r.Forwarded.Header {
+		if strings.HasPrefix(strings.ToLower(k), "authorization") {
+			continue
+		}
+
+		if strings.HasPrefix(strings.ToLower(k), "api-key") {
+			continue
+		}
+
+		if strings.ToLower(k) == "accept-encoding" {
+			continue
+		}
+
+		hreq.Header.Set(k, r.Forwarded.Header.Get(k))
+	}
+
+	return hreq, err
 }

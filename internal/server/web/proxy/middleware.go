@@ -475,7 +475,6 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				err = json.Unmarshal(body, er)
 				if err != nil {
 					logError(logWithCid, "error when unmarshalling route embedding request", prod, err)
-					return
 				}
 
 				userId = er.User
@@ -499,7 +498,6 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				err = json.Unmarshal(body, ccr)
 				if err != nil {
 					logError(logWithCid, "error when unmarshalling route chat completion request", prod, err)
-					return
 				}
 
 				c.Set("model", ccr.Model)
