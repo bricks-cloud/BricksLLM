@@ -1793,6 +1793,10 @@ components:
           $ref: "#/components/schemas/StepConfigParams"
           example: { "deploymentId": "ada-test", "apiVersion": "2022-12-01" }
           description: Params required for making Azure OpenAI requests. Required if the provider is 'azure'.
+        retryInterval:
+          type: string
+          example: "1s"
+          description: Interval between each retry. Valid units are "ms" and "s".
         timeout:
           type: string
           example: "5s"
@@ -1821,6 +1825,11 @@ components:
           type: string
           example: "/production/chat/completion"
           description: Unique path for the route.
+        retryStrategy:
+          type: string
+          enum: ["exponential", "constant"]
+          example: "constant"
+          description: Different strategies for retries.
         steps:
           type: array
           items:

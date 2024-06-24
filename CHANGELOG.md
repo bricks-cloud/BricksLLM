@@ -1,3 +1,12 @@
+## 1.29.0 - 2024-06-24
+### Added
+- Added support for Anthropic sonnet 3.5
+- Added retry strategy to routes
+- Added support for Azure OpenAI completions endpoint
+
+### Changed
+- Changed to using sha256 hashing algorithm for computing cache key within routes
+
 ## 1.28.4 - 2024-06-12
 ### Added
 - Added filtering by status code for events v2 API

@@ -231,6 +231,17 @@ func (m *RouteManager) validateRoute(r *route.Route) error {
 			fields = append(fields, fmt.Sprintf("steps.[%d].provider", index))
 		}
 
+		if len(step.RetryInterval) != 0 {
+			_, err := time.ParseDuration(step.RetryInterval)
+			if err != nil {
+				fields = append(fields, fmt.Sprintf("steps.[%d].retryInterval", index))
+			}
+
+			if !strings.HasSuffix(step.RetryInterval, "s") || !strings.HasSuffix(step.RetryInterval, "ms") {
+				fields = append(fields, fmt.Sprintf("steps.[%d].retryInterval", index))
+			}
+		}
+
 		if !contains(step.Provider, supportedProviders) {
 			return fmt.Errorf("steps.[%d].provider is not supported. Only azure and openai are supported", index)
 		}
