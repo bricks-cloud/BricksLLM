@@ -237,7 +237,7 @@ func (m *RouteManager) validateRoute(r *route.Route) error {
 				fields = append(fields, fmt.Sprintf("steps.[%d].retryInterval", index))
 			}
 
-			if !strings.HasSuffix(step.RetryInterval, "s") || !strings.HasSuffix(step.RetryInterval, "ms") {
+			if !strings.HasSuffix(step.RetryInterval, "s") && !strings.HasSuffix(step.RetryInterval, "ms") {
 				fields = append(fields, fmt.Sprintf("steps.[%d].retryInterval", index))
 			}
 		}
