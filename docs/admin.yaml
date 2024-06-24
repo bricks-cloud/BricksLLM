@@ -1728,6 +1728,7 @@ components:
         name:
           type: string
           description: Name of the route.
+          example: "Production Route"
         retryStrategy:
           type: string
           enum: ["exponential", "constant"]
@@ -1735,7 +1736,8 @@ components:
           description: Different strategies for retries.
         path:
           type: string
-          description: Path identifier for the route.
+          example: "/test/chat/completions"
+          description: Unique path for the route.
         steps:
           type: array
           items:
@@ -1744,6 +1746,7 @@ components:
           type: array
           items:
             type: string
+          example: ["9e6e8b27-2ce0-4ef0-bdd7-1ed3916592eb"]
           description: List of key IDs authorized to use the route.
         cacheConfig:
           $ref: "#/components/schemas/CacheConfig"
