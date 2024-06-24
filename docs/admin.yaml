@@ -1728,6 +1728,11 @@ components:
         name:
           type: string
           description: Name of the route.
+        retryStrategy:
+          type: string
+          enum: ["exponential", "constant"]
+          example: "constant"
+          description: Different strategies for retries.
         path:
           type: string
           description: Path identifier for the route.
