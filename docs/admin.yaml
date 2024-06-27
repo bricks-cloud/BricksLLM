@@ -590,6 +590,39 @@ paths:
               schema:
                 $ref: "#/components/schemas/InternalError"
 
+    delete:
+      tags:
+        - Routes
+      summary: Delete a route
+      description: This endpint is for deleting a route based on its unique identifier.
+      parameters:
+        - in: path
+          schema:
+            type: string
+          name: id
+          example: 98daa3ae-961d-4253-bf6a-322a32fdca3d
+          required: true
+          description: Unique identifier for the route.
+      responses:
+        200:
+          description: Route successfully deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouteConfig"
+        404:
+          description: Route not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFoundError"
+        500:
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalError"
+
   /api/reporting/users-ids:
     get:
       tags:
@@ -1777,6 +1810,35 @@ components:
           example: "2022-12-01"
           description: Azure API version.
 
+    StepRequestParams:
+      type: object
+      properties:
+        frequency_penalty:
+          type: number
+        max_tokens:
+          type: number
+        temperature:
+          type: number
+        top_p:
+          type: number
+        n:
+          type: number
+        stop:
+          type: array
+          items:
+            type: string
+
+        presence_penalty:
+          type: number
+        seed:
+          type: number
+        logit_bias:
+          type: object
+        logprobs:
+          type: bool
+        top_logprobs:
+          type: number
+
     StepConfig:
       type: object
       required:
@@ -1796,6 +1858,11 @@ components:
           type: integer
           example: 2
           description: Number of retries.
+        requestParams:
+          type: objects
+          $ref: "#/components/schemas/StepRequestParams"
+          example: { "stop": ["stop"] }
+          description: Request params that gets injected into your chat completions request at run time.
         params:
           type: objects
           $ref: "#/components/schemas/StepConfigParams"

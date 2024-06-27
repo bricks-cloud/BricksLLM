@@ -48,6 +48,20 @@ func (s *Store) AlterRoutesTable() error {
 	return nil
 }
 
+func (s *Store) DeleteRoute(id string) error {
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+
+	if _, err := s.db.ExecContext(ctxTimeout, "DELETE FROM routes WHERE $1 = id", id); err != nil {
+		if err == sql.ErrNoRows {
+			return internal_errors.NewNotFoundError("no rows")
+		}
+		return err
+	}
+
+	return nil
+}
+
 func (s *Store) CreateRoute(r *route.Route) (*route.Route, error) {
 	sbytes, err := json.Marshal(r.Steps)
 	if err != nil {

@@ -13,6 +13,7 @@ import (
 )
 
 type RouteManager interface {
+	DeleteRoute(id string) error
 	GetRoute(id string) (*route.Route, error)
 	GetRoutes() ([]*route.Route, error)
 	CreateRoute(r *route.Route) (*route.Route, error)
@@ -133,7 +134,7 @@ func getGetRouteHandler(m RouteManager, prod bool) gin.HandlerFunc {
 		if err != nil {
 			errType := "internal"
 			defer func() {
-				stats.Incr("bricksllm.admin.get_get_route_handler.get_custom_providers_err", []string{
+				stats.Incr("bricksllm.admin.get_get_route_handler.get_route_err", []string{
 					"error_type:" + errType,
 				}, 1)
 			}()
@@ -165,6 +166,68 @@ func getGetRouteHandler(m RouteManager, prod bool) gin.HandlerFunc {
 
 		stats.Incr("bricksllm.admin.get_get_route_handler.success", nil, 1)
 		c.JSON(http.StatusOK, r)
+	}
+}
+
+func getDeleteRouteHandler(m RouteManager, prod bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		log := util.GetLogFromCtx(c)
+		stats.Incr("bricksllm.admin.get_delete_route_handler.requests", nil, 1)
+
+		start := time.Now()
+		defer func() {
+			dur := time.Since(start)
+			stats.Timing("bricksllm.admin.get_delete_route_handler.latency", dur, nil, 1)
+		}()
+
+		path := "/api/routes/:id"
+		if c == nil || c.Request == nil {
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/empty-context",
+				Title:    "context is empty error",
+				Status:   http.StatusInternalServerError,
+				Detail:   "gin context is empty",
+				Instance: path,
+			})
+			return
+		}
+
+		err := m.DeleteRoute(c.Param("id"))
+		if err != nil {
+			errType := "internal"
+			defer func() {
+				stats.Incr("bricksllm.admin.get_delete_route_handler.delete_route_err", []string{
+					"error_type:" + errType,
+				}, 1)
+			}()
+
+			if _, ok := err.(notFoundError); ok {
+				errType = "not_found"
+
+				logError(log, "route not found", prod, err)
+				c.JSON(http.StatusNotFound, &ErrorResponse{
+					Type:     "/errors/route-not-found",
+					Title:    "route not found error",
+					Status:   http.StatusNotFound,
+					Detail:   err.Error(),
+					Instance: path,
+				})
+				return
+			}
+
+			logError(log, "error when deleting a route", prod, err)
+			c.JSON(http.StatusInternalServerError, &ErrorResponse{
+				Type:     "/errors/route-manager",
+				Title:    "deleting a route error",
+				Status:   http.StatusInternalServerError,
+				Detail:   err.Error(),
+				Instance: path,
+			})
+			return
+		}
+
+		stats.Incr("bricksllm.admin.get_delete_route_handler.success", nil, 1)
+		c.Status(http.StatusOK)
 	}
 }
 

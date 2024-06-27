@@ -1,3 +1,8 @@
+## 1.30.0 - 2024-06-27
+### Added
+- Added deletion endpoint for routes
+- Added support for new models from OpenAI and Azure OpenAI to routes
+
 ## 1.29.0 - 2024-06-24
 ### Added
 - Added support for Anthropic sonnet 3.5

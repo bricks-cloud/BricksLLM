@@ -20,7 +20,9 @@ var AzureOpenAiPerThousandTokenCost = map[string]map[string]float64{
 		"gpt-35-turbo-16k":      0.003,
 	},
 	"embeddings": {
-		"ada": 0.0001,
+		"ada":                    0.0001,
+		"text-embedding-3-large": 0.00013,
+		"text-embedding-3-small": 0.00002,
 	},
 	"completion": {
 		"gpt-4o":                0.015,

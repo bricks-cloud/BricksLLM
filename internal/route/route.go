@@ -307,6 +307,11 @@ func (r *Route) RunStepsV2(req *Request, rec recorder, log *zap.Logger, kc *key.
 				return err
 			}
 
+			bs, err := step.DecorateRequest(step.Provider, body, r.ShouldRunEmbeddings())
+			if err != nil {
+				return err
+			}
+
 			shouldNotCancel := false
 			ctx, cancel := context.WithTimeout(context.Background(), parsed)
 			defer func() {
@@ -315,7 +320,7 @@ func (r *Route) RunStepsV2(req *Request, rec recorder, log *zap.Logger, kc *key.
 				}
 			}()
 
-			hreq, err := req.createHttpRequest(ctx, step.Provider, r.ShouldRunEmbeddings(), step.Params, body)
+			hreq, err := req.createHttpRequest(ctx, step.Provider, r.ShouldRunEmbeddings(), step.Params, bs)
 			if err != nil {
 				return err
 			}

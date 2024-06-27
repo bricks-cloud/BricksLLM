@@ -16,6 +16,7 @@ type RoutesStorage interface {
 	GetRoute(id string) (*route.Route, error)
 	GetRoutes() ([]*route.Route, error)
 	GetRouteByPath(path string) (*route.Route, error)
+	DeleteRoute(id string) error
 }
 
 type RoutesMemStorage interface {
@@ -44,6 +45,10 @@ func (m *RouteManager) GetRouteFromMemDb(path string) *route.Route {
 
 func (m *RouteManager) GetRoute(id string) (*route.Route, error) {
 	return m.s.GetRoute(id)
+}
+
+func (m *RouteManager) DeleteRoute(id string) error {
+	return m.s.DeleteRoute(id)
 }
 
 func (m *RouteManager) GetRoutes() ([]*route.Route, error) {
@@ -99,6 +104,9 @@ var (
 		"gpt-4-32k",
 		"gpt-4-32k-0613",
 		"gpt-4-32k-0314",
+		"gpt-4-turbo",
+		"gpt-4o-2024-05-13",
+		"gpt-4o",
 		"gpt-35-turbo",
 		"gpt-35-turbo-1106",
 		"gpt-35-turbo-0301",
@@ -118,6 +126,12 @@ var (
 		"gpt-4-32k",
 		"gpt-4-32k-0613",
 		"gpt-4-32k-0314",
+		"gpt-4-turbo",
+		"gpt-4-turbo-2024-04-09",
+		"gpt-4-1106-preview",
+		"gpt-4-turbo-preview",
+		"gpt-4o-2024-05-13",
+		"gpt-4o",
 		"gpt-3.5-turbo",
 		"gpt-3.5-turbo-1106",
 		"gpt-3.5-turbo-0301",
@@ -137,6 +151,12 @@ var (
 		"gpt-4-32k",
 		"gpt-4-32k-0613",
 		"gpt-4-32k-0314",
+		"gpt-4-turbo",
+		"gpt-4-turbo-2024-04-09",
+		"gpt-4-1106-preview",
+		"gpt-4-turbo-preview",
+		"gpt-4o-2024-05-13",
+		"gpt-4o",
 		"gpt-35-turbo",
 		"gpt-35-turbo-1106",
 		"gpt-35-turbo-0301",
@@ -158,6 +178,8 @@ var (
 	adaModels = []string{
 		"ada",
 		"text-embedding-ada-002",
+		"text-embedding-3-large",
+		"text-embedding-3-small",
 	}
 
 	chatCompletionModels = []string{
@@ -176,6 +198,12 @@ var (
 		"gpt-4-32k",
 		"gpt-4-32k-0613",
 		"gpt-4-32k-0314",
+		"gpt-4-turbo",
+		"gpt-4-turbo-2024-04-09",
+		"gpt-4-1106-preview",
+		"gpt-4-turbo-preview",
+		"gpt-4o-2024-05-13",
+		"gpt-4o",
 		"gpt-3.5-turbo",
 		"gpt-3.5-turbo-1106",
 		"gpt-3.5-turbo-0301",
