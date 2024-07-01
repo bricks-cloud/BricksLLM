@@ -51,7 +51,10 @@ func main() {
 		log.Sugar().Fatalf("cannot parse environment variables: %v", err)
 	}
 
-	err = stats.InitializeClient(cfg.StatsProvider)
+	err = stats.InitializeClient(stats.Config{
+		Enabled: cfg.StatsEnabled,
+		Address: cfg.StatsAddress,
+	})
 	if err != nil {
 		log.Sugar().Fatalf("cannot connect to telemetry provider: %v", err)
 	}

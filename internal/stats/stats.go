@@ -6,29 +6,28 @@ import (
 	"github.com/DataDog/datadog-go/v5/statsd"
 )
 
+type Config struct {
+	Enabled bool
+	Address string
+}
+
 type Client struct {
-	provider string
-	statsdc  *statsd.Client
+	config  Config
+	statsdc *statsd.Client
 }
 
 var instance *Client
 
-func InitializeClient(provider string) error {
+func InitializeClient(cfg Config) error {
 	if instance == nil {
 		instance = &Client{}
-		if provider == "datadog" {
-			statsd, err := statsd.New("127.0.0.1:8125")
-			if err != nil {
-				return err
-			}
-			instance.statsdc = statsd
-		} else {
-			statsd, err := statsd.New(provider)
-			if err != nil {
-				return err
-			}
-			instance.statsdc = statsd
+		instance.config = cfg
+
+		statsd, err := statsd.New(cfg.Address)
+		if err != nil {
+			return err
 		}
+		instance.statsdc = statsd
 
 		return nil
 	}
@@ -37,9 +36,13 @@ func InitializeClient(provider string) error {
 }
 
 func Incr(name string, tags []string, rate float64) {
-	instance.statsdc.Incr(name, tags, rate)
+	if instance.config.Enabled {
+		instance.statsdc.Incr(name, tags, rate)
+	}
 }
 
 func Timing(name string, value time.Duration, tags []string, rate float64) {
-	instance.statsdc.Timing(name, value, tags, rate)
+	if instance.config.Enabled {
+		instance.statsdc.Timing(name, value, tags, rate)
+	}
 }
