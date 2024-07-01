@@ -7,28 +7,19 @@ import (
 )
 
 type Client struct {
-	provider string
-	statsdc  *statsd.Client
+	statsdc *statsd.Client
 }
 
 var instance *Client
 
-func InitializeClient(provider string) error {
+func InitializeClient(address string) error {
 	if instance == nil {
 		instance = &Client{}
-		if provider == "datadog" {
-			statsd, err := statsd.New("127.0.0.1:8125")
-			if err != nil {
-				return err
-			}
-			instance.statsdc = statsd
-		} else {
-			statsd, err := statsd.New(provider)
-			if err != nil {
-				return err
-			}
-			instance.statsdc = statsd
+		statsd, err := statsd.New(address)
+		if err != nil {
+			return err
 		}
+		instance.statsdc = statsd
 
 		return nil
 	}

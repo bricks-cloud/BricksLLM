@@ -51,9 +51,11 @@ func main() {
 		log.Sugar().Fatalf("cannot parse environment variables: %v", err)
 	}
 
-	err = stats.InitializeClient(cfg.StatsProvider)
-	if err != nil {
-		log.Sugar().Fatalf("cannot connect to telemetry provider: %v", err)
+	if cfg.StatsEnabled {
+		err = stats.InitializeClient(cfg.StatsAddress)
+		if err != nil {
+			log.Sugar().Fatalf("cannot connect to telemetry provider: %v", err)
+		}
 	}
 
 	store, err := postgresql.NewStore(
