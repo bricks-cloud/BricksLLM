@@ -1,8 +1,13 @@
 ## 1.31.0 - 2024-07-02
+### Fixed
+- Fixed OpenAI transcription endpoint not working error
+
+## 1.31.0 - 2024-07-02
 ### Added
 - Added support for storing metadata per request via the `X-METADATA` header
 
-## 1.30.0 - 2024-06-27
+## 1.30.0 - 2024-
+06-27
 ### Added
 - Added deletion endpoint for routes
 - Added support for new models from OpenAI and Azure OpenAI to routes

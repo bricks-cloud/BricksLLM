@@ -264,6 +264,11 @@ func getTranscriptionsHandler(prod bool, client http.Client, timeOut time.Durati
 		}
 
 		format := c.PostForm("response_format")
+
+		if len(format) == 0 {
+			format = "json"
+		}
+
 		for name, values := range res.Header {
 			for _, value := range values {
 				if strings.ToLower(name) == "content-type" {
