@@ -1,4 +1,4 @@
-## 1.31.0 - 2024-07-02
+## 1.31.1 - 2024-07-02
 ### Fixed
 - Fixed OpenAI transcription endpoint not working error
 
