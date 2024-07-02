@@ -936,13 +936,13 @@ func (ps *ProxyServer) Run() {
 		// threads
 		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads is ready for creating an openai thread")
 		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id is ready for retrieving an openai thread")
-		ps.log.Info("PORT 8002 | POSt   | /api/providers/openai/v1/threads/:thread_id is ready for modifying an openai thread")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads/:thread_id is ready for modifying an openai thread")
 		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id is ready for deleting an openai thread")
 
 		// messages
 		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads/:thread_id/messages is ready for creating an openai message")
 		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id/messages/:message_id is ready for retrieving an openai message")
-		ps.log.Info("PORT 8002 | POSt   | /api/providers/openai/v1/threads/:thread_id/messages/:message_id is ready for modifying an openai message")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads/:thread_id/messages/:message_id is ready for modifying an openai message")
 		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id/messages is ready for retrieving openai messages")
 
 		// message files

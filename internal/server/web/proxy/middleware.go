@@ -201,6 +201,9 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 		customId := c.Request.Header.Get("X-CUSTOM-EVENT-ID")
 
+		metadataBytes := []byte(`{}`)
+		metadata := c.Request.Header.Get("X-METADATA")
+
 		defer func() {
 			dur := time.Since(start)
 			latency := int(dur.Milliseconds())
@@ -215,6 +218,17 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			if enrichedEvent.Key != nil {
 				keyId = enrichedEvent.Key.KeyId
 				tags = enrichedEvent.Key.Tags
+			}
+
+			if len(metadata) != 0 {
+				data, err := json.Marshal(metadata)
+				if err != nil {
+					stats.Incr("bricksllm.proxy.get_middleware.json_marshal_metadata_err", nil, 1)
+				}
+
+				if err == nil {
+					metadataBytes = data
+				}
 			}
 
 			stats.Timing("bricksllm.proxy.get_middleware.proxy_latency_in_ms", dur, nil, 1)
@@ -258,6 +272,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				Action:               c.GetString("action"),
 				RouteId:              c.GetString("routeId"),
 				CorrelationId:        cid,
+				Metadata:             metadataBytes,
 			}
 
 			enrichedEvent.Event = evt

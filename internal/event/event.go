@@ -29,6 +29,7 @@ type Event struct {
 	PolicyId             string   `json:"policyId"`
 	RouteId              string   `json:"routeId"`
 	CorrelationId        string   `json:"correlationId"`
+	Metadata             []byte   `json:"metadata"`
 }
 
 type EventResponse struct {
