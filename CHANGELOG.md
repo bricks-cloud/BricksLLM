@@ -1,3 +1,7 @@
+## 1.31.0 - 2024-07-02
+### Added
+- Added support for storing metadata per request via the `X-METADATA` header
+
 ## 1.30.0 - 2024-06-27
 ### Added
 - Added deletion endpoint for routes

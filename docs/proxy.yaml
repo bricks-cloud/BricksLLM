@@ -40,10 +40,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: OpenAI Chat Completions
@@ -53,10 +58,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Call OpenAI embeddings
@@ -66,10 +76,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Call OpenAI moderations
@@ -79,7 +94,7 @@ paths:
     get:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
@@ -96,10 +111,15 @@ paths:
       description: This endpoint is set up for retrieving an OpenAI model. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/models/retrieve).
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: model
           required: true
@@ -111,10 +131,15 @@ paths:
     get:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: List files
@@ -123,10 +148,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Upload a file
@@ -140,10 +170,15 @@ paths:
       description: This endpoint is set up for deleting an OpenAI file. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/files/delete).
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: file_id
           required: true
@@ -153,10 +188,15 @@ paths:
     get:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: file_id
           required: true
@@ -172,10 +212,15 @@ paths:
     get:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: file_id
           required: true
@@ -190,10 +235,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Create a batch
@@ -202,10 +252,15 @@ paths:
     get:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: List batches
@@ -219,10 +274,15 @@ paths:
       description: This endpoint is set up for retrieving a batch. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/batch/retrieve).
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: batch_id
           required: true
@@ -232,10 +292,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Cancel a batch
@@ -245,10 +310,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Generate images
@@ -258,10 +328,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Edit images
@@ -271,10 +346,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Create image variations
@@ -284,10 +364,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Create speech
@@ -297,10 +382,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Create transcriptions
@@ -310,10 +400,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Create translations
@@ -323,10 +418,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Create assistant
@@ -335,10 +435,15 @@ paths:
     get:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: List assistants
@@ -352,10 +457,15 @@ paths:
       description: This endpoint is set up for retrieving an OpenAI assistant. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/getAssistant).
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: assistant_id
           required: true
@@ -370,10 +480,15 @@ paths:
           schema:
             type: string
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Modify assistant
@@ -387,10 +502,15 @@ paths:
           schema:
             type: string
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Delete assistant
@@ -405,10 +525,15 @@ paths:
           schema:
             type: string
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Create assistant file
@@ -422,10 +547,15 @@ paths:
           schema:
             type: string
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: List assistant files
@@ -435,10 +565,15 @@ paths:
     get:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: assistant_id
           required: true
@@ -448,7 +583,7 @@ paths:
           name: file_id
           required: true
           schema:
-            type: string 
+            type: string
       tags:
         - OpenAI
       summary: Retrieve assistant file
@@ -467,10 +602,15 @@ paths:
           schema:
             type: string
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Delete assistant file
@@ -480,10 +620,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Create thread
@@ -497,10 +642,15 @@ paths:
       description: This endpoint is set up for retrieving an OpenAI thread. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/threads/getThread).
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: thread_id
           required: true
@@ -510,10 +660,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: thread_id
           required: true
@@ -527,10 +682,15 @@ paths:
     delete:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Delete thread
@@ -540,10 +700,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: thread_id
           required: true
@@ -557,10 +722,15 @@ paths:
     get:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: thread_id
           required: true
@@ -580,10 +750,15 @@ paths:
       description: This endpoint is set up for retrieving an OpenAI message. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/messages/getMessage).
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: message_id
           required: true
@@ -597,10 +772,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: message_id
           required: true
@@ -624,10 +804,15 @@ paths:
       description: This endpoint is set up for retrieving an OpenAI message file. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/messages/getMessageFile).
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: file_id
           required: true
@@ -658,10 +843,15 @@ paths:
           schema:
             type: string
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: List message files
@@ -671,10 +861,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: thread_id
           required: true
@@ -688,9 +883,14 @@ paths:
     get:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: thread_id
           required: true
@@ -710,10 +910,15 @@ paths:
       description: This endpoint is set up for retrieving an OpenAI run. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/getRun).
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: run_id
           required: true
@@ -739,10 +944,15 @@ paths:
           schema:
             type: string
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Modify run
@@ -752,10 +962,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: thread_id
           required: true
@@ -775,10 +990,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - OpenAI
       summary: Create thread and run
@@ -792,10 +1012,15 @@ paths:
       description: This endpoint is set up for retrieving an OpenAI run step. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/getRunStep).
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: step_id
           required: true
@@ -817,10 +1042,15 @@ paths:
     get:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: thread_id
           required: true
@@ -844,10 +1074,15 @@ paths:
       description: This endpoint is set up for proxying Azure OpenAI completion requests. Documentation for this endpoint can be found [here](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference).
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: deployment_id
           required: true
@@ -869,10 +1104,15 @@ paths:
       description: This endpoint is set up for proxying Azure Completions requests. Documentation for this endpoint can be found [here](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference).
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: deployment_id
           required: true
@@ -893,10 +1133,15 @@ paths:
       description: This endpoint is set up for proxying Azure OpenAI embedding requests. Documentation for this endpoint can be found [here](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference).
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: deployment_id
           required: true
@@ -914,10 +1159,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - Anthropic
       summary: Create Anthropic completion
@@ -927,10 +1177,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - Anthropic
       summary: Create Anthropic messages
@@ -940,10 +1195,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - vLLM
       summary: Create chat completions
@@ -953,10 +1213,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - vLLM
       summary: Create completions
@@ -966,10 +1231,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - DeepInfra
       summary: Create chat completions
@@ -979,10 +1249,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - DeepInfra
       summary: Create completions
@@ -992,10 +1267,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - DeepInfra
       summary: Create embeddings
@@ -1005,10 +1285,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
         - in: path
           name: provider
           required: true
@@ -1024,10 +1309,15 @@ paths:
     post:
       parameters:
         - in: header
-          name: x-custom-event-id
+          name: X-CUSTOM-EVENT-ID
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
       tags:
         - Route
       summary: Call a route
