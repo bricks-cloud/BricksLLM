@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 )
@@ -16,12 +16,12 @@ import (
 func getGetUserIdsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.admin.get_get_user_ids_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_user_ids_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_get_user_ids_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.admin.get_get_user_ids_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/reporting/user-ids"
@@ -50,7 +50,7 @@ func getGetUserIdsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 
 		cids, err := m.GetUserIds(kid)
 		if err != nil {
-			stats.Incr("bricksllm.admin.get_get_user_ids_handler.get_user_ids_err", nil, 1)
+			telemetry.Incr("bricksllm.admin.get_get_user_ids_handler.get_user_ids_err", nil, 1)
 
 			logError(log, "error when getting userIds", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -63,7 +63,7 @@ func getGetUserIdsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 			return
 		}
 
-		stats.Incr("bricksllm.admin.get_get_user_ids_handler.success", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_user_ids_handler.success", nil, 1)
 		c.JSON(http.StatusOK, cids)
 	}
 }
@@ -71,12 +71,12 @@ func getGetUserIdsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 func getGetCustomIdsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.admin.get_get_custom_ids_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_custom_ids_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_get_custom_ids_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.admin.get_get_custom_ids_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/reporting/custom-ids"
@@ -106,7 +106,7 @@ func getGetCustomIdsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 
 		cids, err := m.GetCustomIds(kid)
 		if err != nil {
-			stats.Incr("bricksllm.admin.get_get_user_ids_handler.get_custom_ids_err", nil, 1)
+			telemetry.Incr("bricksllm.admin.get_get_user_ids_handler.get_custom_ids_err", nil, 1)
 
 			logError(log, "error when getting custom ids", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -119,7 +119,7 @@ func getGetCustomIdsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 			return
 		}
 
-		stats.Incr("bricksllm.admin.get_get_custom_ids_handler.success", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_custom_ids_handler.success", nil, 1)
 		c.JSON(http.StatusOK, cids)
 	}
 }
@@ -127,12 +127,12 @@ func getGetCustomIdsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 func getGetEventsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.admin.get_get_events_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_events_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_get_events_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.admin.get_get_events_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/events"
@@ -226,7 +226,7 @@ func getGetEventsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 
 		evs, err := m.GetEvents(userId, customId, keyIds, qstart, qend)
 		if err != nil {
-			stats.Incr("bricksllm.admin.get_get_events_handler.get_events_error", nil, 1)
+			telemetry.Incr("bricksllm.admin.get_get_events_handler.get_events_error", nil, 1)
 
 			logError(log, "error when getting events", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -239,7 +239,7 @@ func getGetEventsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 			return
 		}
 
-		stats.Incr("bricksllm.admin.get_get_events_handler.success", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_events_handler.success", nil, 1)
 
 		c.JSON(http.StatusOK, evs)
 	}
@@ -248,12 +248,12 @@ func getGetEventsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 func getGetEventsV2Handler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.admin.get_get_events_v2_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_events_v2_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_get_events_v2_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.admin.get_get_events_v2_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/v2/events"
@@ -300,7 +300,7 @@ func getGetEventsV2Handler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 			errType := "internal"
 
 			defer func() {
-				stats.Incr("bricksllm.admin.get_get_events_v2_handler.get_events_v2_err", []string{
+				telemetry.Incr("bricksllm.admin.get_get_events_v2_handler.get_events_v2_err", []string{
 					"error_type:" + errType,
 				}, 1)
 			}()
@@ -328,7 +328,7 @@ func getGetEventsV2Handler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 			return
 		}
 
-		stats.Incr("bricksllm.admin.get_get_events_v2_handler.success", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_events_v2_handler.success", nil, 1)
 		c.JSON(http.StatusOK, keys)
 	}
 }

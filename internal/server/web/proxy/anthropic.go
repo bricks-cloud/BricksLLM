@@ -13,7 +13,7 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -41,7 +41,7 @@ func copyHttpHeaders(source *http.Request, dest *http.Request) {
 func getCompletionHandler(prod, private bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.proxy.get_completion_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.proxy.get_completion_handler.requests", nil, 1)
 
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
@@ -61,7 +61,7 @@ func getCompletionHandler(prod, private bool, client http.Client, timeOut time.D
 		// raw, exists := c.Get("key")
 		// kc, ok := raw.(*key.ResponseKey)
 		// if !exists || !ok {
-		// 	stats.Incr("bricksllm.proxy.get_completion_handler.api_key_not_registered", nil, 1)
+		// 	telemetry.Incr("bricksllm.proxy.get_completion_handler.api_key_not_registered", nil, 1)
 		// 	JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
 		// 	return
 		// }
@@ -78,7 +78,7 @@ func getCompletionHandler(prod, private bool, client http.Client, timeOut time.D
 		start := time.Now()
 		res, err := client.Do(req)
 		if err != nil {
-			stats.Incr("bricksllm.proxy.get_completion_handler.http_client_error", nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_completion_handler.http_client_error", nil, 1)
 
 			logError(log, "error when sending http request to anthropic", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send http request to anthropic")
@@ -97,7 +97,7 @@ func getCompletionHandler(prod, private bool, client http.Client, timeOut time.D
 
 		if !isStreaming && res.StatusCode == http.StatusOK {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.proxy.get_completion_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_completion_handler.latency", dur, nil, 1)
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
@@ -109,8 +109,8 @@ func getCompletionHandler(prod, private bool, client http.Client, timeOut time.D
 			// var cost float64 = 0
 			// completionTokens := 0
 			completionRes := &anthropic.CompletionResponse{}
-			stats.Incr("bricksllm.proxy.get_completion_handler.success", nil, 1)
-			stats.Timing("bricksllm.proxy.get_completion_handler.success_latency", dur, nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_completion_handler.success", nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_completion_handler.success_latency", dur, nil, 1)
 
 			err = json.Unmarshal(bytes, completionRes)
 			if err != nil {
@@ -128,14 +128,14 @@ func getCompletionHandler(prod, private bool, client http.Client, timeOut time.D
 			// 	promptTokens := c.GetInt("promptTokenCount")
 			// 	cost, err = e.EstimateTotalCost(model, promptTokens, completionTokens)
 			// 	if err != nil {
-			// 		stats.Incr("bricksllm.proxy.get_completion_handler.estimate_total_cost_error", nil, 1)
+			// 		telemetry.Incr("bricksllm.proxy.get_completion_handler.estimate_total_cost_error", nil, 1)
 			// 		logError(log, "error when estimating anthropic cost", prod, err)
 			// 	}
 
 			// 	micros := int64(cost * 1000000)
 			// 	err = r.RecordKeySpend(kc.KeyId, micros, kc.CostLimitInUsdUnit)
 			// 	if err != nil {
-			// 		stats.Incr("bricksllm.proxy.get_completion_handler.record_key_spend_error", nil, 1)
+			// 		telemetry.Incr("bricksllm.proxy.get_completion_handler.record_key_spend_error", nil, 1)
 			// 		logError(log, "error when recording anthropic spend", prod, err)
 			// 	}
 			// }
@@ -149,8 +149,8 @@ func getCompletionHandler(prod, private bool, client http.Client, timeOut time.D
 
 		if res.StatusCode != http.StatusOK {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.proxy.get_completion_handler.error_latency", dur, nil, 1)
-			stats.Incr("bricksllm.proxy.get_completion_handler.error_response", nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_completion_handler.error_latency", dur, nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_completion_handler.error_response", nil, 1)
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
 				logError(log, "error when reading anthropic http completion response body", prod, err)
@@ -178,7 +178,7 @@ func getCompletionHandler(prod, private bool, client http.Client, timeOut time.D
 		// 	model := c.GetString("model")
 		// 	cost, err := e.EstimateCompletionCost(model, tks)
 		// 	if err != nil {
-		// 		stats.Incr("bricksllm.proxy.get_completion_handler.estimate_completion_cost_error", nil, 1)
+		// 		telemetry.Incr("bricksllm.proxy.get_completion_handler.estimate_completion_cost_error", nil, 1)
 		// 		logError(log, "error when estimating anthropic completion stream cost", prod, err)
 		// 	}
 
@@ -189,7 +189,7 @@ func getCompletionHandler(prod, private bool, client http.Client, timeOut time.D
 		// 	c.Set("completionTokenCount", tks+anthropicCompletionMagicNum)
 		// }()
 
-		stats.Incr("bricksllm.proxy.get_completion_handler.streaming_requests", nil, 1)
+		telemetry.Incr("bricksllm.proxy.get_completion_handler.streaming_requests", nil, 1)
 
 		eventName := ""
 		c.Stream(func(w io.Writer) bool {
@@ -200,13 +200,13 @@ func getCompletionHandler(prod, private bool, client http.Client, timeOut time.D
 				}
 
 				if errors.Is(err, context.DeadlineExceeded) {
-					stats.Incr("bricksllm.proxy.get_completion_handler.context_deadline_exceeded_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_completion_handler.context_deadline_exceeded_error", nil, 1)
 					logError(log, "context deadline exceeded when reading bytes from anthropic completion response", prod, err)
 
 					return false
 				}
 
-				stats.Incr("bricksllm.proxy.get_completion_handler.read_bytes_error", nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_completion_handler.read_bytes_error", nil, 1)
 				logError(log, "error when reading bytes from anthropic streaming response", prod, err)
 
 				apiErr := &anthropic.ErrorResponse{
@@ -218,7 +218,7 @@ func getCompletionHandler(prod, private bool, client http.Client, timeOut time.D
 
 				bytes, err := json.Marshal(apiErr)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_completion_handler.json_marshal_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_completion_handler.json_marshal_error", nil, 1)
 					logError(log, "error when marshalling bytes for anthropic streaming error response", prod, err)
 					return false
 				}
@@ -231,7 +231,7 @@ func getCompletionHandler(prod, private bool, client http.Client, timeOut time.D
 
 				bytes, err = json.Marshal(messageStop)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_messages_handler.json_marshal_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_messages_handler.json_marshal_error", nil, 1)
 					logError(log, "error when marshalling bytes for anthropic streaming message stop", prod, err)
 					return false
 				}
@@ -268,7 +268,7 @@ func getCompletionHandler(prod, private bool, client http.Client, timeOut time.D
 			chatCompletionResp := &anthropic.CompletionResponse{}
 			err = json.Unmarshal(noPrefixLine, chatCompletionResp)
 			if err != nil {
-				stats.Incr("bricksllm.proxy.get_completion_handler.completion_response_unmarshall_error", nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_completion_handler.completion_response_unmarshall_error", nil, 1)
 				logError(log, "error when unmarshalling anthropic completion stream response", prod, err)
 			}
 
@@ -279,7 +279,7 @@ func getCompletionHandler(prod, private bool, client http.Client, timeOut time.D
 			return true
 		})
 
-		stats.Timing("bricksllm.proxy.get_completion_handler.streaming_latency", time.Since(start), nil, 1)
+		telemetry.Timing("bricksllm.proxy.get_completion_handler.streaming_latency", time.Since(start), nil, 1)
 	}
 }
 
@@ -295,7 +295,7 @@ var (
 func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstimator, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.proxy.get_messages_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.proxy.get_messages_handler.requests", nil, 1)
 
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
@@ -315,7 +315,7 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 		raw, exists := c.Get("key")
 		_, ok := raw.(*key.ResponseKey)
 		if !exists || !ok {
-			stats.Incr("bricksllm.proxy.get_messages_handler.api_key_not_registered", nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_messages_handler.api_key_not_registered", nil, 1)
 			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
 			return
 		}
@@ -332,7 +332,7 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 		start := time.Now()
 		res, err := client.Do(req)
 		if err != nil {
-			stats.Incr("bricksllm.proxy.get_messages_handler.http_client_error", nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_messages_handler.http_client_error", nil, 1)
 
 			logError(log, "error when sending http request to anthropic", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send http request to anthropic")
@@ -351,7 +351,7 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 
 		if !isStreaming && res.StatusCode == http.StatusOK {
 			dur := time.Now().Sub(start)
-			stats.Timing("bricksllm.proxy.get_messages_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_messages_handler.latency", dur, nil, 1)
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
@@ -365,8 +365,8 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 			promptTokens := 0
 
 			completionRes := &anthropic.MessagesResponse{}
-			stats.Incr("bricksllm.proxy.get_messages_handler.success", nil, 1)
-			stats.Timing("bricksllm.proxy.get_messages_handler.success_latency", dur, nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_messages_handler.success", nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_messages_handler.success_latency", dur, nil, 1)
 
 			err = json.Unmarshal(bytes, completionRes)
 			if err != nil {
@@ -379,12 +379,12 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 				promptTokens = completionRes.Usage.InputTokens
 				cost, err = e.EstimateTotalCost(model, promptTokens, completionTokens)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_messages_handler.estimate_total_cost_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_messages_handler.estimate_total_cost_error", nil, 1)
 					logError(log, "error when estimating anthropic cost", prod, err)
 				}
 
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_messages_handler.record_key_spend_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_messages_handler.record_key_spend_error", nil, 1)
 					logError(log, "error when recording anthropic spend", prod, err)
 				}
 			}
@@ -399,8 +399,8 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 
 		if res.StatusCode != http.StatusOK {
 			dur := time.Now().Sub(start)
-			stats.Timing("bricksllm.proxy.get_messages_handler.error_latency", dur, nil, 1)
-			stats.Incr("bricksllm.proxy.get_messages_handler.error_response", nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_messages_handler.error_latency", dur, nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_messages_handler.error_response", nil, 1)
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
 				logError(log, "error when reading anthropic http messages response body", prod, err)
@@ -427,13 +427,13 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 			model := c.GetString("model")
 			cost, err := e.EstimateCompletionCost(model, tks)
 			if err != nil {
-				stats.Incr("bricksllm.proxy.get_messages_handler.estimate_messages_cost_error", nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_messages_handler.estimate_messages_cost_error", nil, 1)
 				logError(log, "error when estimating anthropic messages stream cost", prod, err)
 			}
 
 			estimatedPromptCost, err := e.EstimatePromptCost(model, response.Usage.InputTokens)
 			if err != nil {
-				stats.Incr("bricksllm.proxy.get_messages_handler.estimate_prompt_cost_error", nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_messages_handler.estimate_prompt_cost_error", nil, 1)
 				logError(log, "error when estimating anthropic prompt cost", prod, err)
 			}
 
@@ -444,7 +444,7 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 			c.Set("completionTokenCount", tks)
 		}()
 
-		stats.Incr("bricksllm.proxy.get_messages_handler.streaming_requests", nil, 1)
+		telemetry.Incr("bricksllm.proxy.get_messages_handler.streaming_requests", nil, 1)
 
 		eventName := ""
 		c.Stream(func(w io.Writer) bool {
@@ -454,7 +454,7 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 					return false
 				}
 
-				stats.Incr("bricksllm.proxy.get_messages_handler.read_bytes_error", nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_messages_handler.read_bytes_error", nil, 1)
 				logError(log, "error when reading bytes from anthropic streaming response", prod, err)
 
 				apiErr := &anthropic.ErrorResponse{
@@ -466,7 +466,7 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 
 				bytes, err := json.Marshal(apiErr)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_messages_handler.json_marshal_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_messages_handler.json_marshal_error", nil, 1)
 					logError(log, "error when marshalling bytes for anthropic streaming error response", prod, err)
 					return false
 				}
@@ -479,7 +479,7 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 
 				bytes, err = json.Marshal(messageStop)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_messages_handler.json_marshal_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_messages_handler.json_marshal_error", nil, 1)
 					logError(log, "error when marshalling bytes for anthropic streaming message stop", prod, err)
 					return false
 				}
@@ -542,7 +542,7 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 				messageStart := &anthropic.MessagesStreamMessageStart{}
 				err = json.Unmarshal(noPrefixLine, messageStart)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_messages_handler.message_start_response_unmarshall_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_messages_handler.message_start_response_unmarshall_error", nil, 1)
 					logError(log, "error when unmarshalling anthropic message stream response message_start", prod, err)
 					return true
 				}
@@ -555,7 +555,7 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 
 				err = json.Unmarshal(noPrefixLine, messageDelta)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_messages_handler.message_delta_response_unmarshall_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_messages_handler.message_delta_response_unmarshall_error", nil, 1)
 					logError(log, "error when unmarshalling anthropic message stream response message_delta", prod, err)
 					return true
 				}
@@ -567,7 +567,7 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 				contentBlockStart := &anthropic.MessagesStreamBlockStart{}
 				err = json.Unmarshal(noPrefixLine, contentBlockStart)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_messages_handler.content_block_start_response_unmarshall_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_messages_handler.content_block_start_response_unmarshall_error", nil, 1)
 					logError(log, "error when unmarshalling anthropic message stream response content_block_start", prod, err)
 					return true
 				}
@@ -577,7 +577,7 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 				contentBlockDelta := &anthropic.MessagesStreamBlockDelta{}
 				err = json.Unmarshal(noPrefixLine, contentBlockDelta)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_messages_handler.content_block_delta_response_unmarshall_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_messages_handler.content_block_delta_response_unmarshall_error", nil, 1)
 					logError(log, "error when unmarshalling anthropic message stream response content_block_delta", prod, err)
 					return true
 				}
@@ -586,7 +586,7 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 			return true
 		})
 
-		stats.Timing("bricksllm.proxy.get_messages_handler.streaming_latency", time.Since(start), nil, 1)
+		telemetry.Timing("bricksllm.proxy.get_messages_handler.streaming_latency", time.Since(start), nil, 1)
 	}
 }
 

@@ -13,7 +13,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
 	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	"github.com/bricks-cloud/bricksllm/internal/provider/vllm"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"go.uber.org/zap"
 
 	goopenai "github.com/sashabaranov/go-openai"
@@ -909,7 +909,7 @@ func (p *Policy) scan(input []string, scanner Scanner, cd CustomPolicyDetector, 
 
 			r, err := scanner.Scan(result.Updated)
 			if err != nil {
-				stats.Incr("bricksllm.policy.scanner.scan.scan_error", nil, 1)
+				telemetry.Incr("bricksllm.policy.scanner.scan.scan_error", nil, 1)
 				return
 			}
 
@@ -1009,7 +1009,7 @@ func (p *Policy) scan(input []string, scanner Scanner, cd CustomPolicyDetector, 
 				found, err := cd.Detect(input, reqs)
 				if err != nil {
 					log.Debug("error when detecting using custom policy", zap.Error(err))
-					stats.Incr("bricksllm.policy.scanner.scan.detect_error", nil, 1)
+					telemetry.Incr("bricksllm.policy.scanner.scan.detect_error", nil, 1)
 					return
 				}
 
@@ -1033,7 +1033,7 @@ func (p *Policy) scan(input []string, scanner Scanner, cd CustomPolicyDetector, 
 			for _, rule := range p.RegexConfig.RegularExpressionRules {
 				regex, err := regexp.Compile(rule.Definition)
 				if err != nil {
-					stats.Incr("bricksllm.policy.scanner.scan.regex_compile_error", nil, 1)
+					telemetry.Incr("bricksllm.policy.scanner.scan.regex_compile_error", nil, 1)
 					continue
 				}
 
@@ -1079,7 +1079,7 @@ func (p *Policy) scan(input []string, scanner Scanner, cd CustomPolicyDetector, 
 				if rule.Action == AllowButRedact {
 					regex, err := regexp.Compile(rule.Definition)
 					if err != nil {
-						stats.Incr("bricksllm.policy.scanner.scan.regex_compile_error", nil, 1)
+						telemetry.Incr("bricksllm.policy.scanner.scan.regex_compile_error", nil, 1)
 						continue
 					}
 

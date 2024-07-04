@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/provider"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	goopenai "github.com/sashabaranov/go-openai"
@@ -17,7 +17,7 @@ import (
 func getAzureEmbeddingsHandler(prod, private bool, client http.Client, aoe azureEstimator, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.proxy.get_azure_embeddings_handler.requests", nil, 1)
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
 			return
@@ -26,7 +26,7 @@ func getAzureEmbeddingsHandler(prod, private bool, client http.Client, aoe azure
 		// raw, exists := c.Get("key")
 		// kc, ok := raw.(*key.ResponseKey)
 		// if !exists || !ok {
-		// 	stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.api_key_not_registered", nil, 1)
+		// 	telemetry.Incr("bricksllm.proxy.get_azure_embeddings_handler.api_key_not_registered", nil, 1)
 		// 	JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
 		// 	return
 		// }
@@ -47,7 +47,7 @@ func getAzureEmbeddingsHandler(prod, private bool, client http.Client, aoe azure
 
 		res, err := client.Do(req)
 		if err != nil {
-			stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.http_client_error", nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_azure_embeddings_handler.http_client_error", nil, 1)
 
 			logError(log, "error when sending embedding request to azure openai", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send embedding request to azure openai")
@@ -56,7 +56,7 @@ func getAzureEmbeddingsHandler(prod, private bool, client http.Client, aoe azure
 		defer res.Body.Close()
 
 		dur := time.Since(start)
-		stats.Timing("bricksllm.proxy.get_azure_embeddings_handler.latency", dur, nil, 1)
+		telemetry.Timing("bricksllm.proxy.get_azure_embeddings_handler.latency", dur, nil, 1)
 
 		bytes, err := io.ReadAll(res.Body)
 		if err != nil {
@@ -70,8 +70,8 @@ func getAzureEmbeddingsHandler(prod, private bool, client http.Client, aoe azure
 		promptTokenCounts := 0
 		base64ChatRes := &EmbeddingResponseBase64{}
 		if res.StatusCode == http.StatusOK {
-			stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.success", nil, 1)
-			stats.Timing("bricksllm.proxy.get_azure_embeddings_handler.success_latency", dur, nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_azure_embeddings_handler.success", nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_azure_embeddings_handler.success_latency", dur, nil, 1)
 
 			format := c.GetString("encoding_format")
 
@@ -107,7 +107,7 @@ func getAzureEmbeddingsHandler(prod, private bool, client http.Client, aoe azure
 
 				cost, err = aoe.EstimateEmbeddingsInputCost(model, totalTokens)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.estimate_total_cost_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_azure_embeddings_handler.estimate_total_cost_error", nil, 1)
 					logError(log, "error when estimating azure openai cost for embedding", prod, err)
 				}
 
@@ -118,7 +118,7 @@ func getAzureEmbeddingsHandler(prod, private bool, client http.Client, aoe azure
 						newCost, err := provider.EstimateCostWithCostMap(model, totalTokens, 1000, converted.EmbeddingsCostPerModel)
 						if err != nil {
 							logError(log, "error when estimating azure embeddings total cost with cost maps", prod, err)
-							stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.estimate_cost_with_cost_map_error", nil, 1)
+							telemetry.Incr("bricksllm.proxy.get_azure_embeddings_handler.estimate_cost_with_cost_map_error", nil, 1)
 						}
 
 						if newCost != 0 {
@@ -133,8 +133,8 @@ func getAzureEmbeddingsHandler(prod, private bool, client http.Client, aoe azure
 		c.Set("promptTokenCount", promptTokenCounts)
 
 		if res.StatusCode != http.StatusOK {
-			stats.Timing("bricksllm.proxy.get_azure_embeddings_handler.error_latency", dur, nil, 1)
-			stats.Incr("bricksllm.proxy.get_azure_embeddings_handler.error_response", nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_azure_embeddings_handler.error_latency", dur, nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_azure_embeddings_handler.error_response", nil, 1)
 
 			errorRes := &goopenai.ErrorResponse{}
 			err = json.Unmarshal(bytes, errorRes)

@@ -12,7 +12,7 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/provider/vllm"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	goopenai "github.com/sashabaranov/go-openai"
@@ -23,7 +23,7 @@ import (
 func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.proxy.get_vllm_completions_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.proxy.get_vllm_completions_handler.requests", nil, 1)
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
 			return
@@ -58,7 +58,7 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut t
 		start := time.Now()
 		res, err := client.Do(req)
 		if err != nil {
-			stats.Incr("bricksllm.proxy.get_vllm_completions_handler.http_client_error", nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_vllm_completions_handler.http_client_error", nil, 1)
 
 			logError(log, "error when sending http request to vllm", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send http request to vllm")
@@ -75,7 +75,7 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut t
 
 		if res.StatusCode == http.StatusOK && !isStreaming {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.proxy.get_vllm_completions_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_vllm_completions_handler.latency", dur, nil, 1)
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
@@ -85,8 +85,8 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut t
 			}
 
 			cr := &goopenai.CompletionResponse{}
-			stats.Incr("bricksllm.proxy.get_vllm_completions_handler.success", nil, 1)
-			stats.Timing("bricksllm.proxy.get_vllm_completions_handler.success_latency", dur, nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_vllm_completions_handler.success", nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_vllm_completions_handler.success_latency", dur, nil, 1)
 
 			err = json.Unmarshal(bytes, cr)
 			if err != nil {
@@ -108,7 +108,7 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut t
 					newCost, err := provider.EstimateTotalCostWithCostMaps(model, cr.Usage.PromptTokens, cr.Usage.CompletionTokens, 1000, converted.PromptCostPerModel, converted.CompletionCostPerModel)
 					if err != nil {
 						logError(log, "error when estimating vllm completions total cost with cost maps", prod, err)
-						stats.Incr("bricksllm.proxy.get_vllm_completions_handler.estimate_total_cost_with_cost_maps_error", nil, 1)
+						telemetry.Incr("bricksllm.proxy.get_vllm_completions_handler.estimate_total_cost_with_cost_maps_error", nil, 1)
 					}
 
 					if newCost != 0 {
@@ -127,8 +127,8 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut t
 
 		if res.StatusCode != http.StatusOK {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.proxy.get_vllm_completions_handler.error_latency", dur, nil, 1)
-			stats.Incr("bricksllm.proxy.get_vllm_completions_handler.error_response", nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_vllm_completions_handler.error_latency", dur, nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_vllm_completions_handler.error_response", nil, 1)
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
@@ -157,7 +157,7 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut t
 			c.Set("streaming_response", bytes.Join(streamingResponse, []byte{'\n'}))
 		}()
 
-		stats.Incr("bricksllm.proxy.get_vllm_completions_handler.streaming_requests", nil, 1)
+		telemetry.Incr("bricksllm.proxy.get_vllm_completions_handler.streaming_requests", nil, 1)
 
 		c.Stream(func(w io.Writer) bool {
 			raw, err := buffer.ReadBytes('\n')
@@ -167,13 +167,13 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut t
 				}
 
 				if errors.Is(err, context.DeadlineExceeded) {
-					stats.Incr("bricksllm.proxy.get_vllm_completions_handler.context_deadline_exceeded_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_vllm_completions_handler.context_deadline_exceeded_error", nil, 1)
 					logError(log, "context deadline exceeded when reading bytes from vllm completions response", prod, err)
 
 					return false
 				}
 
-				stats.Incr("bricksllm.proxy.get_vllm_completions_handler.read_bytes_error", nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_vllm_completions_handler.read_bytes_error", nil, 1)
 				logError(log, "error when reading bytes from vllm completions response", prod, err)
 
 				apiErr := &goopenai.ErrorResponse{
@@ -185,7 +185,7 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut t
 
 				bytes, err := json.Marshal(apiErr)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_vllm_completions_handler.json_marshal_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_vllm_completions_handler.json_marshal_error", nil, 1)
 					logError(log, "error when marshalling bytes for vllm streaming chat completion error response", prod, err)
 					return false
 				}
@@ -212,7 +212,7 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut t
 			completionsStreamResp := &goopenai.CompletionResponse{}
 			err = json.Unmarshal(noPrefixLine, completionsStreamResp)
 			if err != nil {
-				stats.Incr("bricksllm.proxy.get_vllm_completions_handler.completion_response_unmarshall_error", nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_vllm_completions_handler.completion_response_unmarshall_error", nil, 1)
 				logError(log, "error when unmarshalling vllm completions stream response", prod, err)
 			}
 
@@ -225,7 +225,7 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut t
 			return true
 		})
 
-		stats.Timing("bricksllm.proxy.get_vllm_completions_handler.streaming_latency", time.Since(start), nil, 1)
+		telemetry.Timing("bricksllm.proxy.get_vllm_completions_handler.streaming_latency", time.Since(start), nil, 1)
 
 	}
 }
@@ -371,7 +371,7 @@ func logVllmCompletionResponse(log *zap.Logger, cr *goopenai.CompletionResponse,
 func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.requests", nil, 1)
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
 			return
@@ -406,7 +406,7 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeO
 		start := time.Now()
 		res, err := client.Do(req)
 		if err != nil {
-			stats.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.http_client_error", nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.http_client_error", nil, 1)
 
 			logError(log, "error when sending http request to vllm", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send http request to vllm")
@@ -425,7 +425,7 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeO
 
 		if res.StatusCode == http.StatusOK && !isStreaming {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.proxy.get_vllm_chat_completions_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_vllm_chat_completions_handler.latency", dur, nil, 1)
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
@@ -435,8 +435,8 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeO
 			}
 
 			chatRes := &goopenai.ChatCompletionResponse{}
-			stats.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.success", nil, 1)
-			stats.Timing("bricksllm.proxy.get_vllm_chat_completions_handler.success_latency", dur, nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.success", nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_vllm_chat_completions_handler.success_latency", dur, nil, 1)
 
 			err = json.Unmarshal(bytes, chatRes)
 			if err != nil {
@@ -456,7 +456,7 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeO
 					newCost, err := provider.EstimateTotalCostWithCostMaps(model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens, 1000, converted.PromptCostPerModel, converted.CompletionCostPerModel)
 					if err != nil {
 						logError(log, "error when estimating vllm chat completions total cost with cost maps", prod, err)
-						stats.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.estimate_total_cost_with_cost_maps_error", nil, 1)
+						telemetry.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.estimate_total_cost_with_cost_maps_error", nil, 1)
 					}
 
 					if newCost != 0 {
@@ -475,8 +475,8 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeO
 
 		if res.StatusCode != http.StatusOK {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.proxy.get_vllm_chat_completions_handler.error_latency", dur, nil, 1)
-			stats.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.error_response", nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_vllm_chat_completions_handler.error_latency", dur, nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.error_response", nil, 1)
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
@@ -504,7 +504,7 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeO
 			c.Set("streaming_response", bytes.Join(streamingResponse, []byte{'\n'}))
 		}()
 
-		stats.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.streaming_requests", nil, 1)
+		telemetry.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.streaming_requests", nil, 1)
 
 		c.Stream(func(w io.Writer) bool {
 			raw, err := buffer.ReadBytes('\n')
@@ -514,13 +514,13 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeO
 				}
 
 				if errors.Is(err, context.DeadlineExceeded) {
-					stats.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.context_deadline_exceeded_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.context_deadline_exceeded_error", nil, 1)
 					logError(log, "context deadline exceeded when reading bytes from vllm chat completions response", prod, err)
 
 					return false
 				}
 
-				stats.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.read_bytes_error", nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.read_bytes_error", nil, 1)
 				logError(log, "error when reading bytes from vllm chat completions response", prod, err)
 
 				apiErr := &goopenai.ErrorResponse{
@@ -532,7 +532,7 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeO
 
 				bytes, err := json.Marshal(apiErr)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.json_marshal_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.json_marshal_error", nil, 1)
 					logError(log, "error when marshalling bytes for streaming vllm chat completions error response", prod, err)
 					return false
 				}
@@ -559,7 +559,7 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeO
 			chatCompletionStreamResp := &goopenai.ChatCompletionStreamResponse{}
 			err = json.Unmarshal(noPrefixLine, chatCompletionStreamResp)
 			if err != nil {
-				stats.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.completion_response_unmarshall_error", nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.completion_response_unmarshall_error", nil, 1)
 				logError(log, "error when unmarshalling vllm chat completions stream response", prod, err)
 			}
 
@@ -572,6 +572,6 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeO
 			return true
 		})
 
-		stats.Timing("bricksllm.proxy.get_vllm_chat_completions_handler.streaming_latency", time.Since(start), nil, 1)
+		telemetry.Timing("bricksllm.proxy.get_vllm_chat_completions_handler.streaming_latency", time.Since(start), nil, 1)
 	}
 }

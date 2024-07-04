@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/route"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 )
@@ -22,12 +22,12 @@ type RouteManager interface {
 func getCreateRouteHandler(m RouteManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.admin.get_create_route_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_create_route_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_create_route_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.admin.get_create_route_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/routes"
@@ -74,7 +74,7 @@ func getCreateRouteHandler(m RouteManager, prod bool) gin.HandlerFunc {
 			errType := "internal"
 
 			defer func() {
-				stats.Incr("bricksllm.admin.get_create_route.create_route_error", []string{
+				telemetry.Incr("bricksllm.admin.get_create_route.create_route_error", []string{
 					"error_type:" + errType,
 				}, 1)
 			}()
@@ -102,7 +102,7 @@ func getCreateRouteHandler(m RouteManager, prod bool) gin.HandlerFunc {
 			return
 		}
 
-		stats.Incr("bricksllm.admin.get_create_route_handler.success", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_create_route_handler.success", nil, 1)
 		c.JSON(http.StatusOK, created)
 	}
 }
@@ -110,12 +110,12 @@ func getCreateRouteHandler(m RouteManager, prod bool) gin.HandlerFunc {
 func getGetRouteHandler(m RouteManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.admin.get_get_route_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_route_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_get_route_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.admin.get_get_route_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/routes/:id"
@@ -134,7 +134,7 @@ func getGetRouteHandler(m RouteManager, prod bool) gin.HandlerFunc {
 		if err != nil {
 			errType := "internal"
 			defer func() {
-				stats.Incr("bricksllm.admin.get_get_route_handler.get_route_err", []string{
+				telemetry.Incr("bricksllm.admin.get_get_route_handler.get_route_err", []string{
 					"error_type:" + errType,
 				}, 1)
 			}()
@@ -164,7 +164,7 @@ func getGetRouteHandler(m RouteManager, prod bool) gin.HandlerFunc {
 			return
 		}
 
-		stats.Incr("bricksllm.admin.get_get_route_handler.success", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_route_handler.success", nil, 1)
 		c.JSON(http.StatusOK, r)
 	}
 }
@@ -172,12 +172,12 @@ func getGetRouteHandler(m RouteManager, prod bool) gin.HandlerFunc {
 func getDeleteRouteHandler(m RouteManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.admin.get_delete_route_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_delete_route_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_delete_route_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.admin.get_delete_route_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/routes/:id"
@@ -196,7 +196,7 @@ func getDeleteRouteHandler(m RouteManager, prod bool) gin.HandlerFunc {
 		if err != nil {
 			errType := "internal"
 			defer func() {
-				stats.Incr("bricksllm.admin.get_delete_route_handler.delete_route_err", []string{
+				telemetry.Incr("bricksllm.admin.get_delete_route_handler.delete_route_err", []string{
 					"error_type:" + errType,
 				}, 1)
 			}()
@@ -226,7 +226,7 @@ func getDeleteRouteHandler(m RouteManager, prod bool) gin.HandlerFunc {
 			return
 		}
 
-		stats.Incr("bricksllm.admin.get_delete_route_handler.success", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_delete_route_handler.success", nil, 1)
 		c.Status(http.StatusOK)
 	}
 }
@@ -234,12 +234,12 @@ func getDeleteRouteHandler(m RouteManager, prod bool) gin.HandlerFunc {
 func getGetRoutesHandler(m RouteManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.admin.get_get_routes_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_routes_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_get_routes_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.admin.get_get_routes_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/routes"
@@ -258,7 +258,7 @@ func getGetRoutesHandler(m RouteManager, prod bool) gin.HandlerFunc {
 		if err != nil {
 			errType := "internal"
 			defer func() {
-				stats.Incr("bricksllm.admin.get_get_routes_handler.get_custom_providers_err", []string{
+				telemetry.Incr("bricksllm.admin.get_get_routes_handler.get_custom_providers_err", []string{
 					"error_type:" + errType,
 				}, 1)
 			}()
@@ -274,7 +274,7 @@ func getGetRoutesHandler(m RouteManager, prod bool) gin.HandlerFunc {
 			return
 		}
 
-		stats.Incr("bricksllm.admin.get_get_routes_handler.success", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_routes_handler.success", nil, 1)
 		c.JSON(http.StatusOK, rs)
 	}
 }

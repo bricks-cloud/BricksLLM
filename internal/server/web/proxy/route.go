@@ -10,7 +10,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/route"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	goopenai "github.com/sashabaranov/go-openai"
@@ -34,7 +34,7 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 			fmt.Sprintf("path:%s", c.FullPath()),
 		}
 
-		stats.Incr("bricksllm.proxy.get_route_handeler.requests", tags, 1)
+		telemetry.Incr("bricksllm.proxy.get_route_handeler.requests", tags, 1)
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
 			return
@@ -43,7 +43,7 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 		raw, exists := c.Get("key")
 		kc, ok := raw.(*key.ResponseKey)
 		if !exists || !ok {
-			stats.Incr("bricksllm.proxy.get_route_handeler.api_key_not_registered", tags, 1)
+			telemetry.Incr("bricksllm.proxy.get_route_handeler.api_key_not_registered", tags, 1)
 			JSON(c, http.StatusUnauthorized, "[BricksLLM] api key is not registered")
 			return
 		}
@@ -51,7 +51,7 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 		raw, exists = c.Get("route_config")
 		rc, ok := raw.(*route.Route)
 		if !exists || !ok {
-			stats.Incr("bricksllm.proxy.get_route_handeler.route_config_not_found", tags, 1)
+			telemetry.Incr("bricksllm.proxy.get_route_handeler.route_config_not_found", tags, 1)
 			JSON(c, http.StatusNotFound, "[BricksLLM] route config not found")
 			return
 		}
@@ -63,8 +63,8 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 			bytes, err := ca.GetBytes(cacheKey)
 
 			if err == nil && len(bytes) != 0 {
-				stats.Incr("bricksllm.proxy.get_route_handeler.success", nil, 1)
-				stats.Timing("bricksllm.proxy.get_route_handeler.success_latency", time.Since(trueStart), nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_route_handeler.success", nil, 1)
+				telemetry.Timing("bricksllm.proxy.get_route_handeler.success_latency", time.Since(trueStart), nil, 1)
 
 				c.Set("provider", "cached")
 				c.Data(http.StatusOK, "application/json", bytes)
@@ -75,7 +75,7 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 		raw, exists = c.Get("settings")
 		settings, ok := raw.([]*provider.Setting)
 		if !exists || !ok {
-			stats.Incr("bricksllm.proxy.get_route_handeler.provider_settings_not_found", tags, 1)
+			telemetry.Incr("bricksllm.proxy.get_route_handeler.provider_settings_not_found", tags, 1)
 			JSON(c, http.StatusNotFound, "[BricksLLM] provider settings not found")
 			return
 		}
@@ -109,7 +109,7 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 
 		runRes, err := rc.RunStepsV2(rreq, rec, log, kc)
 		if err != nil {
-			stats.Incr("bricksllm.proxy.get_route_handeler.run_steps_error", tags, 1)
+			telemetry.Incr("bricksllm.proxy.get_route_handeler.run_steps_error", tags, 1)
 			logError(log, "error when running steps", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot run route steps")
 			return
@@ -125,7 +125,7 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 		defer res.Body.Close()
 
 		dur := time.Since(start)
-		stats.Timing("bricksllm.proxy.get_route_handeler.latency", dur, nil, 1)
+		telemetry.Timing("bricksllm.proxy.get_route_handeler.latency", dur, nil, 1)
 
 		bytes := runRes.Data
 
@@ -137,8 +137,8 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 				return
 			}
 
-			stats.Incr("bricksllm.proxy.get_route_handeler.success", nil, 1)
-			stats.Timing("bricksllm.proxy.get_route_handeler.success_latency", dur, nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_route_handeler.success", nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_route_handeler.success_latency", dur, nil, 1)
 
 			if shouldCache && rc.CacheConfig != nil {
 				parsed, err := time.ParseDuration(rc.CacheConfig.Ttl)
@@ -162,8 +162,8 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 		}
 
 		if res.StatusCode != http.StatusOK {
-			stats.Timing("bricksllm.proxy.get_route_handeler.error_latency", dur, nil, 1)
-			stats.Incr("bricksllm.proxy.get_route_handeler.error_response", nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_route_handeler.error_latency", dur, nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_route_handeler.error_response", nil, 1)
 
 			errorRes := &goopenai.ErrorResponse{}
 			err = json.Unmarshal(runRes.Data, errorRes)

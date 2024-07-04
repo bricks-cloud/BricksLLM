@@ -9,7 +9,8 @@ import (
 
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
 	"github.com/bricks-cloud/bricksllm/internal/hasher"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
+	metricname "github.com/bricks-cloud/bricksllm/internal/telemetry/metric_name"
 
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
@@ -197,7 +198,7 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 
 	key := a.kms.GetKey(hash)
 	if key != nil {
-		stats.Incr("bricksllm.authenticator.authenticate_http_request.found_key_from_memdb", nil, 1)
+		telemetry.Incr(metricname.COUNTER_AUTHENTICATOR_FOUND_KEY_FROM_MEMDB, nil, 1)
 	}
 
 	if key == nil {
@@ -216,7 +217,7 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 		}
 
 		if key != nil {
-			stats.Incr("bricksllm.authenticator.authenticate_http_request.found_key_from_db", nil, 1)
+			telemetry.Incr("bricksllm.authenticator.authenticate_http_request.found_key_from_db", nil, 1)
 		}
 	}
 
@@ -246,7 +247,7 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 				return nil, nil, err
 			}
 
-			stats.Incr("bricksllm.authenticator.authenticate_http_request.found_provider_setting_in_db", nil, 1)
+			telemetry.Incr("bricksllm.authenticator.authenticate_http_request.found_provider_setting_in_db", nil, 1)
 		}
 
 		if canAccessPath(setting.Provider, req.URL.Path) {

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/provider"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	goopenai "github.com/sashabaranov/go-openai"
@@ -20,7 +20,7 @@ import (
 func getChatCompletionHandler(prod, private bool, client http.Client, e estimator, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.proxy.get_chat_completion_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.proxy.get_chat_completion_handler.requests", nil, 1)
 
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
@@ -49,7 +49,7 @@ func getChatCompletionHandler(prod, private bool, client http.Client, e estimato
 		start := time.Now()
 		res, err := client.Do(req)
 		if err != nil {
-			stats.Incr("bricksllm.proxy.get_chat_completion_handler.http_client_error", nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_chat_completion_handler.http_client_error", nil, 1)
 
 			logError(log, "error when sending http request to openai", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send http request to openai")
@@ -68,7 +68,7 @@ func getChatCompletionHandler(prod, private bool, client http.Client, e estimato
 
 		if res.StatusCode == http.StatusOK && !isStreaming {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.proxy.get_chat_completion_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_chat_completion_handler.latency", dur, nil, 1)
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
@@ -79,8 +79,8 @@ func getChatCompletionHandler(prod, private bool, client http.Client, e estimato
 
 			var cost float64 = 0
 			chatRes := &goopenai.ChatCompletionResponse{}
-			stats.Incr("bricksllm.proxy.get_chat_completion_handler.success", nil, 1)
-			stats.Timing("bricksllm.proxy.get_chat_completion_handler.success_latency", dur, nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_chat_completion_handler.success", nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_chat_completion_handler.success_latency", dur, nil, 1)
 
 			err = json.Unmarshal(bytes, chatRes)
 			if err != nil {
@@ -91,7 +91,7 @@ func getChatCompletionHandler(prod, private bool, client http.Client, e estimato
 				logChatCompletionResponse(log, prod, private, chatRes)
 				cost, err = e.EstimateTotalCost(model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_chat_completion_handler.estimate_total_cost_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_chat_completion_handler.estimate_total_cost_error", nil, 1)
 					logError(log, "error when estimating openai cost", prod, err)
 				}
 
@@ -102,7 +102,7 @@ func getChatCompletionHandler(prod, private bool, client http.Client, e estimato
 						newCost, err := provider.EstimateTotalCostWithCostMaps(model, chatRes.Usage.PromptTokens, chatRes.Usage.CompletionTokens, 1000, converted.PromptCostPerModel, converted.CompletionCostPerModel)
 						if err != nil {
 							logError(log, "error when estimating openai chat completions total cost with cost maps", prod, err)
-							stats.Incr("bricksllm.proxy.get_chat_completion_handler.estimate_total_cost_with_cost_maps_error", nil, 1)
+							telemetry.Incr("bricksllm.proxy.get_chat_completion_handler.estimate_total_cost_with_cost_maps_error", nil, 1)
 						}
 
 						if newCost != 0 {
@@ -122,8 +122,8 @@ func getChatCompletionHandler(prod, private bool, client http.Client, e estimato
 
 		if res.StatusCode != http.StatusOK {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.proxy.get_chat_completion_handler.error_latency", dur, nil, 1)
-			stats.Incr("bricksllm.proxy.get_chat_completion_handler.error_response", nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_chat_completion_handler.error_latency", dur, nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_chat_completion_handler.error_response", nil, 1)
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
@@ -153,7 +153,7 @@ func getChatCompletionHandler(prod, private bool, client http.Client, e estimato
 
 		}()
 
-		stats.Incr("bricksllm.proxy.get_chat_completion_handler.streaming_requests", nil, 1)
+		telemetry.Incr("bricksllm.proxy.get_chat_completion_handler.streaming_requests", nil, 1)
 
 		c.Stream(func(w io.Writer) bool {
 			raw, err := buffer.ReadBytes('\n')
@@ -163,13 +163,13 @@ func getChatCompletionHandler(prod, private bool, client http.Client, e estimato
 				}
 
 				if errors.Is(err, context.DeadlineExceeded) {
-					stats.Incr("bricksllm.proxy.get_chat_completion_handler.context_deadline_exceeded_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_chat_completion_handler.context_deadline_exceeded_error", nil, 1)
 					logError(log, "context deadline exceeded when reading bytes from openai chat completion response", prod, err)
 
 					return false
 				}
 
-				stats.Incr("bricksllm.proxy.get_chat_completion_handler.read_bytes_error", nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_chat_completion_handler.read_bytes_error", nil, 1)
 				logError(log, "error when reading bytes from openai chat completion response", prod, err)
 
 				apiErr := &goopenai.ErrorResponse{
@@ -181,7 +181,7 @@ func getChatCompletionHandler(prod, private bool, client http.Client, e estimato
 
 				bytes, err := json.Marshal(apiErr)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_chat_completion_handler.json_marshal_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_chat_completion_handler.json_marshal_error", nil, 1)
 					logError(log, "error when marshalling bytes for openai streaming chat completion error response", prod, err)
 					return false
 				}
@@ -208,7 +208,7 @@ func getChatCompletionHandler(prod, private bool, client http.Client, e estimato
 			chatCompletionStreamResp := &goopenai.ChatCompletionStreamResponse{}
 			err = json.Unmarshal(noPrefixLine, chatCompletionStreamResp)
 			if err != nil {
-				stats.Incr("bricksllm.proxy.get_chat_completion_handler.completion_response_unmarshall_error", nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_chat_completion_handler.completion_response_unmarshall_error", nil, 1)
 				logError(log, "error when unmarshalling openai chat completion stream response", prod, err)
 			}
 
@@ -221,6 +221,6 @@ func getChatCompletionHandler(prod, private bool, client http.Client, e estimato
 			return true
 		})
 
-		stats.Timing("bricksllm.proxy.get_chat_completion_handler.streaming_latency", time.Since(start), nil, 1)
+		telemetry.Timing("bricksllm.proxy.get_chat_completion_handler.streaming_latency", time.Since(start), nil, 1)
 	}
 }

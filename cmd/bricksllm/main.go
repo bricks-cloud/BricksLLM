@@ -27,10 +27,10 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/recorder"
 	"github.com/bricks-cloud/bricksllm/internal/server/web/admin"
 	"github.com/bricks-cloud/bricksllm/internal/server/web/proxy"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
 	"github.com/bricks-cloud/bricksllm/internal/storage/memdb"
 	"github.com/bricks-cloud/bricksllm/internal/storage/postgresql"
 	redisStorage "github.com/bricks-cloud/bricksllm/internal/storage/redis"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/validator"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -51,10 +51,7 @@ func main() {
 		log.Sugar().Fatalf("cannot parse environment variables: %v", err)
 	}
 
-	err = stats.InitializeClient(stats.Config{
-		Enabled: cfg.StatsEnabled,
-		Address: cfg.StatsAddress,
-	})
+	err = telemetry.Init(cfg)
 	if err != nil {
 		log.Sugar().Fatalf("cannot connect to telemetry provider: %v", err)
 	}

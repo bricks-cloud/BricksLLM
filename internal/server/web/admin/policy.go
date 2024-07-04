@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/policy"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 )
@@ -15,12 +15,12 @@ import (
 func getCreatePolicyHandler(pm PoliciesManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.admin.get_get_create_policy_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_create_policy_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_get_create_policy_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.admin.get_get_create_policy_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/policies"
@@ -64,7 +64,7 @@ func getCreatePolicyHandler(pm PoliciesManager, prod bool) gin.HandlerFunc {
 
 		created, err := pm.CreatePolicy(p)
 		if err != nil {
-			stats.Incr("bricksllm.admin.get_get_create_policy_handler.creat_policy_error", nil, 1)
+			telemetry.Incr("bricksllm.admin.get_get_create_policy_handler.creat_policy_error", nil, 1)
 
 			logError(log, "error when creating a policy", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -77,7 +77,7 @@ func getCreatePolicyHandler(pm PoliciesManager, prod bool) gin.HandlerFunc {
 			return
 		}
 
-		stats.Incr("bricksllm.admin.get_get_create_policy_handler.success", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_create_policy_handler.success", nil, 1)
 
 		c.JSON(http.StatusOK, created)
 	}
@@ -86,12 +86,12 @@ func getCreatePolicyHandler(pm PoliciesManager, prod bool) gin.HandlerFunc {
 func getUpdatePolicyHandler(pm PoliciesManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.admin.get_update_policy_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_update_policy_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_update_policy_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.admin.get_update_policy_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/policies"
@@ -148,7 +148,7 @@ func getUpdatePolicyHandler(pm PoliciesManager, prod bool) gin.HandlerFunc {
 
 		updated, err := pm.UpdatePolicy(id, p)
 		if err != nil {
-			stats.Incr("bricksllm.admin.get_update_policy_handler.update_policy_error", nil, 1)
+			telemetry.Incr("bricksllm.admin.get_update_policy_handler.update_policy_error", nil, 1)
 
 			logError(log, "error when updating a policy by id", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -161,7 +161,7 @@ func getUpdatePolicyHandler(pm PoliciesManager, prod bool) gin.HandlerFunc {
 			return
 		}
 
-		stats.Incr("bricksllm.admin.get_update_policy_handler.success", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_update_policy_handler.success", nil, 1)
 
 		c.JSON(http.StatusOK, updated)
 	}
@@ -170,12 +170,12 @@ func getUpdatePolicyHandler(pm PoliciesManager, prod bool) gin.HandlerFunc {
 func getGetPoliciesByTagsHandler(pm PoliciesManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.admin.get_get_policies_by_tags_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_policies_by_tags_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_get_policies_by_tags_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.admin.get_get_policies_by_tags_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/policies"
@@ -208,7 +208,7 @@ func getGetPoliciesByTagsHandler(pm PoliciesManager, prod bool) gin.HandlerFunc 
 			errType := "internal"
 
 			defer func() {
-				stats.Incr("bricksllm.admin.get_get_policies_by_tags_handler.get_settings_error", []string{
+				telemetry.Incr("bricksllm.admin.get_get_policies_by_tags_handler.get_settings_error", []string{
 					"error_type:" + errType,
 				}, 1)
 			}()
@@ -224,7 +224,7 @@ func getGetPoliciesByTagsHandler(pm PoliciesManager, prod bool) gin.HandlerFunc 
 			return
 		}
 
-		stats.Incr("bricksllm.admin.get_get_policies_by_tags_handler.success", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_policies_by_tags_handler.success", nil, 1)
 
 		c.JSON(http.StatusOK, policies)
 	}
