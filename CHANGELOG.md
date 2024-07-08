@@ -1,3 +1,8 @@
+## 1.32.0 - 2024-07-07
+### Added
+- Added Prometheus integration thanks to [@GingerMoon](https://github.com/GingerMoon)
+- Added latest models to Azure OpenAI thanks to [@minhoryang](https://github.com/minhoryang)
+
 ## 1.31.1 - 2024-07-02
 ### Fixed
 - Fixed OpenAI transcription endpoint not working error
