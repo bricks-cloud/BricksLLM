@@ -96,6 +96,11 @@ func checkModelValidity(provider, model string) bool {
 
 var (
 	azureSupportedModels = []string{
+		"gpt-4o-2024-05-13",
+		"gpt-4o",
+		"gpt-4-turbo-2024-04-09",
+		"gpt-4-0125-preview",
+		"gpt-4-vision-preview",
 		"gpt-4-1106-preview",
 		"gpt-4-1106-vision-preview",
 		"gpt-4",
@@ -108,6 +113,7 @@ var (
 		"gpt-4o-2024-05-13",
 		"gpt-4o",
 		"gpt-35-turbo",
+		"gpt-35-turbo-0125",
 		"gpt-35-turbo-1106",
 		"gpt-35-turbo-0301",
 		"gpt-35-turbo-instruct",
@@ -118,6 +124,11 @@ var (
 	}
 
 	openaiSupportedModels = []string{
+		"gpt-4o-2024-05-13",
+		"gpt-4o",
+		"gpt-4-turbo-2024-04-09",
+		"gpt-4-0125-preview",
+		"gpt-4-vision-preview",
 		"gpt-4-1106-preview",
 		"gpt-4-1106-vision-preview",
 		"gpt-4",
@@ -133,6 +144,7 @@ var (
 		"gpt-4o-2024-05-13",
 		"gpt-4o",
 		"gpt-3.5-turbo",
+		"gpt-3.5-turbo-0125",
 		"gpt-3.5-turbo-1106",
 		"gpt-3.5-turbo-0301",
 		"gpt-3.5-turbo-instruct",
@@ -143,6 +155,11 @@ var (
 	}
 
 	supportedModels = []string{
+		"gpt-4o-2024-05-13",
+		"gpt-4o",
+		"gpt-4-turbo-2024-04-09",
+		"gpt-4-0125-preview",
+		"gpt-4-vision-preview",
 		"gpt-4-1106-preview",
 		"gpt-4-1106-vision-preview",
 		"gpt-4",
@@ -158,6 +175,7 @@ var (
 		"gpt-4o-2024-05-13",
 		"gpt-4o",
 		"gpt-35-turbo",
+		"gpt-35-turbo-0125",
 		"gpt-35-turbo-1106",
 		"gpt-35-turbo-0301",
 		"gpt-35-turbo-instruct",
@@ -165,6 +183,7 @@ var (
 		"gpt-35-turbo-16k",
 		"gpt-35-turbo-16k-0613",
 		"gpt-3.5-turbo",
+		"gpt-3.5-turbo-0125",
 		"gpt-3.5-turbo-1106",
 		"gpt-3.5-turbo-0301",
 		"gpt-3.5-turbo-instruct",
@@ -184,12 +203,18 @@ var (
 
 	chatCompletionModels = []string{
 		"gpt-35-turbo",
+		"gpt-35-turbo-0125",
 		"gpt-35-turbo-1106",
 		"gpt-35-turbo-0301",
 		"gpt-35-turbo-instruct",
 		"gpt-35-turbo-0613",
 		"gpt-35-turbo-16k",
 		"gpt-35-turbo-16k-0613",
+		"gpt-4o-2024-05-13",
+		"gpt-4o",
+		"gpt-4-turbo-2024-04-09",
+		"gpt-4-0125-preview",
+		"gpt-4-vision-preview",
 		"gpt-4-1106-preview",
 		"gpt-4-1106-vision-preview",
 		"gpt-4",
@@ -205,6 +230,7 @@ var (
 		"gpt-4o-2024-05-13",
 		"gpt-4o",
 		"gpt-3.5-turbo",
+		"gpt-3.5-turbo-0125",
 		"gpt-3.5-turbo-1106",
 		"gpt-3.5-turbo-0301",
 		"gpt-3.5-turbo-instruct",
