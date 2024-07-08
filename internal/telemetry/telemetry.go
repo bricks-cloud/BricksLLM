@@ -16,59 +16,67 @@ const (
 	PROVIDER_PROMETHEUS ProviderType = "prometheus"
 )
 
-type Config struct {
-	Provider      ProviderType
-	statsdCfg     stats.Config
-	prometheusCfg prometheus.Config
+type Provider interface {
+	Incr(name string, tags []string, rate float64)
+	Timing(name string, value time.Duration, tags []string, rate float64)
 }
 
-var (
-	config Config
-)
+type Client struct {
+	Provider Provider
+}
+
+var Singleton *Client
 
 func Init(cfg *configPkg.Config) error {
-	config = Config{
-		Provider: ProviderType(cfg.TelemetryProvider),
-		statsdCfg: stats.Config{
+	if cfg == nil {
+		return errors.New("config is empty")
+	}
+
+	if cfg.TelemetryProvider == string(PROVIDER_DATADOG) {
+		c, err := stats.InitializeClient(stats.Config{
 			Enabled: cfg.StatsEnabled,
 			Address: cfg.StatsAddress,
-		},
-		prometheusCfg: prometheus.Config{
+		})
+
+		if err != nil {
+			return err
+		}
+
+		Singleton = &Client{
+			Provider: c,
+		}
+
+		return nil
+	}
+
+	if cfg.TelemetryProvider == string(PROVIDER_PROMETHEUS) {
+		p, err := prometheus.Init(prometheus.Config{
 			Enabled: cfg.PrometheusEnabled,
 			Port:    cfg.PrometheusPort,
-		},
-	}
+		})
 
-	if config.Provider == PROVIDER_DATADOG {
-		stats.InitializeClient(config.statsdCfg)
+		if err != nil {
+			return err
+		}
+
+		Singleton = &Client{
+			Provider: p,
+		}
+
 		return nil
 	}
 
-	if config.Provider == PROVIDER_PROMETHEUS {
-		prometheus.Init(config.prometheusCfg)
-		return nil
-	}
 	return errors.New("unsupported telemetry provider")
 }
 
 func Incr(name string, tags []string, rate float64) {
-	if config.Provider == PROVIDER_DATADOG {
-		stats.Incr(name, tags, rate)
-		return
-	}
-	if config.Provider == PROVIDER_PROMETHEUS {
-		prometheus.Incr(name, tags, rate)
-		return
+	if Singleton != nil {
+		Singleton.Provider.Incr(name, tags, rate)
 	}
 }
 
 func Timing(name string, value time.Duration, tags []string, rate float64) {
-	if config.Provider == PROVIDER_DATADOG {
-		stats.Timing(name, value, tags, rate)
-		return
-	}
-	if config.Provider == PROVIDER_PROMETHEUS {
-		prometheus.Timing(name, value, tags, rate)
-		return
+	if Singleton != nil {
+		Singleton.Provider.Timing(name, value, tags, rate)
 	}
 }

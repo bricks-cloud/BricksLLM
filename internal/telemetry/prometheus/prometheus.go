@@ -13,32 +13,52 @@ type Config struct {
 	Port    string
 }
 
-var (
-	config           Config
-	counterMetrics   = make(map[string]*prometheus.CounterVec)
-	histogramMetrics = make(map[string]*prometheus.HistogramVec)
-)
-
-func Init(cfg Config) error {
-	config = cfg
-	initMetrics()
-	http.Handle("/metrics", promhttp.Handler())
-	http.ListenAndServe(":"+cfg.Port, nil)
-	return nil
+type Client struct {
+	Config           Config
+	CounterMetrics   map[string]*prometheus.CounterVec
+	HistogramMetrics map[string]*prometheus.HistogramVec
 }
 
-func Incr(name string, tags []string, rate float64) {
-	counterMetric, exists := counterMetrics[name]
+func Init(cfg Config) (*Client, error) {
+	c := &Client{
+		Config:           cfg,
+		CounterMetrics:   make(map[string]*prometheus.CounterVec),
+		HistogramMetrics: make(map[string]*prometheus.HistogramVec),
+	}
+
+	c.initMetrics()
+
+	http.Handle("/metrics", promhttp.Handler())
+	err := http.ListenAndServe(":"+cfg.Port, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+func (c *Client) Incr(name string, tags []string, rate float64) {
+	if c == nil {
+		return
+	}
+
+	counterMetric, exists := c.CounterMetrics[name]
 	if !exists {
 		return
 	}
+
 	counterMetric.WithLabelValues(tags...).Inc()
 }
 
-func Timing(name string, value time.Duration, tags []string, rate float64) {
-	histogramMetric, exists := histogramMetrics[name]
+func (c *Client) Timing(name string, value time.Duration, tags []string, rate float64) {
+	if c == nil {
+		return
+	}
+
+	histogramMetric, exists := c.HistogramMetrics[name]
 	if !exists {
 		return
 	}
+
 	histogramMetric.WithLabelValues(tags...).Observe(float64(value))
 }

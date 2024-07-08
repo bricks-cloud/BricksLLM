@@ -5,16 +5,16 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-func initMetrics() {
+func (c *Client) initMetrics() {
 	{
 		metricName := metricname.COUNTER_AUTHENTICATOR_FOUND_KEY_FROM_MEMDB
-		counterMetrics[metricName] = prometheus.NewCounterVec(
+		c.CounterMetrics[metricName] = prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: metricName,
 			},
 			[]string{},
 		)
-		prometheus.MustRegister(counterMetrics[metricName])
+		prometheus.MustRegister(c.CounterMetrics[metricName])
 	}
 	{
 		// TODO add other metrics here

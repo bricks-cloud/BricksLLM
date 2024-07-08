@@ -16,33 +16,26 @@ type Client struct {
 	statsdc *statsd.Client
 }
 
-var instance *Client
-
-func InitializeClient(cfg Config) error {
-	if instance == nil {
-		instance = &Client{}
-		instance.config = cfg
-
-		statsd, err := statsd.New(cfg.Address)
-		if err != nil {
-			return err
-		}
-		instance.statsdc = statsd
-
-		return nil
+func InitializeClient(cfg Config) (*Client, error) {
+	statsd, err := statsd.New(cfg.Address)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	return &Client{
+		config:  cfg,
+		statsdc: statsd,
+	}, nil
 }
 
-func Incr(name string, tags []string, rate float64) {
-	if instance.config.Enabled {
-		instance.statsdc.Incr(name, tags, rate)
+func (c *Client) Incr(name string, tags []string, rate float64) {
+	if c != nil && c.config.Enabled {
+		c.statsdc.Incr(name, tags, rate)
 	}
 }
 
-func Timing(name string, value time.Duration, tags []string, rate float64) {
-	if instance.config.Enabled {
-		instance.statsdc.Timing(name, value, tags, rate)
+func (c *Client) Timing(name string, value time.Duration, tags []string, rate float64) {
+	if c != nil && c.config.Enabled {
+		c.statsdc.Timing(name, value, tags, rate)
 	}
 }
