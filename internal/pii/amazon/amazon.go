@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/comprehend"
 	"github.com/aws/aws-sdk-go-v2/service/comprehend/types"
 	"github.com/bricks-cloud/bricksllm/internal/pii"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"go.uber.org/zap"
 )
 
@@ -74,11 +74,11 @@ func (c *Client) Detect(input []string) (*pii.Result, error) {
 			r, err := c.detect(t)
 			if err != nil {
 				c.log.Debug("error when detecting pii entities", zap.Error(err))
-				stats.Incr("bricksllm.amazon.detect.error", nil, 1)
+				telemetry.Incr("bricksllm.amazon.detect.error", nil, 1)
 				return
 			}
 
-			stats.Timing("bricksllm.amazon.detect.latency_in_ms", time.Since(start), nil, 1)
+			telemetry.Timing("bricksllm.amazon.detect.latency_in_ms", time.Since(start), nil, 1)
 
 			detection.Input = t
 

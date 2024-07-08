@@ -6,7 +6,7 @@ import (
 
 	"github.com/bricks-cloud/bricksllm/internal/policy"
 	"github.com/bricks-cloud/bricksllm/internal/route"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"go.uber.org/zap"
 )
 
@@ -136,7 +136,7 @@ func (mdb *RoutesMemDb) Listen() {
 			case <-ticker.C:
 				routes, err := mdb.external.GetUpdatedRoutes(lastUpdated)
 				if err != nil {
-					stats.Incr("bricksllm.memdb.routes_memdb.listen.get_updated_routes_error", nil, 1)
+					telemetry.Incr("bricksllm.memdb.routes_memdb.listen.get_updated_routes_error", nil, 1)
 
 					mdb.log.Sugar().Debugf("memdb failed to get routes: %v", err)
 					continue
@@ -164,7 +164,7 @@ func (mdb *RoutesMemDb) Listen() {
 
 				policies, err := mdb.ps.GetUpdatedPolicies(plastUpdated)
 				if err != nil {
-					stats.Incr("bricksllm.memdb.routes_memdb.listen.get_updated_policies_error", nil, 1)
+					telemetry.Incr("bricksllm.memdb.routes_memdb.listen.get_updated_policies_error", nil, 1)
 
 					mdb.log.Sugar().Debugf("memdb failed to get policies: %v", err)
 					continue

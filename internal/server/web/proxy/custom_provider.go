@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
@@ -52,7 +52,7 @@ func getCustomProviderHandler(prod bool, client http.Client, timeOut time.Durati
 			fmt.Sprintf("path:%s", c.FullPath()),
 		}
 
-		stats.Incr("bricksllm.proxy.get_custom_provider_handler.requests", tags, 1)
+		telemetry.Incr("bricksllm.proxy.get_custom_provider_handler.requests", tags, 1)
 
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
@@ -62,7 +62,7 @@ func getCustomProviderHandler(prod bool, client http.Client, timeOut time.Durati
 		raw, exists := c.Get("route_config")
 		rc, ok := raw.(*custom.RouteConfig)
 		if !exists || !ok {
-			stats.Incr("bricksllm.proxy.get_custom_provider_handler.route_config_not_found", tags, 1)
+			telemetry.Incr("bricksllm.proxy.get_custom_provider_handler.route_config_not_found", tags, 1)
 			JSON(c, http.StatusNotFound, "[BricksLLM] requested route config is not found")
 			return
 		}
@@ -96,7 +96,7 @@ func getCustomProviderHandler(prod bool, client http.Client, timeOut time.Durati
 		start := time.Now()
 		res, err := client.Do(req)
 		if err != nil {
-			stats.Incr("bricksllm.proxy.get_custom_provider_handler.http_client_error", tags, 1)
+			telemetry.Incr("bricksllm.proxy.get_custom_provider_handler.http_client_error", tags, 1)
 
 			logError(logWithCid, "error when sending custom provider request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send custom provider request")
@@ -106,7 +106,7 @@ func getCustomProviderHandler(prod bool, client http.Client, timeOut time.Durati
 
 		if res.StatusCode == http.StatusOK && !isStreaming {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.proxy.get_custom_provider_handler.latency", dur, tags, 1)
+			telemetry.Timing("bricksllm.proxy.get_custom_provider_handler.latency", dur, tags, 1)
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
@@ -128,8 +128,8 @@ func getCustomProviderHandler(prod bool, client http.Client, timeOut time.Durati
 		}
 
 		if res.StatusCode != http.StatusOK {
-			stats.Timing("bricksllm.proxy.get_custom_provider_handler.error_latency", time.Since(start), nil, 1)
-			stats.Incr("bricksllm.proxy.get_custom_provider_handler.error_response", nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_custom_provider_handler.error_latency", time.Since(start), nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_custom_provider_handler.error_response", nil, 1)
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
@@ -152,14 +152,14 @@ func getCustomProviderHandler(prod bool, client http.Client, timeOut time.Durati
 
 			// tks, err := custom.Count(aggregated)
 			// if err != nil {
-			// 	stats.Incr("bricksllm.proxy.get_custom_provider_handler.count_error", nil, 1)
+			// 	telemetry.Incr("bricksllm.proxy.get_custom_provider_handler.count_error", nil, 1)
 			// 	logError(log, "error when counting tokens for custom provider streaming response", prod, err)
 			// }
 
 			// c.Set("completionTokenCount", tks)
 		}()
 
-		stats.Incr("bricksllm.proxy.get_custom_provider_handler.streaming_requests", nil, 1)
+		telemetry.Incr("bricksllm.proxy.get_custom_provider_handler.streaming_requests", nil, 1)
 
 		c.Stream(func(w io.Writer) bool {
 			raw, err := buffer.ReadBytes('\n')
@@ -169,13 +169,13 @@ func getCustomProviderHandler(prod bool, client http.Client, timeOut time.Durati
 				}
 
 				if errors.Is(err, context.DeadlineExceeded) {
-					stats.Incr("bricksllm.proxy.get_custom_provider_handler.context_deadline_exceeded_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_custom_provider_handler.context_deadline_exceeded_error", nil, 1)
 					logError(logWithCid, "context deadline exceeded when reading bytes from custom provider response", prod, err)
 
 					return false
 				}
 
-				stats.Incr("bricksllm.proxy.get_custom_provider_handler.read_bytes_error", nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_custom_provider_handler.read_bytes_error", nil, 1)
 				logError(logWithCid, "error when reading bytes from custom provider response", prod, err)
 
 				apiErr := &ErrorResponse{
@@ -187,7 +187,7 @@ func getCustomProviderHandler(prod bool, client http.Client, timeOut time.Durati
 
 				bytes, err := json.Marshal(apiErr)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_custom_provider_handler.json_marshal_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_custom_provider_handler.json_marshal_error", nil, 1)
 					logError(logWithCid, "error when marshalling bytes for custom provider streaming error response", prod, err)
 					return true
 				}
@@ -216,6 +216,6 @@ func getCustomProviderHandler(prod bool, client http.Client, timeOut time.Durati
 			return true
 		})
 
-		stats.Timing("bricksllm.proxy.get_custom_provider_handler.streaming_latency", time.Since(start), nil, 1)
+		telemetry.Timing("bricksllm.proxy.get_custom_provider_handler.streaming_latency", time.Since(start), nil, 1)
 	}
 }

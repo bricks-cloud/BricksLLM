@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/event"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 )
@@ -52,12 +52,12 @@ func validateTopKeyReportingRequest(r *event.KeyReportingRequest) bool {
 func getGetEventMetricsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.admin.get_get_event_metrics.requests", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_event_metrics.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_get_event_metrics.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.admin.get_get_event_metrics.latency", dur, nil, 1)
 		}()
 
 		path := "/api/reporting/events"
@@ -101,7 +101,7 @@ func getGetEventMetricsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc
 		}
 
 		if !validateEventReportingRequest(request) {
-			stats.Incr("bricksllm.admin.get_get_event_metrics.request_not_valid", nil, 1)
+			telemetry.Incr("bricksllm.admin.get_get_event_metrics.request_not_valid", nil, 1)
 
 			err = fmt.Errorf("event reporting request %+v is not valid", request)
 			logError(log, "invalid reporting request", prod, err)
@@ -117,7 +117,7 @@ func getGetEventMetricsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc
 
 		reportingResponse, err := m.GetEventReporting(request)
 		if err != nil {
-			stats.Incr("bricksllm.admin.get_get_event_metrics.get_event_reporting_error", nil, 1)
+			telemetry.Incr("bricksllm.admin.get_get_event_metrics.get_event_reporting_error", nil, 1)
 
 			logError(log, "error when getting event reporting", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -130,7 +130,7 @@ func getGetEventMetricsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc
 			return
 		}
 
-		stats.Incr("bricksllm.admin.get_get_event_metrics.success", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_event_metrics.success", nil, 1)
 
 		c.JSON(http.StatusOK, reportingResponse)
 	}
@@ -139,12 +139,12 @@ func getGetEventMetricsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc
 func getGetEventMetricsByDayHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.admin.get_get_event_metrics_by_day.requests", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_event_metrics_by_day.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_get_event_metrics_by_day.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.admin.get_get_event_metrics_by_day.latency", dur, nil, 1)
 		}()
 
 		path := "/api/reporting/events-by-day"
@@ -188,7 +188,7 @@ func getGetEventMetricsByDayHandler(m KeyReportingManager, prod bool) gin.Handle
 		}
 
 		if !validateEventReportingByDayRequest(request) {
-			stats.Incr("bricksllm.admin.get_get_event_metrics_by_day.request_not_valid", nil, 1)
+			telemetry.Incr("bricksllm.admin.get_get_event_metrics_by_day.request_not_valid", nil, 1)
 
 			err = fmt.Errorf("event reporting request %+v is not valid", request)
 			logError(log, "invalid reporting request", prod, err)
@@ -204,7 +204,7 @@ func getGetEventMetricsByDayHandler(m KeyReportingManager, prod bool) gin.Handle
 
 		reportingResponse, err := m.GetAggregatedEventByDayReporting(request)
 		if err != nil {
-			stats.Incr("bricksllm.admin.get_get_event_metrics_by_day.get_aggregated_event_by_day_reporting", nil, 1)
+			telemetry.Incr("bricksllm.admin.get_get_event_metrics_by_day.get_aggregated_event_by_day_reporting", nil, 1)
 
 			logError(log, "error when getting event by day reporting", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -217,7 +217,7 @@ func getGetEventMetricsByDayHandler(m KeyReportingManager, prod bool) gin.Handle
 			return
 		}
 
-		stats.Incr("bricksllm.admin.get_get_event_metrics_by_day.success", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_event_metrics_by_day.success", nil, 1)
 
 		c.JSON(http.StatusOK, reportingResponse)
 	}
@@ -226,12 +226,12 @@ func getGetEventMetricsByDayHandler(m KeyReportingManager, prod bool) gin.Handle
 func getGetTopKeysMetricsHandler(m KeyReportingManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.admin.get_get_top_keys_metrics_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_top_keys_metrics_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_get_top_keys_metrics_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.admin.get_get_top_keys_metrics_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/reporting/top-keys"
@@ -275,7 +275,7 @@ func getGetTopKeysMetricsHandler(m KeyReportingManager, prod bool) gin.HandlerFu
 		}
 
 		if !validateTopKeyReportingRequest(request) {
-			stats.Incr("bricksllm.admin.get_get_top_keys_metrics_handler.request_not_valid", nil, 1)
+			telemetry.Incr("bricksllm.admin.get_get_top_keys_metrics_handler.request_not_valid", nil, 1)
 			err = fmt.Errorf("top key reporting request %+v is not valid", request)
 			logError(log, "invalid reporting request", prod, err)
 			c.JSON(http.StatusBadRequest, &ErrorResponse{
@@ -290,7 +290,7 @@ func getGetTopKeysMetricsHandler(m KeyReportingManager, prod bool) gin.HandlerFu
 
 		reportingResponse, err := m.GetTopKeyReporting(request)
 		if err != nil {
-			stats.Incr("bricksllm.admin.get_get_top_keys_metrics_handler.get_top_key_reporting", nil, 1)
+			telemetry.Incr("bricksllm.admin.get_get_top_keys_metrics_handler.get_top_key_reporting", nil, 1)
 
 			logError(log, "error when getting top key reporting", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -303,7 +303,7 @@ func getGetTopKeysMetricsHandler(m KeyReportingManager, prod bool) gin.HandlerFu
 			return
 		}
 
-		stats.Incr("bricksllm.admin.get_get_top_keys_metrics_handler.success", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_top_keys_metrics_handler.success", nil, 1)
 
 		c.JSON(http.StatusOK, reportingResponse)
 	}

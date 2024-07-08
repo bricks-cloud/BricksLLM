@@ -18,7 +18,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/provider/openai"
 	"github.com/bricks-cloud/bricksllm/internal/provider/vllm"
 	"github.com/bricks-cloud/bricksllm/internal/route"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/user"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
@@ -223,7 +223,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			if len(metadata) != 0 {
 				data, err := json.Marshal(metadata)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_middleware.json_marshal_metadata_err", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_middleware.json_marshal_metadata_err", nil, 1)
 				}
 
 				if err == nil {
@@ -231,7 +231,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				}
 			}
 
-			stats.Timing("bricksllm.proxy.get_middleware.proxy_latency_in_ms", dur, nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_middleware.proxy_latency_in_ms", dur, nil, 1)
 
 			selectedProvider := getProvider(c)
 
@@ -246,7 +246,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				)
 			}
 
-			stats.Incr("bricksllm.proxy.get_middleware.responses", []string{
+			telemetry.Incr("bricksllm.proxy.get_middleware.responses", []string{
 				"status:" + strconv.Itoa(c.Writer.Status()),
 			}, 1)
 
@@ -293,7 +293,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		}()
 
 		if len(c.FullPath()) == 0 {
-			stats.Incr("bricksllm.proxy.get_middleware.route_does_not_exist", nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_middleware.route_does_not_exist", nil, 1)
 			JSON(c, http.StatusNotFound, "[BricksLLM] route not supported")
 			c.Abort()
 			return
@@ -303,7 +303,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		enrichedEvent.Key = kc
 		_, ok := err.(notAuthorizedError)
 		if ok {
-			stats.Incr("bricksllm.proxy.get_middleware.authentication_error", nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_middleware.authentication_error", nil, 1)
 			logError(logWithCid, "error when authenticating http requests", prod, err)
 			JSON(c, http.StatusUnauthorized, fmt.Sprintf("[BricksLLM] %v", err))
 			c.Abort()
@@ -312,7 +312,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 		_, ok = err.(notFoundError)
 		if ok {
-			stats.Incr("bricksllm.proxy.get_middleware.not_found_error", nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_middleware.not_found_error", nil, 1)
 			logError(logWithCid, "error when authenticating http requests", prod, err)
 			JSON(c, http.StatusNotFound, "[BricksLLM] route not found")
 			c.Abort()
@@ -320,7 +320,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		}
 
 		if err != nil {
-			stats.Incr("bricksllm.proxy.get_middleware.authenticate_http_request_error", nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_middleware.authenticate_http_request_error", nil, 1)
 			logError(logWithCid, "error when authenticating http requests", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] internal authentication error")
 			c.Abort()
@@ -429,14 +429,14 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 			cp := cpm.GetCustomProviderFromMem(providerName)
 			if cp == nil {
-				stats.Incr("bricksllm.proxy.get_middleware.provider_not_found", nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_middleware.provider_not_found", nil, 1)
 				JSON(c, http.StatusNotFound, "[BricksLLM] requested custom provider is not found")
 				c.Abort()
 				return
 			}
 
 			if rc == nil {
-				stats.Incr("bricksllm.proxy.get_middleware.route_config_not_found", nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_middleware.route_config_not_found", nil, 1)
 				JSON(c, http.StatusNotFound, "[BricksLLM] route config is not found")
 				c.Abort()
 				return
@@ -476,7 +476,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			rc := rm.GetRouteFromMemDb(r)
 
 			if rc == nil {
-				stats.Incr("bricksllm.proxy.get_middleware.route_config_not_found", nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_middleware.route_config_not_found", nil, 1)
 				JSON(c, http.StatusNotFound, "[BricksLLM] route config is not found")
 				c.Abort()
 				return
@@ -522,7 +522,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				logRequest(logWithCid, prod, private, ccr)
 
 				if ccr.Stream {
-					stats.Incr("bricksllm.proxy.get_middleware.streaming_not_allowed", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_middleware.streaming_not_allowed", nil, 1)
 					JSON(c, http.StatusForbidden, "[BricksLLM] streaming is not allowed")
 					c.Abort()
 					return
@@ -834,7 +834,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		}
 
 		if len(kc.AllowedPaths) != 0 && !containsPath(kc.AllowedPaths, c.FullPath(), c.Request.Method) {
-			stats.Incr("bricksllm.proxy.get_middleware.path_not_allowed", nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_middleware.path_not_allowed", nil, 1)
 			JSON(c, http.StatusForbidden, "[BricksLLM] path is not allowed")
 			c.Abort()
 			return
@@ -842,7 +842,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 		model := c.GetString("model")
 		if !isModelAllowed(model, settings) {
-			stats.Incr("bricksllm.proxy.get_middleware.model_not_allowed", nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_middleware.model_not_allowed", nil, 1)
 			JSON(c, http.StatusForbidden, "[BricksLLM] model is not allowed")
 			c.Abort()
 			return
@@ -1075,7 +1075,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		}
 
 		if ac.GetAccessStatus(kc.KeyId) {
-			stats.Incr("bricksllm.proxy.get_middleware.rate_limited", nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_middleware.rate_limited", nil, 1)
 			JSON(c, http.StatusTooManyRequests, "[BricksLLM] too many requests")
 			c.Abort()
 			return
@@ -1085,13 +1085,13 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			c.Set("userId", userId)
 			us, err := um.GetUsers(kc.Tags, nil, []string{userId}, 0, 0)
 			if err != nil {
-				stats.Incr("bricksllm.proxy.get_middleware.get_users_error", nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_middleware.get_users_error", nil, 1)
 				logError(logWithCid, "error when getting users", prod, err)
 			}
 
 			if len(us) == 1 {
 				if us[0].Revoked {
-					stats.Incr("bricksllm.proxy.get_middleware.user_revoked", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_middleware.user_revoked", nil, 1)
 					JSON(c, http.StatusUnauthorized, fmt.Sprintf("[BricksLLM] user is revoked: %s", userId))
 					c.Abort()
 					return
@@ -1099,21 +1099,21 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 				model := c.GetString("model")
 				if len(us[0].AllowedModels) != 0 && !contains(us[0].AllowedModels, model) {
-					stats.Incr("bricksllm.proxy.get_middleware.user_requested_model_not_allowed", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_middleware.user_requested_model_not_allowed", nil, 1)
 					JSON(c, http.StatusForbidden, fmt.Sprintf("[BricksLLM] model: %s forbidden for user: %s", model, userId))
 					c.Abort()
 					return
 				}
 
 				if len(us[0].AllowedPaths) != 0 && !containsPath(us[0].AllowedPaths, c.FullPath(), c.Request.Method) {
-					stats.Incr("bricksllm.proxy.get_middleware.user_requested_path_not_allowed", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_middleware.user_requested_path_not_allowed", nil, 1)
 					JSON(c, http.StatusForbidden, fmt.Sprintf("[BricksLLM] path: %s forbidden for user: %s", c.FullPath(), userId))
 					c.Abort()
 					return
 				}
 
 				if uac.GetAccessStatus(us[0].Id) {
-					stats.Incr("bricksllm.proxy.get_middleware.user_rate_limited", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_middleware.user_rate_limited", nil, 1)
 					JSON(c, http.StatusTooManyRequests, fmt.Sprintf("[BricksLLM] too many requests for user: %s", userId))
 					c.Abort()
 					return
@@ -1121,7 +1121,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			}
 
 			if len(us) > 1 {
-				stats.Incr("bricksllm.proxy.get_middleware.get_multiple_users_error", nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_middleware.get_multiple_users_error", nil, 1)
 			}
 		}
 
@@ -1139,7 +1139,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				_, ok := err.(blockedError)
 				if ok {
 					c.Set("action", "blocked")
-					stats.Incr("bricksllm.proxy.get_middleware.request_blocked", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_middleware.request_blocked", nil, 1)
 					JSON(c, http.StatusForbidden, "[BricksLLM] request blocked")
 					c.Abort()
 					return
@@ -1183,7 +1183,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 						jbs, err := json.Marshal(streamingData)
 						if err != nil {
-							stats.Incr("bricksllm.proxy.get_middleware.streaming_data_json_marshal_error", nil, 1)
+							telemetry.Incr("bricksllm.proxy.get_middleware.streaming_data_json_marshal_error", nil, 1)
 							logError(logWithCid, "error when marshalling streaming data into json", prod, err)
 						}
 

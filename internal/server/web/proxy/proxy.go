@@ -17,7 +17,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/policy"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	goopenai "github.com/sashabaranov/go-openai"
@@ -263,7 +263,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 			fmt.Sprintf("path:%s", c.FullPath()),
 		}
 
-		stats.Incr("bricksllm.proxy.get_pass_through_handler.requests", tags, 1)
+		telemetry.Incr("bricksllm.proxy.get_pass_through_handler.requests", tags, 1)
 
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
@@ -275,7 +275,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 
 		targetUrl, err := buildProxyUrl(c)
 		if err != nil {
-			stats.Incr("bricksllm.proxy.get_pass_through_handler.proxy_url_not_found", tags, 1)
+			telemetry.Incr("bricksllm.proxy.get_pass_through_handler.proxy_url_not_found", tags, 1)
 			logError(log, "error when building proxy url", prod, err)
 			JSON(c, http.StatusNotFound, "[BricksLLM] cannot find corresponding proxy url")
 			return
@@ -300,7 +300,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 			writer := multipart.NewWriter(&b)
 			err := writer.WriteField("purpose", purpose)
 			if err != nil {
-				stats.Incr("bricksllm.proxy.get_pass_through_handler.write_field_error", tags, 1)
+				telemetry.Incr("bricksllm.proxy.get_pass_through_handler.write_field_error", tags, 1)
 				logError(log, "error when writing field", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot write field")
 				return
@@ -311,7 +311,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 
 			fieldWriter, err := writer.CreateFormFile("file", form.File.Filename)
 			if err != nil {
-				stats.Incr("bricksllm.proxy.get_pass_through_handler.create_form_file_error", tags, 1)
+				telemetry.Incr("bricksllm.proxy.get_pass_through_handler.create_form_file_error", tags, 1)
 				logError(log, "error when creating form file", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create form file")
 				return
@@ -319,7 +319,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 
 			opened, err := form.File.Open()
 			if err != nil {
-				stats.Incr("bricksllm.proxy.get_pass_through_handler.open_file_error", tags, 1)
+				telemetry.Incr("bricksllm.proxy.get_pass_through_handler.open_file_error", tags, 1)
 				logError(log, "error when openning file", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open file")
 				return
@@ -327,7 +327,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 
 			_, err = io.Copy(fieldWriter, opened)
 			if err != nil {
-				stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_file_error", tags, 1)
+				telemetry.Incr("bricksllm.proxy.get_pass_through_handler.copy_file_error", tags, 1)
 				logError(log, "error when copying file", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy file")
 				return
@@ -353,7 +353,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 				"user",
 			}, c, writer, nil)
 			if err != nil {
-				stats.Incr("bricksllm.proxy.get_pass_through_handler.write_field_to_buffer_error", tags, 1)
+				telemetry.Incr("bricksllm.proxy.get_pass_through_handler.write_field_to_buffer_error", tags, 1)
 				logError(log, "error when writing field to buffer", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot write field to buffer")
 				return
@@ -365,7 +365,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 			if form.Image != nil {
 				fieldWriter, err := writer.CreateFormFile("image", form.Image.Filename)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_pass_through_handler.create_image_file_error", tags, 1)
+					telemetry.Incr("bricksllm.proxy.get_pass_through_handler.create_image_file_error", tags, 1)
 					logError(log, "error when creating form file", prod, err)
 					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create image file")
 					return
@@ -373,7 +373,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 
 				opened, err := form.Image.Open()
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_pass_through_handler.open_image_file_error", tags, 1)
+					telemetry.Incr("bricksllm.proxy.get_pass_through_handler.open_image_file_error", tags, 1)
 					logError(log, "error when openning file", prod, err)
 					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open image file")
 					return
@@ -381,7 +381,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 
 				_, err = io.Copy(fieldWriter, opened)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_image_file_error", tags, 1)
+					telemetry.Incr("bricksllm.proxy.get_pass_through_handler.copy_image_file_error", tags, 1)
 					logError(log, "error when copying image file", prod, err)
 					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy image file")
 					return
@@ -391,7 +391,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 			if form.Mask != nil {
 				fieldWriter, err := writer.CreateFormFile("mask", form.Mask.Filename)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_pass_through_handler.create_mask_file_error", tags, 1)
+					telemetry.Incr("bricksllm.proxy.get_pass_through_handler.create_mask_file_error", tags, 1)
 					logError(log, "error when creating form file", prod, err)
 					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create mask file")
 					return
@@ -399,7 +399,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 
 				opened, err := form.Image.Open()
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_pass_through_handler.open_mask_file_error", tags, 1)
+					telemetry.Incr("bricksllm.proxy.get_pass_through_handler.open_mask_file_error", tags, 1)
 					logError(log, "error when openning file", prod, err)
 					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open mask file")
 					return
@@ -407,7 +407,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 
 				_, err = io.Copy(fieldWriter, opened)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_mask_file_error", tags, 1)
+					telemetry.Incr("bricksllm.proxy.get_pass_through_handler.copy_mask_file_error", tags, 1)
 					logError(log, "error when copying mask file", prod, err)
 					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy mask file")
 					return
@@ -433,7 +433,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 				"user",
 			}, c, writer, nil)
 			if err != nil {
-				stats.Incr("bricksllm.proxy.get_pass_through_handler.write_field_to_buffer_error", tags, 1)
+				telemetry.Incr("bricksllm.proxy.get_pass_through_handler.write_field_to_buffer_error", tags, 1)
 				logError(log, "error when writing field to buffer", prod, err)
 				JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot write field to buffer")
 				return
@@ -445,7 +445,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 			if form.Image != nil {
 				fieldWriter, err := writer.CreateFormFile("image", form.Image.Filename)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_pass_through_handler.create_image_file_error", tags, 1)
+					telemetry.Incr("bricksllm.proxy.get_pass_through_handler.create_image_file_error", tags, 1)
 					logError(log, "error when creating form file", prod, err)
 					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot create image file")
 					return
@@ -453,7 +453,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 
 				opened, err := form.Image.Open()
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_pass_through_handler.open_image_file_error", tags, 1)
+					telemetry.Incr("bricksllm.proxy.get_pass_through_handler.open_image_file_error", tags, 1)
 					logError(log, "error when openning file", prod, err)
 					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot open image file")
 					return
@@ -461,7 +461,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 
 				_, err = io.Copy(fieldWriter, opened)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_pass_through_handler.copy_image_file_error", tags, 1)
+					telemetry.Incr("bricksllm.proxy.get_pass_through_handler.copy_image_file_error", tags, 1)
 					logError(log, "error when copying file", prod, err)
 					JSON(c, http.StatusInternalServerError, "[BricksLLM] cannot copy image file")
 					return
@@ -479,7 +479,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 
 		res, err := client.Do(req)
 		if err != nil {
-			stats.Incr("bricksllm.proxy.get_pass_through_handler.http_client_error", tags, 1)
+			telemetry.Incr("bricksllm.proxy.get_pass_through_handler.http_client_error", tags, 1)
 
 			logError(log, "error when sending pass through request to openai", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send pass through request to openai")
@@ -488,7 +488,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 		defer res.Body.Close()
 
 		dur := time.Since(start)
-		stats.Timing("bricksllm.proxy.get_pass_through_handler.latency", dur, tags, 1)
+		telemetry.Timing("bricksllm.proxy.get_pass_through_handler.latency", dur, tags, 1)
 
 		bytes, err := io.ReadAll(res.Body)
 		if err != nil {
@@ -498,8 +498,8 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 		}
 
 		if res.StatusCode == http.StatusOK {
-			stats.Incr("bricksllm.proxy.get_pass_through_handler.success", tags, 1)
-			stats.Timing("bricksllm.proxy.get_pass_through_handler.success_latency", dur, tags, 1)
+			telemetry.Incr("bricksllm.proxy.get_pass_through_handler.success", tags, 1)
+			telemetry.Timing("bricksllm.proxy.get_pass_through_handler.success_latency", dur, tags, 1)
 
 			if c.FullPath() == "/api/providers/openai/v1/assistants" && c.Request.Method == http.MethodPost {
 				logAssistantResponse(log, bytes, prod, private)
@@ -663,8 +663,8 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 		}
 
 		if res.StatusCode != http.StatusOK {
-			stats.Timing("bricksllm.proxy.get_pass_through_handler.error_latency", dur, tags, 1)
-			stats.Incr("bricksllm.proxy.get_pass_through_handler.error_response", tags, 1)
+			telemetry.Timing("bricksllm.proxy.get_pass_through_handler.error_latency", dur, tags, 1)
+			telemetry.Incr("bricksllm.proxy.get_pass_through_handler.error_response", tags, 1)
 
 			errorRes := &goopenai.ErrorResponse{}
 			err = json.Unmarshal(bytes, errorRes)

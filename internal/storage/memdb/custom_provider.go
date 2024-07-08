@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"go.uber.org/zap"
 )
 
@@ -99,7 +99,7 @@ func (mdb *CustomProvidersMemDb) Listen() {
 			case <-ticker.C:
 				providers, err := mdb.external.GetUpdatedCustomProviders(lastUpdated)
 				if err != nil {
-					stats.Incr("bricksllm.memdb.custom_proivders_memdb.listen.get_updated_custom_providers_error", nil, 1)
+					telemetry.Incr("bricksllm.memdb.custom_proivders_memdb.listen.get_updated_custom_providers_error", nil, 1)
 
 					mdb.log.Sugar().Debugf("memdb failed to update custom providers: %v", err)
 					continue

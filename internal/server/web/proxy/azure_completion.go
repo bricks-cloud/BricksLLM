@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/bricks-cloud/bricksllm/internal/provider"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	goopenai "github.com/sashabaranov/go-openai"
@@ -69,7 +69,7 @@ func logAzureCompletionsResponse(log *zap.Logger, prod, private bool, cr *goopen
 func getAzureCompletionsHandler(prod, private bool, client http.Client, aoe azureEstimator, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.proxy.get_azure_completions_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.proxy.get_azure_completions_handler.requests", nil, 1)
 
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] context is empty")
@@ -98,7 +98,7 @@ func getAzureCompletionsHandler(prod, private bool, client http.Client, aoe azur
 		start := time.Now()
 		res, err := client.Do(req)
 		if err != nil {
-			stats.Incr("bricksllm.proxy.get_azure_completions_handler.http_client_error", nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_azure_completions_handler.http_client_error", nil, 1)
 			logError(log, "error when sending completions http request to azure openai", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to send completions request to azure openai")
 			return
@@ -114,7 +114,7 @@ func getAzureCompletionsHandler(prod, private bool, client http.Client, aoe azur
 
 		if res.StatusCode == http.StatusOK && !isStreaming {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.proxy.get_azure_completions_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_azure_completions_handler.latency", dur, nil, 1)
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
@@ -125,8 +125,8 @@ func getAzureCompletionsHandler(prod, private bool, client http.Client, aoe azur
 
 			var cost float64 = 0
 			cr := &goopenai.CompletionResponse{}
-			stats.Incr("bricksllm.proxy.get_azure_completions_handler.success", nil, 1)
-			stats.Timing("bricksllm.proxy.get_azure_completions_handler.success_latency", dur, nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_azure_completions_handler.success", nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_azure_completions_handler.success_latency", dur, nil, 1)
 
 			err = json.Unmarshal(bytes, cr)
 			if err != nil {
@@ -139,7 +139,7 @@ func getAzureCompletionsHandler(prod, private bool, client http.Client, aoe azur
 				logAzureCompletionsResponse(log, prod, private, cr)
 				cost, err = aoe.EstimateTotalCost(cr.Model, cr.Usage.PromptTokens, cr.Usage.CompletionTokens)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_azure_completions_handler.estimate_total_cost_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_azure_completions_handler.estimate_total_cost_error", nil, 1)
 					logError(log, "error when estimating azure openai cost", prod, err)
 				}
 
@@ -150,7 +150,7 @@ func getAzureCompletionsHandler(prod, private bool, client http.Client, aoe azur
 						newCost, err := provider.EstimateTotalCostWithCostMaps(cr.Model, cr.Usage.PromptTokens, cr.Usage.CompletionTokens, 1000, converted.PromptCostPerModel, converted.CompletionCostPerModel)
 						if err != nil {
 							logError(log, "error when estimating azure completions total cost with cost maps", prod, err)
-							stats.Incr("bricksllm.proxy.get_azure_completions_handler.estimate_total_cost_with_cost_maps_error", nil, 1)
+							telemetry.Incr("bricksllm.proxy.get_azure_completions_handler.estimate_total_cost_with_cost_maps_error", nil, 1)
 						}
 
 						if newCost != 0 {
@@ -170,8 +170,8 @@ func getAzureCompletionsHandler(prod, private bool, client http.Client, aoe azur
 
 		if res.StatusCode != http.StatusOK {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.proxy.get_azure_completions_handler.error_latency", dur, nil, 1)
-			stats.Incr("bricksllm.proxy.get_azure_completions_handler.error_response", nil, 1)
+			telemetry.Timing("bricksllm.proxy.get_azure_completions_handler.error_latency", dur, nil, 1)
+			telemetry.Incr("bricksllm.proxy.get_azure_completions_handler.error_response", nil, 1)
 
 			bytes, err := io.ReadAll(res.Body)
 			if err != nil {
@@ -199,7 +199,7 @@ func getAzureCompletionsHandler(prod, private bool, client http.Client, aoe azur
 			c.Set("content", content)
 		}()
 
-		stats.Incr("bricksllm.proxy.get_azure_completions_handler.streaming_requests", nil, 1)
+		telemetry.Incr("bricksllm.proxy.get_azure_completions_handler.streaming_requests", nil, 1)
 
 		c.Stream(func(w io.Writer) bool {
 			raw, err := buffer.ReadBytes('\n')
@@ -209,13 +209,13 @@ func getAzureCompletionsHandler(prod, private bool, client http.Client, aoe azur
 				}
 
 				if errors.Is(err, context.DeadlineExceeded) {
-					stats.Incr("bricksllm.proxy.get_azure_completions_handler.context_deadline_exceeded_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_azure_completions_handler.context_deadline_exceeded_error", nil, 1)
 					logError(log, "context deadline exceeded when reading bytes from azure openai completions response", prod, err)
 
 					return false
 				}
 
-				stats.Incr("bricksllm.proxy.get_azure_completions_handler.read_bytes_error", nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_azure_completions_handler.read_bytes_error", nil, 1)
 				logError(log, "error when reading bytes from azure openai completions response", prod, err)
 
 				apiErr := &goopenai.ErrorResponse{
@@ -227,7 +227,7 @@ func getAzureCompletionsHandler(prod, private bool, client http.Client, aoe azur
 
 				bytes, err := json.Marshal(apiErr)
 				if err != nil {
-					stats.Incr("bricksllm.proxy.get_azure_completions_handler.json_marshal_error", nil, 1)
+					telemetry.Incr("bricksllm.proxy.get_azure_completions_handler.json_marshal_error", nil, 1)
 					logError(log, "error when marshalling bytes for openai streaming completions error response", prod, err)
 					return true
 				}
@@ -251,7 +251,7 @@ func getAzureCompletionsHandler(prod, private bool, client http.Client, aoe azur
 			completionsStreamResp := &goopenai.CompletionResponse{}
 			err = json.Unmarshal(noPrefixLine, completionsStreamResp)
 			if err != nil {
-				stats.Incr("bricksllm.proxy.get_azure_completions_handler.completion_response_unmarshall_error", nil, 1)
+				telemetry.Incr("bricksllm.proxy.get_azure_completions_handler.completion_response_unmarshall_error", nil, 1)
 				logError(log, "error when unmarshalling azure openai completions stream response", prod, err)
 			}
 
@@ -268,6 +268,6 @@ func getAzureCompletionsHandler(prod, private bool, client http.Client, aoe azur
 			return true
 		})
 
-		stats.Timing("bricksllm.proxy.get_azure_completions_handler.streaming_latency", time.Since(start), nil, 1)
+		telemetry.Timing("bricksllm.proxy.get_azure_completions_handler.streaming_latency", time.Since(start), nil, 1)
 	}
 }

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/user"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
@@ -23,12 +23,12 @@ type UserManager interface {
 func getGetUsersHandler(m UserManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.admin.get_get_users_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_users_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_get_users_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.admin.get_get_users_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/users"
@@ -87,7 +87,7 @@ func getGetUsersHandler(m UserManager, prod bool) gin.HandlerFunc {
 
 		keys, err := m.GetUsers(tags, keyIds, userIds, offset, limit)
 		if err != nil {
-			stats.Incr("bricksllm.admin.get_get_users_handler.get_users_err", nil, 1)
+			telemetry.Incr("bricksllm.admin.get_get_users_handler.get_users_err", nil, 1)
 
 			logError(log, "error when getting api keys by tag", prod, err)
 			c.JSON(http.StatusInternalServerError, &ErrorResponse{
@@ -100,7 +100,7 @@ func getGetUsersHandler(m UserManager, prod bool) gin.HandlerFunc {
 			return
 		}
 
-		stats.Incr("bricksllm.admin.get_get_users_handler.success", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_get_users_handler.success", nil, 1)
 		c.JSON(http.StatusOK, keys)
 	}
 }
@@ -108,12 +108,12 @@ func getGetUsersHandler(m UserManager, prod bool) gin.HandlerFunc {
 func getCreateUserHandler(m UserManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.admin.get_create_user_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_create_user_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_create_user_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.admin.get_create_user_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/users"
@@ -160,7 +160,7 @@ func getCreateUserHandler(m UserManager, prod bool) gin.HandlerFunc {
 			errType := "internal"
 
 			defer func() {
-				stats.Incr("bricksllm.admin.get_create_user_handler.create_key_error", []string{
+				telemetry.Incr("bricksllm.admin.get_create_user_handler.create_key_error", []string{
 					"error_type:" + errType,
 				}, 1)
 			}()
@@ -189,7 +189,7 @@ func getCreateUserHandler(m UserManager, prod bool) gin.HandlerFunc {
 			return
 		}
 
-		stats.Incr("bricksllm.admin.get_create_user_handler.success", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_create_user_handler.success", nil, 1)
 
 		c.JSON(http.StatusOK, created)
 	}
@@ -198,12 +198,12 @@ func getCreateUserHandler(m UserManager, prod bool) gin.HandlerFunc {
 func getUpdateUserHandler(m UserManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.admin.get_update_user_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_update_user_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_update_user_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.admin.get_update_user_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/users/:id"
@@ -262,7 +262,7 @@ func getUpdateUserHandler(m UserManager, prod bool) gin.HandlerFunc {
 			errType := "internal"
 
 			defer func() {
-				stats.Incr("bricksllm.admin.get_update_user_handler.create_key_error", []string{
+				telemetry.Incr("bricksllm.admin.get_update_user_handler.create_key_error", []string{
 					"error_type:" + errType,
 				}, 1)
 			}()
@@ -291,7 +291,7 @@ func getUpdateUserHandler(m UserManager, prod bool) gin.HandlerFunc {
 			return
 		}
 
-		stats.Incr("bricksllm.admin.get_update_user_handler.success", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_update_user_handler.success", nil, 1)
 
 		c.JSON(http.StatusOK, resk)
 	}
@@ -300,12 +300,12 @@ func getUpdateUserHandler(m UserManager, prod bool) gin.HandlerFunc {
 func getUpdateUserViaTagsAndUserIdHandler(m UserManager, prod bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
-		stats.Incr("bricksllm.admin.get_update_user_via_tags_and_user_id_handler.requests", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_update_user_via_tags_and_user_id_handler.requests", nil, 1)
 
 		start := time.Now()
 		defer func() {
 			dur := time.Since(start)
-			stats.Timing("bricksllm.admin.get_update_user_via_tags_and_user_id_handler.latency", dur, nil, 1)
+			telemetry.Timing("bricksllm.admin.get_update_user_via_tags_and_user_id_handler.latency", dur, nil, 1)
 		}()
 
 		path := "/api/users"
@@ -364,7 +364,7 @@ func getUpdateUserViaTagsAndUserIdHandler(m UserManager, prod bool) gin.HandlerF
 			errType := "internal"
 
 			defer func() {
-				stats.Incr("bricksllm.admin.get_update_user_via_tags_and_user_id_handler.create_key_error", []string{
+				telemetry.Incr("bricksllm.admin.get_update_user_via_tags_and_user_id_handler.create_key_error", []string{
 					"error_type:" + errType,
 				}, 1)
 			}()
@@ -393,7 +393,7 @@ func getUpdateUserViaTagsAndUserIdHandler(m UserManager, prod bool) gin.HandlerF
 			return
 		}
 
-		stats.Incr("bricksllm.admin.get_update_user_via_tags_and_user_id_handler.success", nil, 1)
+		telemetry.Incr("bricksllm.admin.get_update_user_via_tags_and_user_id_handler.success", nil, 1)
 
 		c.JSON(http.StatusOK, resk)
 	}

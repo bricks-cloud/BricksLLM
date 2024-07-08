@@ -12,7 +12,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
 	"github.com/bricks-cloud/bricksllm/internal/provider/vllm"
-	"github.com/bricks-cloud/bricksllm/internal/stats"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/user"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
@@ -121,11 +121,11 @@ func NewHandler(r recorder, log *zap.Logger, ae anthropicEstimator, e estimator,
 }
 
 func (h *Handler) HandleEvent(m Message) error {
-	stats.Incr("bricksllm.message.handler.handle_event.requests", nil, 1)
+	telemetry.Incr("bricksllm.message.handler.handle_event.requests", nil, 1)
 
 	e, ok := m.Data.(*event.Event)
 	if !ok {
-		stats.Incr("bricksllm.message.handler.handle_event.event_parsing_error", nil, 1)
+		telemetry.Incr("bricksllm.message.handler.handle_event.event_parsing_error", nil, 1)
 		h.log.Info("message contains data that cannot be converted to event format", zap.Any("data", m.Data))
 		return errors.New("message data cannot be parsed as event")
 	}
@@ -134,13 +134,13 @@ func (h *Handler) HandleEvent(m Message) error {
 
 	err := h.recorder.RecordEvent(e)
 	if err != nil {
-		stats.Incr("bricksllm.message.handler.handle_event.record_event_error", nil, 1)
+		telemetry.Incr("bricksllm.message.handler.handle_event.record_event_error", nil, 1)
 		h.log.Sugar().Debugf("error when publish in event: %v", err)
 		return err
 	}
 
-	stats.Timing("bricksllm.message.handler.handle_event.record_event_latency", time.Since(start), nil, 1)
-	stats.Incr("bricksllm.message.handler.handle_event.success", nil, 1)
+	telemetry.Timing("bricksllm.message.handler.handle_event.record_event_latency", time.Since(start), nil, 1)
+	telemetry.Incr("bricksllm.message.handler.handle_event.success", nil, 1)
 
 	return nil
 }
@@ -193,14 +193,14 @@ func (h *Handler) handleValidationResult(kc *key.ResponseKey, cost float64) erro
 	err := h.v.Validate(kc, cost)
 
 	if err != nil {
-		stats.Incr("bricksllm.message.handler.handle_validation_result.handle_validation_result", nil, 1)
+		telemetry.Incr("bricksllm.message.handler.handle_validation_result.handle_validation_result", nil, 1)
 
 		if _, ok := err.(expirationError); ok {
-			stats.Incr("bricksllm.message.handler.handle_validation_result.expiraton_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.handle_validation_result.expiraton_error", nil, 1)
 
 			tks, err := h.km.GetKeys(nil, []string{kc.KeyId}, "")
 			if err != nil {
-				stats.Incr("bricksllm.message.handler.handle_validation_result.get_keys_error", nil, 1)
+				telemetry.Incr("bricksllm.message.handler.handle_validation_result.get_keys_error", nil, 1)
 			}
 
 			if len(tks) == 1 {
@@ -219,7 +219,7 @@ func (h *Handler) handleValidationResult(kc *key.ResponseKey, cost float64) erro
 						})
 
 						if err != nil {
-							stats.Incr("bricksllm.message.handler.handle_validation_result.update_key_error", nil, 1)
+							telemetry.Incr("bricksllm.message.handler.handle_validation_result.update_key_error", nil, 1)
 							return err
 						}
 
@@ -230,11 +230,11 @@ func (h *Handler) handleValidationResult(kc *key.ResponseKey, cost float64) erro
 		}
 
 		if _, ok := err.(rateLimitError); ok {
-			stats.Incr("bricksllm.message.handler.handle_validation_result.rate_limit_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.handle_validation_result.rate_limit_error", nil, 1)
 
 			err = h.ac.Set(kc.KeyId, kc.RateLimitUnit)
 			if err != nil {
-				stats.Incr("bricksllm.message.handler.handle_validation_result.set_rate_limit_error", nil, 1)
+				telemetry.Incr("bricksllm.message.handler.handle_validation_result.set_rate_limit_error", nil, 1)
 				return err
 			}
 
@@ -242,11 +242,11 @@ func (h *Handler) handleValidationResult(kc *key.ResponseKey, cost float64) erro
 		}
 
 		if _, ok := err.(costLimitError); ok {
-			stats.Incr("bricksllm.message.handler.handle_validation_result.cost_limit_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.handle_validation_result.cost_limit_error", nil, 1)
 
 			err = h.ac.Set(kc.KeyId, kc.CostLimitInUsdUnit)
 			if err != nil {
-				stats.Incr("bricksllm.message.handler.handle_validation_result.set_cost_limit_error", nil, 1)
+				telemetry.Incr("bricksllm.message.handler.handle_validation_result.set_cost_limit_error", nil, 1)
 				return err
 			}
 
@@ -263,10 +263,10 @@ func (h *Handler) handleUserValidationResult(u *user.User, cost float64) error {
 	err := h.uv.Validate(u, cost)
 
 	if err != nil {
-		stats.Incr("bricksllm.message.handler.handle_user_validation_result.validate_error", nil, 1)
+		telemetry.Incr("bricksllm.message.handler.handle_user_validation_result.validate_error", nil, 1)
 
 		if _, ok := err.(expirationError); ok {
-			stats.Incr("bricksllm.message.handler.handle_user_validation_result.expiraton_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.handle_user_validation_result.expiraton_error", nil, 1)
 
 			truePtr := true
 			_, err = h.um.UpdateUser(u.Id, &user.UpdateUser{
@@ -275,7 +275,7 @@ func (h *Handler) handleUserValidationResult(u *user.User, cost float64) error {
 			})
 
 			if err != nil {
-				stats.Incr("bricksllm.message.handler.handle_user_validation_result.update_user_error", nil, 1)
+				telemetry.Incr("bricksllm.message.handler.handle_user_validation_result.update_user_error", nil, 1)
 				return err
 			}
 
@@ -283,11 +283,11 @@ func (h *Handler) handleUserValidationResult(u *user.User, cost float64) error {
 		}
 
 		if _, ok := err.(rateLimitError); ok {
-			stats.Incr("bricksllm.message.handler.handle_user_validation_result.rate_limit_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.handle_user_validation_result.rate_limit_error", nil, 1)
 
 			err = h.uac.Set(u.Id, u.RateLimitUnit)
 			if err != nil {
-				stats.Incr("bricksllm.message.handler.handle_user_validation_result.set_rate_limit_error", nil, 1)
+				telemetry.Incr("bricksllm.message.handler.handle_user_validation_result.set_rate_limit_error", nil, 1)
 				return err
 			}
 
@@ -295,11 +295,11 @@ func (h *Handler) handleUserValidationResult(u *user.User, cost float64) error {
 		}
 
 		if _, ok := err.(costLimitError); ok {
-			stats.Incr("bricksllm.message.handler.handle_user_validation_result.cost_limit_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.handle_user_validation_result.cost_limit_error", nil, 1)
 
 			err = h.uac.Set(u.Id, u.CostLimitInUsdUnit)
 			if err != nil {
-				stats.Incr("bricksllm.message.handler.handle_user_validation_result.set_cost_limit_error", nil, 1)
+				telemetry.Incr("bricksllm.message.handler.handle_user_validation_result.set_cost_limit_error", nil, 1)
 				return err
 			}
 
@@ -315,7 +315,7 @@ func (h *Handler) handleUserValidationResult(u *user.User, cost float64) error {
 func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 	e, ok := m.Data.(*event.EventWithRequestAndContent)
 	if !ok {
-		stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.message_data_parsing_error", nil, 1)
+		telemetry.Incr("bricksllm.message.handler.handle_event_with_request_and_response.message_data_parsing_error", nil, 1)
 		h.log.Debug("message contains data that cannot be converted to event with request and response format", zap.Any("data", m.Data))
 		return errors.New("message data cannot be parsed as event with request and response")
 	}
@@ -323,7 +323,7 @@ func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 	if e.Key != nil && !e.Key.Revoked && e.Event != nil {
 		err := h.decorateEvent(m)
 		if err != nil {
-			stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.decorate_event_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.handle_event_with_request_and_response.decorate_event_error", nil, 1)
 			h.log.Debug("error when decorating event", zap.Error(err))
 		}
 
@@ -333,14 +333,14 @@ func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 			micros := int64(e.Event.CostInUsd * 1000000)
 			err = h.recorder.RecordKeySpend(e.Event.KeyId, micros, e.Key.CostLimitInUsdUnit)
 			if err != nil {
-				stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.record_key_spend_error", nil, 1)
+				telemetry.Incr("bricksllm.message.handler.handle_event_with_request_and_response.record_key_spend_error", nil, 1)
 				h.log.Debug("error when recording key spend", zap.Error(err))
 			}
 
 			if len(e.Event.UserId) != 0 {
 				us, err := h.um.GetUsers(e.Key.Tags, nil, []string{e.Event.UserId}, 0, 0)
 				if err != nil {
-					stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.get_users_error", nil, 1)
+					telemetry.Incr("bricksllm.message.handler.handle_event_with_request_and_response.get_users_error", nil, 1)
 					h.log.Debug("error when getting users", zap.Error(err))
 				}
 
@@ -349,7 +349,7 @@ func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 
 					err = h.recorder.RecordUserSpend(u.Id, micros, u.CostLimitInUsdUnit)
 					if err != nil {
-						stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.record_user_spend_error", nil, 1)
+						telemetry.Incr("bricksllm.message.handler.handle_event_with_request_and_response.record_user_spend_error", nil, 1)
 						h.log.Debug("error when recording user spend", zap.Error(err))
 					}
 				}
@@ -358,7 +358,7 @@ func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 
 		if len(e.Key.RateLimitUnit) != 0 {
 			if err := h.rlm.Increment(e.Key.KeyId, e.Key.RateLimitUnit); err != nil {
-				stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.rate_limit_increment_error", nil, 1)
+				telemetry.Incr("bricksllm.message.handler.handle_event_with_request_and_response.rate_limit_increment_error", nil, 1)
 
 				h.log.Debug("error when incrementing rate limit", zap.Error(err))
 			}
@@ -367,7 +367,7 @@ func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 		if u != nil {
 			if len(u.RateLimitUnit) != 0 {
 				if err := h.rlm.IncrementUser(u.Id, u.RateLimitUnit); err != nil {
-					stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.rate_limit_increment_user_error", nil, 1)
+					telemetry.Incr("bricksllm.message.handler.handle_event_with_request_and_response.rate_limit_increment_user_error", nil, 1)
 
 					h.log.Debug("error when incrementing rate limit", zap.Error(err))
 				}
@@ -375,14 +375,14 @@ func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 
 			err = h.handleUserValidationResult(u, e.Event.CostInUsd)
 			if err != nil {
-				stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.handle_user_validation_result_error", nil, 1)
+				telemetry.Incr("bricksllm.message.handler.handle_event_with_request_and_response.handle_user_validation_result_error", nil, 1)
 				h.log.Debug("error when handling user validation result", zap.Error(err))
 			}
 		}
 
 		err = h.handleValidationResult(e.Key, e.Event.CostInUsd)
 		if err != nil {
-			stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.handle_validation_result_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.handle_event_with_request_and_response.handle_validation_result_error", nil, 1)
 			h.log.Debug("error when handling validation result", zap.Error(err))
 		}
 
@@ -392,22 +392,22 @@ func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 	err := h.recorder.RecordEvent(e.Event)
 	if err != nil {
 		h.log.Debug("error when recording an event", zap.Error(err))
-		stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.record_event_error", nil, 1)
+		telemetry.Incr("bricksllm.message.handler.handle_event_with_request_and_response.record_event_error", nil, 1)
 		return err
 	}
 
-	stats.Timing("bricksllm.message.handler.handle_event_with_request_and_response.latency", time.Since(start), nil, 1)
-	stats.Incr("bricksllm.message.handler.handle_event_with_request_and_response.success", nil, 1)
+	telemetry.Timing("bricksllm.message.handler.handle_event_with_request_and_response.latency", time.Since(start), nil, 1)
+	telemetry.Incr("bricksllm.message.handler.handle_event_with_request_and_response.success", nil, 1)
 
 	return nil
 }
 
 func (h *Handler) decorateEvent(m Message) error {
-	stats.Incr("bricksllm.message.handler.decorate_event.request", nil, 1)
+	telemetry.Incr("bricksllm.message.handler.decorate_event.request", nil, 1)
 
 	e, ok := m.Data.(*event.EventWithRequestAndContent)
 	if !ok {
-		stats.Incr("bricksllm.message.handler.decorate_event.message_data_parsing_error", nil, 1)
+		telemetry.Incr("bricksllm.message.handler.decorate_event.message_data_parsing_error", nil, 1)
 		h.log.Debug("message contains data that cannot be converted to event with request and response format", zap.Any("data", m.Data))
 		return errors.New("message data cannot be parsed as event with request and response")
 	}
@@ -415,7 +415,7 @@ func (h *Handler) decorateEvent(m Message) error {
 	if e.Event.Path == "/api/providers/openai/v1/audio/speech" {
 		csr, ok := e.Request.(*goopenai.CreateSpeechRequest)
 		if !ok {
-			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
 			h.log.Debug("event contains request that cannot be converted to anthropic completion request", zap.Any("data", m.Data))
 			return errors.New("event request data cannot be parsed as anthropic completion request")
 		}
@@ -423,7 +423,7 @@ func (h *Handler) decorateEvent(m Message) error {
 		if e.Event.Status == http.StatusOK {
 			cost, err := h.e.EstimateSpeechCost(csr.Input, string(csr.Model))
 			if err != nil {
-				stats.Incr("bricksllm.message.handler.decorate_event.estimate_prompt_cost", nil, 1)
+				telemetry.Incr("bricksllm.message.handler.decorate_event.estimate_prompt_cost", nil, 1)
 				h.log.Debug("event contains request that cannot be converted to anthropic completion request", zap.Error(err))
 				return err
 			}
@@ -435,7 +435,7 @@ func (h *Handler) decorateEvent(m Message) error {
 	if e.Event.Path == "/api/providers/anthropic/v1/complete" {
 		cr, ok := e.Request.(*anthropic.CompletionRequest)
 		if !ok {
-			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
 			h.log.Debug("event contains request that cannot be converted to anthropic completion request", zap.Any("data", m.Data))
 			return errors.New("event request data cannot be parsed as anthropic completion request")
 		}
@@ -446,7 +446,7 @@ func (h *Handler) decorateEvent(m Message) error {
 		model := cr.Model
 		cost, err := h.ae.EstimatePromptCost(model, tks)
 		if err != nil {
-			stats.Incr("bricksllm.message.handler.decorate_event.estimate_prompt_cost", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.decorate_event.estimate_prompt_cost", nil, 1)
 			h.log.Debug("event contains request that cannot be converted to anthropic completion request", zap.Error(err))
 			return err
 		}
@@ -456,7 +456,7 @@ func (h *Handler) decorateEvent(m Message) error {
 
 		completionCost, err := h.ae.EstimateCompletionCost(model, completiontks)
 		if err != nil {
-			stats.Incr("bricksllm.message.handler.decorate_event.estimate_completion_cost_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.decorate_event.estimate_completion_cost_error", nil, 1)
 			return err
 		}
 
@@ -471,7 +471,7 @@ func (h *Handler) decorateEvent(m Message) error {
 	if strings.HasPrefix(e.Event.Path, "/api/providers/azure/openai/deployments") && strings.HasSuffix(e.Event.Path, "/chat/completions") {
 		ccr, ok := e.Request.(*goopenai.ChatCompletionRequest)
 		if !ok {
-			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
 			h.log.Debug("event contains data that cannot be converted to azure openai completion request", zap.Any("data", m.Data))
 			return errors.New("event request data cannot be parsed as azure openai completion request")
 		}
@@ -485,19 +485,19 @@ func (h *Handler) decorateEvent(m Message) error {
 
 			tks, err := h.e.EstimateChatCompletionPromptTokenCounts(model, ccr)
 			if err != nil {
-				stats.Incr("bricksllm.message.decorate_event.estimate_chat_completion_prompt_token_counts_error", nil, 1)
+				telemetry.Incr("bricksllm.message.decorate_event.estimate_chat_completion_prompt_token_counts_error", nil, 1)
 				return err
 			}
 
 			cost, err := h.aze.EstimatePromptCost(e.Event.Model, tks)
 			if err != nil {
-				stats.Incr("bricksllm.message.decorate_event.estimate_prompt_cost_error", nil, 1)
+				telemetry.Incr("bricksllm.message.decorate_event.estimate_prompt_cost_error", nil, 1)
 				return err
 			}
 
 			completiontks, completionCost, err := h.aze.EstimateChatCompletionStreamCostWithTokenCounts(e.Event.Model, e.Content)
 			if err != nil {
-				stats.Incr("bricksllm.message.decorate_event.estimate_chat_completion_stream_cost_with_token_counts_error", nil, 1)
+				telemetry.Incr("bricksllm.message.decorate_event.estimate_chat_completion_stream_cost_with_token_counts_error", nil, 1)
 				return err
 			}
 
@@ -509,7 +509,7 @@ func (h *Handler) decorateEvent(m Message) error {
 				if e.CostMap != nil {
 					newCost, err := provider.EstimateTotalCostWithCostMaps(e.Event.Model, tks, completiontks, 1000, e.CostMap.PromptCostPerModel, e.CostMap.CompletionCostPerModel)
 					if err != nil {
-						stats.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
+						telemetry.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
 					}
 
 					if newCost != 0 {
@@ -523,7 +523,7 @@ func (h *Handler) decorateEvent(m Message) error {
 	if strings.HasPrefix(e.Event.Path, "/api/providers/azure/openai/deployments") && strings.HasSuffix(e.Event.Path, "/completions") {
 		cr, ok := e.Request.(*goopenai.CompletionRequest)
 		if !ok {
-			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
 			h.log.Debug("event contains data that cannot be converted to azure openai completions request", zap.Any("data", m.Data))
 			return errors.New("event request data cannot be parsed as azure openai completions request")
 		}
@@ -537,13 +537,13 @@ func (h *Handler) decorateEvent(m Message) error {
 
 			tks, promptCost, err := h.e.EstimateCompletionsRequestCostWithTokenCounts(model, cr.Prompt)
 			if err != nil {
-				stats.Incr("bricksllm.message.decorate_event.estimate_chat_completion_prompt_token_counts_error", nil, 1)
+				telemetry.Incr("bricksllm.message.decorate_event.estimate_chat_completion_prompt_token_counts_error", nil, 1)
 				return err
 			}
 
 			completiontks, completionCost, err := h.aze.EstimateChatCompletionStreamCostWithTokenCounts(e.Event.Model, e.Content)
 			if err != nil {
-				stats.Incr("bricksllm.message.decorate_event.estimate_chat_completion_stream_cost_with_token_counts_error", nil, 1)
+				telemetry.Incr("bricksllm.message.decorate_event.estimate_chat_completion_stream_cost_with_token_counts_error", nil, 1)
 				return err
 			}
 
@@ -555,7 +555,7 @@ func (h *Handler) decorateEvent(m Message) error {
 				if e.CostMap != nil {
 					newCost, err := provider.EstimateTotalCostWithCostMaps(e.Event.Model, tks, completiontks, 1000, e.CostMap.PromptCostPerModel, e.CostMap.CompletionCostPerModel)
 					if err != nil {
-						stats.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
+						telemetry.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
 					}
 
 					if newCost != 0 {
@@ -569,7 +569,7 @@ func (h *Handler) decorateEvent(m Message) error {
 	if e.Event.Path == "/api/providers/openai/v1/chat/completions" {
 		ccr, ok := e.Request.(*goopenai.ChatCompletionRequest)
 		if !ok {
-			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
 			h.log.Debug("event contains data that cannot be converted to openai completion request", zap.Any("data", m.Data))
 			return errors.New("event request data cannot be parsed as openai completion request")
 		}
@@ -577,13 +577,13 @@ func (h *Handler) decorateEvent(m Message) error {
 		if ccr.Stream {
 			tks, cost, err := h.e.EstimateChatCompletionPromptCostWithTokenCounts(ccr)
 			if err != nil {
-				stats.Incr("bricksllm.message.handler.decorate_event.estimate_chat_completion_prompt_cost_with_token_counts", nil, 1)
+				telemetry.Incr("bricksllm.message.handler.decorate_event.estimate_chat_completion_prompt_cost_with_token_counts", nil, 1)
 				return err
 			}
 
 			completiontks, completionCost, err := h.e.EstimateChatCompletionStreamCostWithTokenCounts(e.Event.Model, e.Content)
 			if err != nil {
-				stats.Incr("bricksllm.message.handler.decorate_event.estimate_chat_completion_stream_cost_with_token_counts", nil, 1)
+				telemetry.Incr("bricksllm.message.handler.decorate_event.estimate_chat_completion_stream_cost_with_token_counts", nil, 1)
 				return err
 			}
 
@@ -597,7 +597,7 @@ func (h *Handler) decorateEvent(m Message) error {
 					newCost, err := provider.EstimateTotalCostWithCostMaps(e.Event.Model, tks, completiontks, 1000, e.CostMap.PromptCostPerModel, e.CostMap.CompletionCostPerModel)
 					if err != nil {
 						h.log.Debug("error when estimating total cost with cost maps", zap.Error(err))
-						stats.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
+						telemetry.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
 					}
 
 					if newCost != 0 {
@@ -611,7 +611,7 @@ func (h *Handler) decorateEvent(m Message) error {
 	if e.Event.Path == "/api/providers/vllm/v1/chat/completions" {
 		ccr, ok := e.Request.(*vllm.ChatRequest)
 		if !ok {
-			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
 			h.log.Debug("event contains data that cannot be converted to vllm chat completion request", zap.Any("data", m.Data))
 			return errors.New("event request data cannot be parsed as vllm chat completion request")
 		}
@@ -624,7 +624,7 @@ func (h *Handler) decorateEvent(m Message) error {
 					newCost, err := provider.EstimateTotalCostWithCostMaps(e.Event.Model, e.Event.PromptTokenCount, e.Event.CompletionTokenCount, 1000, e.CostMap.PromptCostPerModel, e.CostMap.CompletionCostPerModel)
 					if err != nil {
 						h.log.Debug("error when estimating total cost with cost maps", zap.Error(err))
-						stats.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
+						telemetry.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
 					}
 
 					if newCost != 0 {
@@ -638,7 +638,7 @@ func (h *Handler) decorateEvent(m Message) error {
 	if e.Event.Path == "/api/providers/vllm/v1/completions" {
 		cr, ok := e.Request.(*vllm.CompletionRequest)
 		if !ok {
-			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
 			h.log.Debug("event contains data that cannot be converted to vllm completion request", zap.Any("data", m.Data))
 			return errors.New("event request data cannot be parsed as vllm completion request")
 		}
@@ -652,7 +652,7 @@ func (h *Handler) decorateEvent(m Message) error {
 					newCost, err := provider.EstimateTotalCostWithCostMaps(e.Event.Model, e.Event.PromptTokenCount, e.Event.CompletionTokenCount, 1000, e.CostMap.PromptCostPerModel, e.CostMap.CompletionCostPerModel)
 					if err != nil {
 						h.log.Debug("error when estimating total cost with cost maps", zap.Error(err))
-						stats.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
+						telemetry.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
 					}
 
 					if newCost != 0 {
@@ -666,7 +666,7 @@ func (h *Handler) decorateEvent(m Message) error {
 	if e.Event.Path == "/api/providers/deepinfra/v1/chat/completions" {
 		ccr, ok := e.Request.(*vllm.ChatRequest)
 		if !ok {
-			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
 			h.log.Debug("event contains data that cannot be converted to deepinfra chat completion request", zap.Any("data", m.Data))
 			return errors.New("event request data cannot be parsed as deepinfra chat completion request")
 		}
@@ -679,7 +679,7 @@ func (h *Handler) decorateEvent(m Message) error {
 					newCost, err := provider.EstimateTotalCostWithCostMaps(e.Event.Model, e.Event.PromptTokenCount, e.Event.CompletionTokenCount, 1000, e.CostMap.PromptCostPerModel, e.CostMap.CompletionCostPerModel)
 					if err != nil {
 						h.log.Debug("error when estimating total cost with cost maps", zap.Error(err))
-						stats.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
+						telemetry.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
 					}
 
 					if newCost != 0 {
@@ -693,7 +693,7 @@ func (h *Handler) decorateEvent(m Message) error {
 	if e.Event.Path == "/api/providers/deepinfra/v1/completions" {
 		cr, ok := e.Request.(*vllm.CompletionRequest)
 		if !ok {
-			stats.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
 			h.log.Debug("event contains data that cannot be converted to deepinfra completion request", zap.Any("data", m.Data))
 			return errors.New("event request data cannot be parsed as deepinfra completion request")
 		}
@@ -706,7 +706,7 @@ func (h *Handler) decorateEvent(m Message) error {
 					newCost, err := provider.EstimateTotalCostWithCostMaps(e.Event.Model, e.Event.PromptTokenCount, e.Event.CompletionTokenCount, 1000, e.CostMap.PromptCostPerModel, e.CostMap.CompletionCostPerModel)
 					if err != nil {
 						h.log.Debug("error when estimating total cost with cost maps", zap.Error(err))
-						stats.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
+						telemetry.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
 					}
 
 					if newCost != 0 {
@@ -720,14 +720,14 @@ func (h *Handler) decorateEvent(m Message) error {
 	if strings.HasPrefix(e.Event.Path, "/api/custom/providers") && e.RouteConfig != nil {
 		body, ok := e.Request.([]byte)
 		if !ok {
-			stats.Incr("bricksllm.message.handler.decorate_event.event_request_custom_provider_parsing_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.decorate_event.event_request_custom_provider_parsing_error", nil, 1)
 			h.log.Debug("event contains request that cannot be converted to bytes", zap.Any("data", m.Data))
 			return errors.New("event request data cannot be parsed as anthropic completion request")
 		}
 
 		tks, err := countTokensFromJson(body, e.RouteConfig.RequestPromptLocation)
 		if err != nil {
-			stats.Incr("bricksllm.message.handler.decorate_event.count_tokens_from_json_error", nil, 1)
+			telemetry.Incr("bricksllm.message.handler.decorate_event.count_tokens_from_json_error", nil, 1)
 
 			return err
 		}
@@ -738,7 +738,7 @@ func (h *Handler) decorateEvent(m Message) error {
 		if result.IsBool() {
 			completiontks, err := custom.Count(e.Content)
 			if err != nil {
-				stats.Incr("bricksllm.message.handler.decorate_event.custom_count_error", nil, 1)
+				telemetry.Incr("bricksllm.message.handler.decorate_event.custom_count_error", nil, 1)
 				return err
 			}
 
@@ -748,14 +748,14 @@ func (h *Handler) decorateEvent(m Message) error {
 		if !result.IsBool() {
 			content, ok := e.Response.([]byte)
 			if !ok {
-				stats.Incr("bricksllm.message.handler.decorate_event.event_response_custom_provider_parsing_error", nil, 1)
+				telemetry.Incr("bricksllm.message.handler.decorate_event.event_response_custom_provider_parsing_error", nil, 1)
 				h.log.Debug("event contains response that cannot be converted to bytes", zap.Any("data", m.Data))
 				return errors.New("event response data cannot be converted to bytes")
 			}
 
 			completiontks, err := countTokensFromJson(content, e.RouteConfig.ResponseCompletionLocation)
 			if err != nil {
-				stats.Incr("bricksllm.message.handler.decorate_event.count_tokens_from_json_error", nil, 1)
+				telemetry.Incr("bricksllm.message.handler.decorate_event.count_tokens_from_json_error", nil, 1)
 				return err
 			}
 
