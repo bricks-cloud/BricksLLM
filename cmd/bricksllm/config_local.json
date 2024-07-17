@@ -26,5 +26,6 @@
     "custom_policy_detection_timeout": "10m",
     "amazon_region": "us-west-2",
     "amazon_request_timeout": "5s",
-    "amazon_connection_timeout": "10s"
+    "amazon_connection_timeout": "10s",
+    "remove_user_agent": false
 }
