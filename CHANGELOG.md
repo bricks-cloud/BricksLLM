@@ -1,3 +1,10 @@
+## 1.33.0 - 2024-07-16
+### Added
+- Added support for OpenAI vector store APIs
+- Added support for OpenAI vector store files APIs
+- Added support for OpenAI vector store batches files APIs
+- Added a new env variable for removing `User-Agent` from http headers.
+
 ## 1.32.0 - 2024-07-07
 ### Added
 - Added Prometheus integration thanks to [@GingerMoon](https://github.com/GingerMoon)
