@@ -41,7 +41,7 @@ func getAzureEmbeddingsHandler(prod, private bool, client http.Client, aoe azure
 			return
 		}
 
-		copyHttpHeaders(c.Request, req)
+		copyHttpHeaders(c.Request, req, c.GetBool("removeUserAgent"))
 
 		start := time.Now()
 

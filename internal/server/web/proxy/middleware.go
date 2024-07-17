@@ -168,7 +168,7 @@ type CustomPolicyDetector interface {
 	Detect(input []string, requirements []string) (bool, error)
 }
 
-func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManager, a authenticator, prod, private bool, log *zap.Logger, pub publisher, prefix string, ac accessCache, uac userAccessCache, client http.Client, scanner Scanner, cd CustomPolicyDetector, um userManager) gin.HandlerFunc {
+func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManager, a authenticator, prod, private bool, log *zap.Logger, pub publisher, prefix string, ac accessCache, uac userAccessCache, client http.Client, scanner Scanner, cd CustomPolicyDetector, um userManager, removeUserAgent bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] request is empty")
@@ -179,6 +179,10 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		if c.FullPath() == "/api/health" {
 			c.Abort()
 			return
+		}
+
+		if removeUserAgent {
+			c.Set("removeUserAgent", removeUserAgent)
 		}
 
 		blw := &responseWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}

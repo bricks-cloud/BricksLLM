@@ -43,6 +43,7 @@ type Config struct {
 	AmazonRegion                  string        `koanf:"amazon_region" env:"AMAZON_REGION" envDefault:"us-west-2"`
 	AmazonRequestTimeout          time.Duration `koanf:"amazon_request_timeout" env:"AMAZON_REQUEST_TIMEOUT" envDefault:"5s"`
 	AmazonConnectionTimeout       time.Duration `koanf:"amazon_connection_timeout" env:"AMAZON_CONNECTION_TIMEOUT" envDefault:"10s"`
+	RemoveUserAgent               bool          `koanf:"remove_user_agent" env:"REMOVE_USER_AGENT" envDefault:"false"`
 }
 
 func prepareDotEnv(envFilePath string) error {

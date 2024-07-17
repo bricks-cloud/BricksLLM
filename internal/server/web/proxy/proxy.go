@@ -79,13 +79,13 @@ func CorsMiddleware() gin.HandlerFunc {
 	}
 }
 
-func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyManager, rm routeManager, a authenticator, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, kms keyMemStorage, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, r recorder, pub publisher, rlm rateLimitManager, timeOut time.Duration, ac accessCache, uac userAccessCache, pm PoliciesManager, scanner Scanner, cd CustomPolicyDetector, die deepinfraEstimator, um userManager) (*ProxyServer, error) {
+func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyManager, rm routeManager, a authenticator, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, kms keyMemStorage, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, r recorder, pub publisher, rlm rateLimitManager, timeOut time.Duration, ac accessCache, uac userAccessCache, pm PoliciesManager, scanner Scanner, cd CustomPolicyDetector, die deepinfraEstimator, um userManager, removeAgentHeaders bool) (*ProxyServer, error) {
 	router := gin.New()
 	prod := mode == "production"
 	private := privacyMode == "strict"
 
 	router.Use(CorsMiddleware())
-	router.Use(getMiddleware(cpm, rm, pm, a, prod, private, log, pub, "proxy", ac, uac, http.Client{}, scanner, cd, um))
+	router.Use(getMiddleware(cpm, rm, pm, a, prod, private, log, pub, "proxy", ac, uac, http.Client{}, scanner, cd, um, removeAgentHeaders))
 
 	client := http.Client{}
 
@@ -196,6 +196,25 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	// custom route
 	router.POST("/api/routes/*route", getRouteHandler(prod, c, aoe, e, client, r))
 
+	// vector store
+	router.POST("/api/providers/openai/v1/vector_stores", getCreateVectorStoreHandler(prod, client, timeOut))
+	router.GET("/api/providers/openai/v1/vector_stores", getListVectorStoresHandler(prod, client, timeOut))
+	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id", getGetVectorStoreHandler(prod, client, timeOut))
+	router.POST("/api/providers/openai/v1/vector_stores/:vector_store_id", getModifyVectorStoreHandler(prod, client, timeOut))
+	router.DELETE("/api/providers/openai/v1/vector_stores/:vector_store_id", getDeleteVectorStoreHandler(prod, client, timeOut))
+
+	// vector store files
+	router.POST("/api/providers/openai/v1/vector_stores/:vector_store_id/files", getCreateVectorStoreFileHandler(prod, client, timeOut))
+	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id/files", getListVectorStoreFilesHandler(prod, client, timeOut))
+	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id/files/:file_id", getGetVectorStoreFileHandler(prod, client, timeOut))
+	router.DELETE("/api/providers/openai/v1/vector_stores/:vector_store_id/files/:file_id", getDeleteVectorStoreFileHandler(prod, client, timeOut))
+
+	// vector store file batches
+	router.POST("/api/providers/openai/v1/vector_stores/:vector_store_id/file_batches", getCreateVectorStoreFileBatchHandler(prod, client, timeOut))
+	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id", getGetVectorStoreFileBatchHandler(prod, client, timeOut))
+	router.POST("/api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id/cancel", getCancelVectorStoreFileBatchHandler(prod, client, timeOut))
+	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id/files", getListVectorStoreFileBatchFilesHandler(prod, client, timeOut))
+
 	srv := &http.Server{
 		Addr:    ":8002",
 		Handler: router,
@@ -291,7 +310,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 		// copy query params
 		req.URL.RawQuery = c.Request.URL.RawQuery
 
-		copyHttpHeaders(c.Request, req)
+		copyHttpHeaders(c.Request, req, c.GetBool("removeUserAgent"))
 
 		if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodPost {
 			purpose := c.PostForm("purpose")
@@ -987,6 +1006,25 @@ func (ps *ProxyServer) Run() {
 
 		// custom route
 		ps.log.Info("PORT 8002 | POST   | /api/routes/*route is ready for forwarding requests to a custom route")
+
+		// vector store
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/vector_stores is ready for creating an openai vector store")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/vector_stores is ready for listing openai vector stores")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/vector_stores/:vector_store_id is ready for getting an openai vector store")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/vector_stores/:vector_store_id is ready for modifying an openai vector store")
+		ps.log.Info("PORT 8002 | DELETE | /api/providers/openai/v1/vector_stores/:vector_store_id is ready for deleting an openai vector store")
+
+		// vector store files
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/vector_stores/:vector_store_id/files is ready for creating an openai vector store file")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/vector_stores/:vector_store_id/files is ready for listing openai vector store files")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/vector_stores/:vector_store_id/files/:file_id is ready for getting an openai vector store file")
+		ps.log.Info("PORT 8002 | DELETE | /api/providers/openai/v1/vector_stores/:vector_store_id/files/:file_id is ready for deleting an openai vector store file")
+
+		// vector store file batches
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/vector_stores/:vector_store_id/file_batches is ready for creating an openai vector store file batch")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id is ready for getting an openai vector store file batch")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id/cancel is ready for cancelling an openai vector store file batch")
+		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id/files is ready for listing openai vector store file batch files")
 
 		if err := ps.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			ps.log.Sugar().Fatalf("error proxy server listening: %v", err)

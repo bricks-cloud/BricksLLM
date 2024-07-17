@@ -86,7 +86,7 @@ func getAzureCompletionsHandler(prod, private bool, client http.Client, aoe azur
 			return
 		}
 
-		copyHttpHeaders(c.Request, req)
+		copyHttpHeaders(c.Request, req, c.GetBool("removeUserAgent"))
 
 		isStreaming := c.GetBool("stream")
 		if isStreaming {

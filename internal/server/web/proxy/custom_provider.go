@@ -84,7 +84,7 @@ func getCustomProviderHandler(prod bool, client http.Client, timeOut time.Durati
 			return
 		}
 
-		copyHttpHeaders(c.Request, req)
+		copyHttpHeaders(c.Request, req, c.GetBool("removeUserAgent"))
 
 		isStreaming := c.GetBool("stream")
 		if isStreaming {

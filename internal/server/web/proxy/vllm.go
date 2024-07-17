@@ -46,7 +46,7 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut t
 			return
 		}
 
-		copyHttpHeaders(c.Request, req)
+		copyHttpHeaders(c.Request, req, c.GetBool("removeUserAgent"))
 
 		isStreaming := c.GetBool("stream")
 		if isStreaming {
@@ -394,7 +394,7 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeO
 			return
 		}
 
-		copyHttpHeaders(c.Request, req)
+		copyHttpHeaders(c.Request, req, c.GetBool("removeUserAgent"))
 
 		isStreaming := c.GetBool("stream")
 		if isStreaming {

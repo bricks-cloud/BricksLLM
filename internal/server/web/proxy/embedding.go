@@ -57,7 +57,7 @@ func getEmbeddingHandler(prod, private bool, client http.Client, e estimator, ti
 			return
 		}
 
-		copyHttpHeaders(c.Request, req)
+		copyHttpHeaders(c.Request, req, c.GetBool("removeUserAgent"))
 
 		start := time.Now()
 

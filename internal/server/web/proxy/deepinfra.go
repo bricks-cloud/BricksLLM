@@ -36,7 +36,7 @@ func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, time
 			return
 		}
 
-		copyHttpHeaders(c.Request, req)
+		copyHttpHeaders(c.Request, req, c.GetBool("removeUserAgent"))
 
 		isStreaming := c.GetBool("stream")
 		if isStreaming {
@@ -240,7 +240,7 @@ func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, 
 			return
 		}
 
-		copyHttpHeaders(c.Request, req)
+		copyHttpHeaders(c.Request, req, c.GetBool("removeUserAgent"))
 
 		isStreaming := c.GetBool("stream")
 		if isStreaming {

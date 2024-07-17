@@ -28,11 +28,15 @@ type anthropicEstimator interface {
 	CountMessagesTokens(messages []anthropic.Message) int
 }
 
-func copyHttpHeaders(source *http.Request, dest *http.Request) {
+func copyHttpHeaders(source *http.Request, dest *http.Request, removeUseAgent bool) {
 	for k := range source.Header {
 		if strings.ToLower(k) != "X-CUSTOM-EVENT-ID" {
 			dest.Header.Set(k, source.Header.Get(k))
 		}
+	}
+
+	if removeUseAgent {
+		dest.Header.Del("User-Agent")
 	}
 
 	dest.Header.Set("Accept-Encoding", "*")
@@ -66,7 +70,7 @@ func getCompletionHandler(prod, private bool, client http.Client, timeOut time.D
 		// 	return
 		// }
 
-		copyHttpHeaders(c.Request, req)
+		copyHttpHeaders(c.Request, req, c.GetBool("removeUserAgent"))
 
 		isStreaming := c.GetBool("stream")
 		if isStreaming {
@@ -320,7 +324,7 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 			return
 		}
 
-		copyHttpHeaders(c.Request, req)
+		copyHttpHeaders(c.Request, req, c.GetBool("removeUserAgent"))
 
 		isStreaming := c.GetBool("stream")
 		if isStreaming {

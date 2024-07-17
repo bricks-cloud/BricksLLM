@@ -37,7 +37,7 @@ func getChatCompletionHandler(prod, private bool, client http.Client, e estimato
 			return
 		}
 
-		copyHttpHeaders(c.Request, req)
+		copyHttpHeaders(c.Request, req, c.GetBool("removeUserAgent"))
 
 		isStreaming := c.GetBool("stream")
 		if isStreaming {

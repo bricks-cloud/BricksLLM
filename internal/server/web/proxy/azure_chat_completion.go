@@ -50,7 +50,7 @@ func getAzureChatCompletionHandler(prod, private bool, client http.Client, aoe a
 			return
 		}
 
-		copyHttpHeaders(c.Request, req)
+		copyHttpHeaders(c.Request, req, c.GetBool("removeUserAgent"))
 
 		isStreaming := c.GetBool("stream")
 		if isStreaming {

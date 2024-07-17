@@ -40,7 +40,7 @@ func getSpeechHandler(prod bool, client http.Client, timeOut time.Duration) gin.
 			return
 		}
 
-		copyHttpHeaders(c.Request, req)
+		copyHttpHeaders(c.Request, req, c.GetBool("removeUserAgent"))
 
 		start := time.Now()
 
@@ -187,7 +187,7 @@ func getTranscriptionsHandler(prod bool, client http.Client, timeOut time.Durati
 			return
 		}
 
-		copyHttpHeaders(c.Request, req)
+		copyHttpHeaders(c.Request, req, c.GetBool("removeUserAgent"))
 
 		var b bytes.Buffer
 		writer := multipart.NewWriter(&b)
@@ -351,7 +351,7 @@ func getTranslationsHandler(prod bool, client http.Client, timeOut time.Duration
 			return
 		}
 
-		copyHttpHeaders(c.Request, req)
+		copyHttpHeaders(c.Request, req, c.GetBool("removeUserAgent"))
 
 		var b bytes.Buffer
 		writer := multipart.NewWriter(&b)
