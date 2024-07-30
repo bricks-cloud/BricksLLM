@@ -156,12 +156,6 @@ func main() {
 		log.Sugar().Fatalf("error creating user id for users table: %v", err)
 	}
 
-	memStore, err := memdb.NewMemDb(store, log, cfg.InMemoryDbUpdateInterval)
-	if err != nil {
-		log.Sugar().Fatalf("cannot initialize memdb: %v", err)
-	}
-	memStore.Listen()
-
 	cpMemStore, err := memdb.NewCustomProvidersMemDb(store, log, cfg.InMemoryDbUpdateInterval)
 	if err != nil {
 		log.Sugar().Fatalf("cannot initialize custom providers memdb: %v", err)
@@ -293,6 +287,18 @@ func main() {
 		log.Sugar().Fatalf("error connecting to provider settings redis storage: %v", err)
 	}
 
+	keysRedisCache := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
+		Password: cfg.RedisPassword,
+		DB:       10,
+	})
+
+	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := costRedisStorage.Ping(ctx).Err(); err != nil {
+		log.Sugar().Fatalf("error connecting to keys redis storage: %v", err)
+	}
+
 	rateLimitCache := redisStorage.NewCache(rateLimitRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 	costLimitCache := redisStorage.NewCache(costLimitRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 	costStorage := redisStorage.NewStore(costRedisStorage, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
@@ -305,8 +311,9 @@ func main() {
 	userAccessCache := redisStorage.NewAccessCache(userAccessRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 
 	psCache := redisStorage.NewProviderSettingsCache(providerSettingsRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
+	keysCache := redisStorage.NewKeysCache(keysRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 
-	m := manager.NewManager(store, costLimitCache, rateLimitCache, accessCache)
+	m := manager.NewManager(store, costLimitCache, rateLimitCache, accessCache, keysCache)
 	krm := manager.NewReportingManager(costStorage, store, store)
 	psm := manager.NewProviderSettingsManager(store, psCache)
 	cpm := manager.NewCustomProvidersManager(store, cpMemStore)
@@ -346,7 +353,7 @@ func main() {
 
 	rec := recorder.NewRecorder(costStorage, userCostStorage, costLimitCache, userCostLimitCache, ce, store)
 	rlm := manager.NewRateLimitManager(rateLimitCache, userRateLimitCache)
-	a := auth.NewAuthenticator(psm, memStore, rm, store)
+	a := auth.NewAuthenticator(psm, m, rm, store)
 
 	c := cache.NewCache(apiCache)
 
@@ -367,7 +374,7 @@ func main() {
 	scanner := pii.NewScanner(detector)
 	cd := custompolicy.NewOpenAiDetector(cfg.CustomPolicyDetectionTimeout, cfg.OpenAiApiKey)
 
-	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, c, m, rm, a, psm, cpm, store, memStore, ce, ace, aoe, v, rec, messageBus, rlm, cfg.ProxyTimeout, accessCache, userAccessCache, pm, scanner, cd, die, um, cfg.RemoveUserAgent)
+	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, c, m, rm, a, psm, cpm, store, ce, ace, aoe, v, rec, messageBus, rlm, cfg.ProxyTimeout, accessCache, userAccessCache, pm, scanner, cd, die, um, cfg.RemoveUserAgent)
 	if err != nil {
 		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}
@@ -379,7 +386,6 @@ func main() {
 	<-quit
 
 	eventConsumer.Stop()
-	memStore.Stop()
 	cpMemStore.Stop()
 	rMemStore.Stop()
 

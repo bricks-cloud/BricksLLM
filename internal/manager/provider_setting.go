@@ -142,11 +142,17 @@ func (m *ProviderSettingsManager) UpdateSetting(id string, setting *provider.Upd
 
 	setting.UpdatedAt = time.Now().Unix()
 
+	err := m.Cache.Delete(id)
+	if err != nil {
+		telemetry.Incr("bricksllm.provider_settings_manager.update_setting.delete_cache_error", nil, 1)
+	}
+
 	return m.Storage.UpdateProviderSetting(id, setting)
 }
 
 func (m *ProviderSettingsManager) GetSettingViaCache(id string) (*provider.Setting, error) {
 	setting, _ := m.Cache.Get(id)
+
 	if setting == nil {
 		telemetry.Incr("bricksllm.provider_settings_manager.get_provider_setting.cache_miss", nil, 1)
 

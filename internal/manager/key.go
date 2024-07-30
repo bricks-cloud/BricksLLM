@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/policy"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 )
 
@@ -23,6 +25,7 @@ type Storage interface {
 	GetPolicyById(id string) (*policy.Policy, error)
 	GetProviderSettings(withSecret bool, ids []string) ([]*provider.Setting, error)
 	GetKey(keyId string) (*key.ResponseKey, error)
+	GetKeyByHash(hash string) (*key.ResponseKey, error)
 }
 
 type costLimitCache interface {
@@ -37,19 +40,27 @@ type accessCache interface {
 	Delete(keyId string) error
 }
 
+type keyCache interface {
+	Set(keyId string, value interface{}, ttl time.Duration) error
+	Delete(keyId string) error
+	Get(keyId string) (*key.ResponseKey, error)
+}
+
 type Manager struct {
 	s   Storage
 	clc costLimitCache
 	rlc rateLimitCache
 	ac  accessCache
+	kc  keyCache
 }
 
-func NewManager(s Storage, clc costLimitCache, rlc rateLimitCache, ac accessCache) *Manager {
+func NewManager(s Storage, clc costLimitCache, rlc rateLimitCache, ac accessCache, kc keyCache) *Manager {
 	return &Manager{
 		s:   s,
 		clc: clc,
 		rlc: rlc,
 		ac:  ac,
+		kc:  kc,
 	}
 }
 
@@ -117,6 +128,8 @@ func (m *Manager) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, err
 		return nil, err
 	}
 
+	current := existing.Key
+
 	if uk.IsKeyNotHashed != nil && !*uk.IsKeyNotHashed {
 		uk.Key = hasher.Hash(existing.Key)
 	}
@@ -172,7 +185,44 @@ func (m *Manager) UpdateKey(id string, uk *key.UpdateKey) (*key.ResponseKey, err
 		}
 	}
 
-	return m.s.UpdateKey(id, uk)
+	updated, err := m.s.UpdateKey(id, uk)
+	if err != nil {
+		return nil, err
+	}
+
+	err = m.kc.Delete(current)
+	if err != nil {
+		telemetry.Incr("bricksllm.manager.update_key.delete_cache_error", nil, 1)
+	}
+
+	return updated, nil
+}
+
+func (m *Manager) GetKeyViaCache(raw string) (*key.ResponseKey, error) {
+	k, _ := m.kc.Get(raw)
+
+	if k == nil {
+		telemetry.Incr("bricksllm.manager.get_key_via_cache.cache_miss", nil, 1)
+
+		stored, err := m.s.GetKeyByHash(raw)
+		if err != nil {
+			return nil, err
+		}
+
+		bs, err := json.Marshal(stored)
+		if err != nil {
+			return stored, nil
+		}
+
+		err = m.kc.Set(raw, bs, time.Hour)
+		if err != nil {
+			telemetry.Incr("bricksllm.manager.get_key_via_cache.set_error", nil, 1)
+		}
+
+		k = stored
+	}
+
+	return k, nil
 }
 
 func (m *Manager) DeleteKey(id string) error {

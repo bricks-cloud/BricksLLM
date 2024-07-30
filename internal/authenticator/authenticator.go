@@ -26,8 +26,8 @@ type routesManager interface {
 	GetRouteFromMemDb(path string) *route.Route
 }
 
-type keyMemStorage interface {
-	GetKey(hash string) *key.ResponseKey
+type keysCache interface {
+	GetKeyViaCache(hash string) (*key.ResponseKey, error)
 }
 
 type keyStorage interface {
@@ -36,15 +36,15 @@ type keyStorage interface {
 
 type Authenticator struct {
 	psm providerSettingsManager
-	kms keyMemStorage
+	kc  keysCache
 	rm  routesManager
 	ks  keyStorage
 }
 
-func NewAuthenticator(psm providerSettingsManager, kms keyMemStorage, rm routesManager, ks keyStorage) *Authenticator {
+func NewAuthenticator(psm providerSettingsManager, kc keysCache, rm routesManager, ks keyStorage) *Authenticator {
 	return &Authenticator{
 		psm: psm,
-		kms: kms,
+		kc:  kc,
 		rm:  rm,
 		ks:  ks,
 	}
@@ -196,29 +196,22 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 
 	hash := hasher.Hash(raw)
 
-	key := a.kms.GetKey(hash)
+	key, err := a.kc.GetKeyViaCache(hash)
 	if key != nil {
 		telemetry.Incr(metricname.COUNTER_AUTHENTICATOR_FOUND_KEY_FROM_MEMDB, nil, 1)
 	}
 
 	if key == nil {
-		key = a.kms.GetKey(raw)
+		key, err = a.kc.GetKeyViaCache(raw)
 	}
 
-	if key == nil {
-		key, err = a.ks.GetKeyByHash(hash)
-		if err != nil {
-			_, ok := err.(notFoundError)
-			if ok {
-				return nil, nil, internal_errors.NewAuthError(fmt.Sprintf("key %s is not found", anonymize(raw)))
-			}
-
-			return nil, nil, err
+	if err != nil {
+		_, ok := err.(notFoundError)
+		if ok {
+			return nil, nil, internal_errors.NewAuthError(fmt.Sprintf("key %s is not found", anonymize(raw)))
 		}
 
-		if key != nil {
-			telemetry.Incr("bricksllm.authenticator.authenticate_http_request.found_key_from_db", nil, 1)
-		}
+		return nil, nil, err
 	}
 
 	if key == nil {

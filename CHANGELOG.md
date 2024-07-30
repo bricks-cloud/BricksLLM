@@ -4,6 +4,7 @@
 
 ### Changed
 - Removed in-memory cache of provider settings
+- Removed in-memory cache of keys
 
 ## 1.33.0 - 2024-07-16
 ### Added
