@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -8,6 +9,7 @@ import (
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/provider/custom"
+	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 )
 
@@ -19,20 +21,21 @@ type ProviderSettingsStorage interface {
 	GetProviderSettings(withSecret bool, ids []string) ([]*provider.Setting, error)
 }
 
-type ProviderSettingsMemStorage interface {
-	GetSetting(id string) *provider.Setting
-	GetSettings(ids []string) []*provider.Setting
+type ProviderSettingsCache interface {
+	Set(pid string, value any, ttl time.Duration) error
+	Get(pid string) (*provider.Setting, error)
+	Delete(pid string) error
 }
 
 type ProviderSettingsManager struct {
 	Storage ProviderSettingsStorage
-	MemDb   ProviderSettingsMemStorage
+	Cache   ProviderSettingsCache
 }
 
-func NewProviderSettingsManager(s ProviderSettingsStorage, memdb ProviderSettingsMemStorage) *ProviderSettingsManager {
+func NewProviderSettingsManager(s ProviderSettingsStorage, cache ProviderSettingsCache) *ProviderSettingsManager {
 	return &ProviderSettingsManager{
 		Storage: s,
-		MemDb:   memdb,
+		Cache:   cache,
 	}
 }
 
@@ -142,24 +145,46 @@ func (m *ProviderSettingsManager) UpdateSetting(id string, setting *provider.Upd
 	return m.Storage.UpdateProviderSetting(id, setting)
 }
 
-func (m *ProviderSettingsManager) GetSettingFromDb(id string) (*provider.Setting, error) {
-	return m.Storage.GetProviderSetting(id, true)
-}
-
-func (m *ProviderSettingsManager) GetSetting(id string) (*provider.Setting, error) {
-	setting := m.MemDb.GetSetting(id)
-
+func (m *ProviderSettingsManager) GetSettingViaCache(id string) (*provider.Setting, error) {
+	setting, _ := m.Cache.Get(id)
 	if setting == nil {
-		return nil, internal_errors.NewNotFoundError("provider setting is not found")
+		telemetry.Incr("bricksllm.provider_settings_manager.get_provider_setting.cache_miss", nil, 1)
+
+		stored, err := m.Storage.GetProviderSetting(id, true)
+		if err != nil {
+			return nil, err
+		}
+
+		bs, err := json.Marshal(stored)
+		if err != nil {
+			return stored, nil
+		}
+
+		err = m.Cache.Set(id, bs, time.Hour)
+		if err != nil {
+			telemetry.Incr("bricksllm.provider_settings_manager.get_setting_via_cache.set_error", nil, 1)
+		}
+
+		setting = stored
+	}
+
+	if setting != nil {
+		telemetry.Incr("bricksllm.provider_settings_manager.get_provider_setting.cache_hit", nil, 1)
 	}
 
 	return setting, nil
 }
 
-func (m *ProviderSettingsManager) GetSettings(ids []string) ([]*provider.Setting, error) {
-	settings, err := m.Storage.GetProviderSettings(false, ids)
-	if err != nil {
-		return nil, internal_errors.NewNotFoundError("provider setting is not found")
+func (m *ProviderSettingsManager) GetSettingsViaCache(ids []string) ([]*provider.Setting, error) {
+	settings := []*provider.Setting{}
+
+	for _, id := range ids {
+		setting, err := m.GetSettingViaCache(id)
+		if err != nil {
+			return nil, err
+		}
+
+		settings = append(settings, setting)
 	}
 
 	return settings, nil

@@ -1,3 +1,10 @@
+## 1.34.0 - 2024-07-29
+### Added
+- Added cost tracking for `gpt-4o-mini`
+
+### Changed
+- Removed in-memory cache of provider settings
+
 ## 1.33.0 - 2024-07-16
 ### Added
 - Added support for OpenAI vector store APIs

@@ -162,12 +162,6 @@ func main() {
 	}
 	memStore.Listen()
 
-	psMemStore, err := memdb.NewProviderSettingsMemDb(store, log, cfg.InMemoryDbUpdateInterval)
-	if err != nil {
-		log.Sugar().Fatalf("cannot initialize provider settings memdb: %v", err)
-	}
-	psMemStore.Listen()
-
 	cpMemStore, err := memdb.NewCustomProvidersMemDb(store, log, cfg.InMemoryDbUpdateInterval)
 	if err != nil {
 		log.Sugar().Fatalf("cannot initialize custom providers memdb: %v", err)
@@ -287,6 +281,18 @@ func main() {
 		log.Sugar().Fatalf("error connecting to user access redis storage: %v", err)
 	}
 
+	providerSettingsRedisCache := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
+		Password: cfg.RedisPassword,
+		DB:       9,
+	})
+
+	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := costRedisStorage.Ping(ctx).Err(); err != nil {
+		log.Sugar().Fatalf("error connecting to provider settings redis storage: %v", err)
+	}
+
 	rateLimitCache := redisStorage.NewCache(rateLimitRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 	costLimitCache := redisStorage.NewCache(costLimitRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 	costStorage := redisStorage.NewStore(costRedisStorage, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
@@ -298,11 +304,13 @@ func main() {
 	userCostStorage := redisStorage.NewStore(userCostRedisStorage, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 	userAccessCache := redisStorage.NewAccessCache(userAccessRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 
+	psCache := redisStorage.NewProviderSettingsCache(providerSettingsRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
+
 	m := manager.NewManager(store, costLimitCache, rateLimitCache, accessCache)
 	krm := manager.NewReportingManager(costStorage, store, store)
-	psm := manager.NewProviderSettingsManager(store, psMemStore)
+	psm := manager.NewProviderSettingsManager(store, psCache)
 	cpm := manager.NewCustomProvidersManager(store, cpMemStore)
-	rm := manager.NewRouteManager(store, store, rMemStore, psMemStore)
+	rm := manager.NewRouteManager(store, store, rMemStore, psm)
 	pm := manager.NewPolicyManager(store, rMemStore)
 	um := manager.NewUserManager(store, store)
 
@@ -372,7 +380,6 @@ func main() {
 
 	eventConsumer.Stop()
 	memStore.Stop()
-	psMemStore.Stop()
 	cpMemStore.Stop()
 	rMemStore.Stop()
 

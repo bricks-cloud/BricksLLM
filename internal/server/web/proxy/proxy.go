@@ -28,7 +28,7 @@ import (
 type ProviderSettingsManager interface {
 	CreateSetting(setting *provider.Setting) (*provider.Setting, error)
 	UpdateSetting(id string, setting *provider.UpdateSetting) (*provider.Setting, error)
-	GetSetting(id string) (*provider.Setting, error)
+	GetSettingViaCache(id string) (*provider.Setting, error)
 }
 
 type PoliciesManager interface {

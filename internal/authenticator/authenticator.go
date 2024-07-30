@@ -18,8 +18,8 @@ import (
 )
 
 type providerSettingsManager interface {
-	GetSetting(id string) (*provider.Setting, error)
-	GetSettingFromDb(id string) (*provider.Setting, error)
+	GetSettingViaCache(id string) (*provider.Setting, error)
+	GetSettingsViaCache(ids []string) ([]*provider.Setting, error)
 }
 
 type routesManager interface {
@@ -240,14 +240,10 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 	allSettings := []*provider.Setting{}
 	selected := []*provider.Setting{}
 	for _, settingId := range settingIds {
-		setting, err := a.psm.GetSetting(settingId)
-		if err != nil {
-			setting, err = a.psm.GetSettingFromDb(settingId)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			telemetry.Incr("bricksllm.authenticator.authenticate_http_request.found_provider_setting_in_db", nil, 1)
+		setting, _ := a.psm.GetSettingViaCache(settingId)
+		if setting == nil {
+			telemetry.Incr("bricksllm.authenticator.authenticate_http_request.get_setting_error", nil, 1)
+			continue
 		}
 
 		if canAccessPath(setting.Provider, req.URL.Path) {

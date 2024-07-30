@@ -7,6 +7,7 @@ import (
 	"time"
 
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
+	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/route"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 )
@@ -23,14 +24,18 @@ type RoutesMemStorage interface {
 	GetRoute(id string) *route.Route
 }
 
+type PsManager interface {
+	GetSettingsViaCache(ids []string) ([]*provider.Setting, error)
+}
+
 type RouteManager struct {
 	s  RoutesStorage
 	ks Storage
 	ms RoutesMemStorage
-	ps ProviderSettingsMemStorage
+	ps PsManager
 }
 
-func NewRouteManager(s RoutesStorage, ks Storage, ms RoutesMemStorage, psm ProviderSettingsMemStorage) *RouteManager {
+func NewRouteManager(s RoutesStorage, ks Storage, ms RoutesMemStorage, psm PsManager) *RouteManager {
 	return &RouteManager{
 		s:  s,
 		ks: ks,
@@ -445,7 +450,10 @@ func (m *RouteManager) validateRoute(r *route.Route) error {
 
 	for _, key := range found {
 		settingIds := key.GetSettingIds()
-		settings := m.ps.GetSettings(settingIds)
+		settings, err := m.ps.GetSettingsViaCache(settingIds)
+		if err != nil {
+			return err
+		}
 
 		if !r.ValidateSettings(settings) {
 			return errors.New("provider settings assosciated with the key cannot for accessing models specified in the route")

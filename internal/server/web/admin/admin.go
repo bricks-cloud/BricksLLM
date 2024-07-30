@@ -22,8 +22,8 @@ import (
 type ProviderSettingsManager interface {
 	CreateSetting(setting *provider.Setting) (*provider.Setting, error)
 	UpdateSetting(id string, setting *provider.UpdateSetting) (*provider.Setting, error)
-	GetSetting(id string) (*provider.Setting, error)
-	GetSettings(ids []string) ([]*provider.Setting, error)
+	GetSettingViaCache(id string) (*provider.Setting, error)
+	GetSettingsViaCache(ids []string) ([]*provider.Setting, error)
 }
 
 type KeyManager interface {
@@ -349,7 +349,7 @@ func getGetProviderSettingsHandler(m ProviderSettingsManager, prod bool) gin.Han
 			return
 		}
 
-		created, err := m.GetSettings(c.QueryArray("ids"))
+		created, err := m.GetSettingsViaCache(c.QueryArray("ids"))
 		if err != nil {
 			errType := "internal"
 
