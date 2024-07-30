@@ -83,6 +83,21 @@ func (s *Store) CreateCreateAtIndexForKeys() error {
 	return nil
 }
 
+func (s *Store) CreateKeyIndexForKeys() error {
+	createIndexQuery := `
+	CREATE INDEX IF NOT EXISTS key_idx ON keys(key);
+	`
+
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.wt)
+	defer cancel()
+	_, err := s.db.ExecContext(ctxTimeout, createIndexQuery)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *Store) GetKeys(tags, keyIds []string, provider string) ([]*key.ResponseKey, error) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), s.rt)
 	defer cancel()
