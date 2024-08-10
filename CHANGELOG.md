@@ -1,3 +1,10 @@
+## 1.35.0 - 2024-08-10
+### Added
+- Added cost tracking for `gpt-4o-2024-08-06`
+
+### Changed
+- Changed default read time out for PostgreSQL
+
 ## 1.34.0 - 2024-07-29
 ### Added
 - Added cost tracking for `gpt-4o-mini`
