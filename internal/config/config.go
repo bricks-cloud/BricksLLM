@@ -27,7 +27,7 @@ type Config struct {
 	RedisPassword                 string        `koanf:"redis_password" env:"REDIS_PASSWORD"`
 	RedisReadTimeout              time.Duration `koanf:"redis_read_time_out" env:"REDIS_READ_TIME_OUT" envDefault:"1s"`
 	RedisWriteTimeout             time.Duration `koanf:"redis_write_time_out" env:"REDIS_WRITE_TIME_OUT" envDefault:"500ms"`
-	PostgresqlReadTimeout         time.Duration `koanf:"postgresql_read_time_out" env:"POSTGRESQL_READ_TIME_OUT" envDefault:"2m"`
+	PostgresqlReadTimeout         time.Duration `koanf:"postgresql_read_time_out" env:"POSTGRESQL_READ_TIME_OUT" envDefault:"10m"`
 	PostgresqlWriteTimeout        time.Duration `koanf:"postgresql_write_time_out" env:"POSTGRESQL_WRITE_TIME_OUT" envDefault:"5s"`
 	InMemoryDbUpdateInterval      time.Duration `koanf:"in_memory_db_update_interval" env:"IN_MEMORY_DB_UPDATE_INTERVAL" envDefault:"5s"`
 	TelemetryProvider             string        `koanf:"telemetry_provider" env:"TELEMETRY_PROVIDER" envDefault:"statsd"`

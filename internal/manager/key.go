@@ -222,6 +222,10 @@ func (m *Manager) GetKeyViaCache(raw string) (*key.ResponseKey, error) {
 		k = stored
 	}
 
+	if k != nil {
+		telemetry.Incr("bricksllm.manager.get_key_via_cache.cache_hit", nil, 1)
+	}
+
 	return k, nil
 }
 
