@@ -166,7 +166,7 @@ func (m *ProviderSettingsManager) GetSettingViaCache(id string) (*provider.Setti
 			return stored, nil
 		}
 
-		err = m.Cache.Set(id, bs, time.Hour)
+		err = m.Cache.Set(id, bs, 24*time.Hour)
 		if err != nil {
 			telemetry.Incr("bricksllm.provider_settings_manager.get_setting_via_cache.set_error", nil, 1)
 		}

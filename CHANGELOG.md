@@ -1,3 +1,7 @@
+## 1.35.1 - 2024-08-10
+### Changed
+- Changed cache TTL from `1h` to `24h` for keys and provider settings
+
 ## 1.35.0 - 2024-08-10
 ### Added
 - Added cost tracking for `gpt-4o-2024-08-06`
