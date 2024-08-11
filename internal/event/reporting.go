@@ -14,10 +14,30 @@ type DataPoint struct {
 	UserId               string  `json:"userId"`
 }
 
+type DataPointV2 struct {
+	TimeStamp            int64   `json:"timeStamp"`
+	NumberOfRequests     int64   `json:"numberOfRequests"`
+	CostInUsd            float64 `json:"costInUsd"`
+	LatencyInMs          int64   `json:"latencyInMs"`
+	PromptTokenCount     int64   `json:"promptTokenCount"`
+	CompletionTokenCount int64   `json:"completionTokenCount"`
+	SuccessCount         int64   `json:"successCount"`
+	Model                string  `json:"model"`
+	KeyId                string  `json:"keyId"`
+	CustomId             string  `json:"customId"`
+	UserId               string  `json:"userId"`
+}
+
 type ReportingResponse struct {
 	DataPoints        []*DataPoint `json:"dataPoints"`
 	LatencyInMsMedian float64      `json:"latencyInMsMedian"`
 	LatencyInMs99th   float64      `json:"latencyInMs99th"`
+}
+
+type ReportingResponseV2 struct {
+	DataPoints        []*DataPointV2 `json:"dataPoints"`
+	LatencyInMsMedian float64        `json:"latencyInMsMedian"`
+	LatencyInMs99th   float64        `json:"latencyInMs99th"`
 }
 
 type ReportingRequest struct {

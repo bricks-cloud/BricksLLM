@@ -16,12 +16,12 @@ func (s *Store) CreateEventsByDayTable() error {
 	CREATE TABLE IF NOT EXISTS event_agg_by_day (
 		id SERIAL PRIMARY KEY,
 		time_stamp BIGINT NOT NULL,
-		num_of_requests INT NOT NULL,
+		num_of_requests BIGINT NOT NULL,
 		cost_in_usd FLOAT8 NOT NULL,
-		latency_in_ms INT NOT NULL,
-		prompt_token_count INT NOT NULL,
-		success_count INT NOT NULL,
-		completion_token_count INT NOT NULL,
+		latency_in_ms BIGINT NOT NULL,
+		prompt_token_count BIGINT NOT NULL,
+		success_count BIGINT NOT NULL,
+		completion_token_count BIGINT NOT NULL,
 		key_id VARCHAR(255)
 	)`
 
@@ -469,7 +469,7 @@ func (s *Store) GetTopKeyDataPoints(start, end int64, tags, keyIds []string, ord
 	return data, nil
 }
 
-func (s *Store) GetAggregatedEventByDayDataPoints(start, end int64, keyIds []string) ([]*event.DataPoint, error) {
+func (s *Store) GetAggregatedEventByDayDataPoints(start, end int64, keyIds []string) ([]*event.DataPointV2, error) {
 	conditionBlock := fmt.Sprintf("WHERE time_stamp >= %d AND time_stamp < %d ", start, end)
 	if len(keyIds) != 0 {
 		conditionBlock += fmt.Sprintf("AND key_id = ANY('%s')", sliceToSqlStringArray(keyIds))
@@ -493,9 +493,9 @@ func (s *Store) GetAggregatedEventByDayDataPoints(start, end int64, keyIds []str
 	}
 	defer rows.Close()
 
-	data := []*event.DataPoint{}
+	data := []*event.DataPointV2{}
 	for rows.Next() {
-		var e event.DataPoint
+		var e event.DataPointV2
 		var keyId sql.NullString
 		var id sql.NullInt32
 
