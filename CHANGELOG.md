@@ -1,3 +1,7 @@
+## 1.35.2 - 2024-08-10
+### Changed
+- Changed aggregated table column data types from `INT` to `BIGINT`
+
 ## 1.35.1 - 2024-08-10
 ### Changed
 - Changed cache TTL from `1h` to `24h` for keys and provider settings
