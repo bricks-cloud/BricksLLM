@@ -183,20 +183,13 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			return
 		}
 
-		for _, ip := range blockList {
-			fmt.Println(c.Request.RemoteAddr)
+		fmt.Println(c.Request.RemoteAddr)
+		fmt.Println(c.Request.UserAgent())
 
-			if strings.Contains(c.Request.RemoteAddr, ip) {
-				telemetry.Incr("bricksllm.proxy.get_middleware.first_block", nil, 1)
-				c.Status(200)
-				return
-			}
-
-			if strings.HasPrefix(c.Request.RemoteAddr, "43.130.32.") {
-				telemetry.Incr("bricksllm.proxy.get_middleware.second_block", nil, 1)
-				c.Status(200)
-				return
-			}
+		if strings.HasPrefix(c.Request.UserAgent(), "Go-http-client") {
+			telemetry.Incr("bricksllm.proxy.get_middleware.block_by_client", nil, 1)
+			c.Status(200)
+			return
 		}
 
 		if removeUserAgent {
