@@ -168,8 +168,6 @@ type CustomPolicyDetector interface {
 	Detect(input []string, requirements []string) (bool, error)
 }
 
-var blockList = []string{"43.130.32.143"}
-
 func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManager, a authenticator, prod, private bool, log *zap.Logger, pub publisher, prefix string, ac accessCache, uac userAccessCache, client http.Client, scanner Scanner, cd CustomPolicyDetector, um userManager, removeUserAgent bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
@@ -179,16 +177,6 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		}
 
 		if c.FullPath() == "/api/health" {
-			c.Abort()
-			return
-		}
-
-		fmt.Println(c.Request.RemoteAddr)
-		fmt.Println(c.Request.UserAgent())
-
-		if strings.HasPrefix(c.Request.UserAgent(), "Go-http-client") {
-			telemetry.Incr("bricksllm.proxy.get_middleware.block_by_client", nil, 1)
-			c.Status(200)
 			c.Abort()
 			return
 		}
