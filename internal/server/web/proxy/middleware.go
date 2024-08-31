@@ -189,6 +189,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 		if strings.HasPrefix(c.Request.UserAgent(), "Go-http-client") {
 			telemetry.Incr("bricksllm.proxy.get_middleware.block_by_client", nil, 1)
 			c.Status(200)
+			c.Abort()
 			return
 		}
 
