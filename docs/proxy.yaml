@@ -14,6 +14,7 @@ tags:
   - name: DeepInfra
   - name: vLLM
   - name: Anthropic
+  - name: Bedrock
   - name: Azure
   - name: Custom Providers
   - name: Route
@@ -1168,6 +1169,16 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+          description: Content type of the request.
+        - in: header
+          name: anthropic-version
+          schema:
+            type: string
+          description: Anthropic version.
       tags:
         - Anthropic
       summary: Create Anthropic completion
@@ -1186,10 +1197,56 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+          description: Content type of the request.
+        - in: header
+          name: anthropic-version
+          schema:
+            type: string
+          description: Anthropic version.
       tags:
         - Anthropic
       summary: Create Anthropic messages
       description: This endpoint is set up for proxying Anthropic messages requests. Documentation for this endpoint can be found [here](https://docs.anthropic.com/claude/reference/messages_post).
+
+  /api/providers/bedrock/anthropic/v1/complete:
+    post:
+      parameters:
+        - in: header
+          name: X-CUSTOM-EVENT-ID
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-METADATA
+          schema:
+            type: string
+          description: Metadata in stringified JSON format.
+      tags:
+        - Bedrock
+      summary: Create Bedrock Anthropic completion
+      description: This endpoint is set up for proxying Bedrock Anthropic completion requests. Documentation for this endpoint can be found [here](https://docs.anthropic.com/claude/reference/complete_post).
+
+  /api/providers/bedrock/anthropic/v1/messages:
+    post:
+      parameters:
+        - in: header
+          name: X-CUSTOM-EVENT-ID
+          schema:
+            type: string
+          description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: Content-Type
+          schema:
+            type: string
+          description: Content type of the request.
+      tags:
+        - Bedrock
+      summary: Creat Bedrock Anthropic messages
+      description: This endpoint is set up for proxying Bedrock Anthropic messages requests. Documentation for this endpoint can be found [here](https://docs.anthropic.com/claude/reference/messages_post). Request body must include an additional field called `anthropic-version``. 
 
   /api/providers/vllm/v1/chat/completions:
     post:
