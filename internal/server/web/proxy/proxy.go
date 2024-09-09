@@ -181,6 +181,10 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	router.POST("/api/providers/anthropic/v1/complete", getCompletionHandler(prod, private, client, timeOut))
 	router.POST("/api/providers/anthropic/v1/messages", getMessagesHandler(prod, private, client, ae, timeOut))
 
+	// bedrock anthropic
+	router.POST("/api/providers/bedrock/anthropic/v1/complete", getBedrockCompletionHandler(prod, ae, timeOut))
+	router.POST("/api/providers/bedrock/anthropic/v1/messages", getBedrockMessagesHandler(prod, ae, timeOut))
+
 	// vllm
 	router.POST("/api/providers/vllm/v1/chat/completions", getVllmChatCompletionsHandler(prod, private, client, timeOut))
 	router.POST("/api/providers/vllm/v1/completions", getVllmCompletionsHandler(prod, private, client, timeOut))
@@ -991,6 +995,10 @@ func (ps *ProxyServer) Run() {
 		// anthropic
 		ps.log.Info("PORT 8002 | POST   | /api/providers/anthropic/v1/complete is ready for forwarding completion requests to anthropic")
 		ps.log.Info("PORT 8002 | POST   | /api/providers/anthropic/v1/messages is ready for forwarding message requests to anthropic")
+
+		// bedrock anthropic
+		ps.log.Info("PORT 8002 | POST   | /api/providers/bedrock/anthropic/v1/complete is ready for forwarding completion requests to bedrock anthropic")
+		ps.log.Info("PORT 8002 | POST   | /api/providers/bedrock/anthropic/v1/messages is ready for forwarding message requests to bedrock anthropic")
 
 		// vllm
 		ps.log.Info("PORT 8002 | POST   | /api/providers/vllm/v1/chat/completions is ready for forwarding vllm chat completions requests")

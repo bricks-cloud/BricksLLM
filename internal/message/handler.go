@@ -14,6 +14,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/provider/vllm"
 	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/user"
+	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 
@@ -465,6 +466,46 @@ func (h *Handler) decorateEvent(m Message) error {
 		e.Event.CompletionTokenCount = completiontks
 		if e.Event.Status == http.StatusOK {
 			e.Event.CostInUsd = completionCost + cost
+		}
+	}
+
+	if e.Event.Path == "/api/providers/bedrock/anthropic/v1/complete" {
+		cr, ok := e.Request.(*anthropic.CompletionRequest)
+		if !ok {
+			telemetry.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
+			h.log.Debug("event contains request that cannot be converted to anthropic completion request", zap.Any("data", m.Data))
+			return errors.New("event request data cannot be parsed as anthropic completion request")
+		}
+
+		if !cr.Stream {
+			tks := h.ae.Count(cr.Prompt)
+			tks += anthropicPromptMagicNum
+
+			model := cr.Model
+
+			translatedModel := util.TranslateBedrockModelToAnthropicModel(model)
+			cost, err := h.ae.EstimatePromptCost(translatedModel, tks)
+			if err != nil {
+				telemetry.Incr("bricksllm.message.handler.decorate_event.estimate_prompt_cost", nil, 1)
+				h.log.Debug("event contains request that cannot be converted to anthropic completion request", zap.Error(err))
+				return err
+			}
+
+			completiontks := h.ae.Count(e.Content)
+			completiontks += anthropicCompletionMagicNum
+
+			completionCost, err := h.ae.EstimateCompletionCost(translatedModel, completiontks)
+			if err != nil {
+				telemetry.Incr("bricksllm.message.handler.decorate_event.estimate_completion_cost_error", nil, 1)
+				return err
+			}
+
+			e.Event.PromptTokenCount = tks
+
+			e.Event.CompletionTokenCount = completiontks
+			if e.Event.Status == http.StatusOK {
+				e.Event.CostInUsd = completionCost + cost
+			}
 		}
 	}
 

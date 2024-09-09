@@ -87,6 +87,10 @@ func rewriteHttpAuthHeader(req *http.Request, setting *provider.Setting) error {
 	}
 
 	if len(apiKey) == 0 {
+		if setting.Provider == "bedrock" {
+			return nil
+		}
+
 		return errors.New("api key is empty in provider setting")
 	}
 

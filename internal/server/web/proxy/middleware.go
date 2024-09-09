@@ -348,6 +348,20 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 				}
 			}
 
+			if strings.HasPrefix(c.FullPath(), "/api/providers/bedrock/anthropic") {
+				if selected != nil && len(selected.Setting["awsAccessKeyId"]) != 0 {
+					c.Set("awsAccessKeyId", selected.Setting["awsAccessKeyId"])
+				}
+
+				if selected != nil && len(selected.Setting["awsSecretAccessKey"]) != 0 {
+					c.Set("awsSecretAccessKey", selected.Setting["awsSecretAccessKey"])
+				}
+
+				if selected != nil && len(selected.Setting["awsRegion"]) != 0 {
+					c.Set("awsRegion", selected.Setting["awsRegion"])
+				}
+			}
+
 			if strings.HasPrefix(c.FullPath(), "/api/providers/vllm") {
 				if selected != nil && len(selected.Setting["url"]) != 0 {
 					c.Set("vllmUrl", selected.Setting["url"])
@@ -400,6 +414,54 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			c.Set("model", cr.Model)
 
 			policyInput = cr
+		}
+
+		if c.FullPath() == "/api/providers/bedrock/anthropic/v1/complete" {
+			logCompletionRequest(logWithCid, body, prod, private)
+
+			cr := &anthropic.CompletionRequest{}
+			err = json.Unmarshal(body, cr)
+			if err != nil {
+				logError(logWithCid, "error when unmarshalling bedrock anthropic completion request", prod, err)
+				return
+			}
+
+			if cr.Metadata != nil {
+				userId = cr.Metadata.UserId
+			}
+
+			enrichedEvent.Request = cr
+
+			if cr.Stream {
+				c.Set("stream", cr.Stream)
+			}
+
+			c.Set("model", cr.Model)
+
+			policyInput = cr
+		}
+
+		if c.FullPath() == "/api/providers/bedrock/anthropic/v1/messages" {
+			logCreateMessageRequest(logWithCid, body, prod, private)
+
+			mr := &anthropic.MessagesRequest{}
+			err = json.Unmarshal(body, mr)
+			if err != nil {
+				logError(logWithCid, "error when unmarshalling anthropic messages request", prod, err)
+				return
+			}
+
+			if mr.Metadata != nil {
+				userId = mr.Metadata.UserId
+			}
+
+			if mr.Stream {
+				c.Set("stream", mr.Stream)
+			}
+
+			c.Set("model", mr.Model)
+
+			policyInput = mr
 		}
 
 		if c.FullPath() == "/api/providers/anthropic/v1/messages" {

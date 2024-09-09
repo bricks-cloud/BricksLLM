@@ -3,6 +3,7 @@ package util
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -49,4 +50,32 @@ func ConvertAnyToStr(input any) (string, error) {
 	}
 
 	return converted, nil
+}
+
+func TranslateBedrockModelToAnthropicModel(model string) string {
+	if strings.HasPrefix(model, "anthropic.claude-v2") {
+		return "claude"
+	}
+
+	if strings.HasPrefix(model, "anthropic.claude-3-haiku") {
+		return "claude-3-haiku"
+	}
+
+	if strings.HasPrefix(model, "anthropic.claude-3-sonnet") {
+		return "claude-3-sonnet"
+	}
+
+	if strings.HasPrefix(model, "anthropic.claude-3-opus") {
+		return "claude-3-opus"
+	}
+
+	if strings.HasPrefix(model, "anthropic.claude-3-5-sonnet") {
+		return "claude-3.5-sonnet"
+	}
+
+	if strings.HasPrefix(model, "anthropic.claude-instant") {
+		return "claude-instant"
+	}
+
+	return model
 }

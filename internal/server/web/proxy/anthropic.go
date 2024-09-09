@@ -386,11 +386,6 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 					telemetry.Incr("bricksllm.proxy.get_messages_handler.estimate_total_cost_error", nil, 1)
 					logError(log, "error when estimating anthropic cost", prod, err)
 				}
-
-				if err != nil {
-					telemetry.Incr("bricksllm.proxy.get_messages_handler.record_key_spend_error", nil, 1)
-					logError(log, "error when recording anthropic spend", prod, err)
-				}
 			}
 
 			c.Set("costInUsd", cost)
@@ -402,7 +397,7 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 		}
 
 		if res.StatusCode != http.StatusOK {
-			dur := time.Now().Sub(start)
+			dur := time.Since(start)
 			telemetry.Timing("bricksllm.proxy.get_messages_handler.error_latency", dur, nil, 1)
 			telemetry.Incr("bricksllm.proxy.get_messages_handler.error_response", nil, 1)
 			bytes, err := io.ReadAll(res.Body)

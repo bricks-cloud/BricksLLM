@@ -1,3 +1,7 @@
+## 1.36.0 - 2024-08-10
+### Added
+- Added Amazon Bedrock integration for Claude models
+
 ## 1.35.2 - 2024-08-10
 ### Changed
 - Changed aggregated table column data types from `INT` to `BIGINT`

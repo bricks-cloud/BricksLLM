@@ -40,7 +40,7 @@ func NewProviderSettingsManager(s ProviderSettingsStorage, cache ProviderSetting
 }
 
 func isProviderNativelySupported(provider string) bool {
-	return provider == "openai" || provider == "anthropic" || provider == "azure" || provider == "vllm" || provider == "deepinfra"
+	return provider == "openai" || provider == "anthropic" || provider == "azure" || provider == "vllm" || provider == "deepinfra" || provider == "bedrock"
 }
 
 func findMissingAuthParams(providerName string, params map[string]string) string {
@@ -53,6 +53,23 @@ func findMissingAuthParams(providerName string, params map[string]string) string
 		}
 
 		return strings.Join(missingFields, " ,")
+	}
+
+	if providerName == "bedrock" {
+		val := params["awsAccessKeyId"]
+		if len(val) == 0 {
+			missingFields = append(missingFields, "awsAccessKeyId")
+		}
+
+		val = params["awsSecretAccessKey"]
+		if len(val) == 0 {
+			missingFields = append(missingFields, "awsSecretAccessKey")
+		}
+
+		val = params["awsRegion"]
+		if len(val) == 0 {
+			missingFields = append(missingFields, "awsRegion")
+		}
 	}
 
 	if providerName == "azure" {
