@@ -156,6 +156,10 @@ func (a *Authenticator) getProviderSettingsThatCanAccessCustomRoute(path string,
 }
 
 func canAccessPath(provider string, path string) bool {
+	if provider == "bedrock" && !strings.HasPrefix(path, "/api/providers/bedrock") {
+		return false
+	}
+
 	if provider == "openai" && !strings.HasPrefix(path, "/api/providers/openai") {
 		return false
 	}
