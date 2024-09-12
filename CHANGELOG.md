@@ -1,4 +1,8 @@
-## 1.36.0 - 2024-08-10
+## 1.36.1 - 2024-09-10
+### Fixed
+- Fixed provider selection issue when a key is associated with multiple providers
+
+## 1.36.0 - 2024-09-09
 ### Added
 - Added Amazon Bedrock integration for Claude models
 
