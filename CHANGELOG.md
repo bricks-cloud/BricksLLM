@@ -1,3 +1,7 @@
+## 1.36.2 - 2024-09-13
+### Fixed
+- Fixed compatibility issues between Anthropic SDK and AWS Bedrock
+  
 ## 1.36.1 - 2024-09-10
 ### Fixed
 - Fixed provider selection issue when a key is associated with multiple providers

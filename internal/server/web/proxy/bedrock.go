@@ -21,6 +21,12 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+func setAnthropicVersionIfExists(version string, req *anthropic.BedrockMessageRequest) {
+	if req != nil && len(version) > 0 {
+		req.AnthropicVersion = version
+	}
+}
+
 func getBedrockCompletionHandler(prod bool, e anthropicEstimator, timeOut time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
@@ -309,6 +315,8 @@ func getBedrockMessagesHandler(prod bool, e anthropicEstimator, timeOut time.Dur
 			return
 		}
 
+		setAnthropicVersionIfExists(c.GetHeader("anthropic-version"), req)
+
 		bs, err := json.Marshal(req)
 		if err != nil {
 			telemetry.Incr("bricksllm.proxy.get_bedrock_messages_handler.marshal_error", nil, 1)
@@ -410,6 +418,7 @@ func getBedrockMessagesHandler(prod bool, e anthropicEstimator, timeOut time.Dur
 		streamOutput, err := client.InvokeModelWithResponseStream(ctx, &bedrockruntime.InvokeModelWithResponseStreamInput{
 			ModelId:     &anthropicReq.Model,
 			ContentType: aws.String("application/json"),
+			Accept:      aws.String("application/json"),
 			Body:        bs,
 		})
 
@@ -500,7 +509,6 @@ func getBedrockMessagesHandler(prod bool, e anthropicEstimator, timeOut time.Dur
 						return false
 					}
 				default:
-
 					telemetry.Timing("bricksllm.proxy.get_bedrock_messages_handler.streaming_latency", time.Since(start), nil, 1)
 					return false
 				}
