@@ -1,3 +1,7 @@
+## 1.36.3 - 2024-09-16
+### Added
+- Added support for OpenAI o1 models
+
 ## 1.36.2 - 2024-09-13
 ### Fixed
 - Fixed compatibility issues between Anthropic SDK and AWS Bedrock
