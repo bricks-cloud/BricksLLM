@@ -1,3 +1,7 @@
+## 1.36.4 - 2024-09-16
+### Added
+- Added support for `gpt-4o-mini` in routes
+
 ## 1.36.3 - 2024-09-16
 ### Added
 - Added support for OpenAI o1 models
