@@ -1,4 +1,8 @@
-## 1.36.4 - 2024-09-16
+## 1.36.4 - 2024-10-16
+### Changed
+- Updated `gpt-4o` pricing according to OpenAI updates
+
+## 1.36.4 - 2024-10-15
 ### Added
 - Added support for `gpt-4o-mini` in routes
 
