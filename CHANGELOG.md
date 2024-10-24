@@ -1,3 +1,7 @@
+## 1.37.0 - 2024-10-23
+### Added
+- Added request level timeout with HTTP header `x-request-timeout`
+
 ## 1.36.5 - 2024-10-16
 ### Changed
 - Updated `gpt-4o` pricing according to OpenAI updates

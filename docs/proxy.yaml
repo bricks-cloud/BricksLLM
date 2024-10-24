@@ -50,6 +50,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: OpenAI Chat Completions
@@ -68,6 +73,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Call OpenAI embeddings
@@ -86,6 +96,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Call OpenAI moderations
@@ -99,6 +114,11 @@ paths:
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Get OpenAI models
@@ -121,6 +141,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: model
           required: true
@@ -141,6 +166,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: List files
@@ -158,6 +188,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Upload a file
@@ -180,6 +215,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: file_id
           required: true
@@ -198,6 +238,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: file_id
           required: true
@@ -222,6 +267,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: file_id
           required: true
@@ -245,6 +295,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Create a batch
@@ -262,6 +317,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: List batches
@@ -284,6 +344,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: batch_id
           required: true
@@ -302,6 +367,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Cancel a batch
@@ -320,6 +390,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Generate images
@@ -338,6 +413,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Edit images
@@ -356,6 +436,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Create image variations
@@ -374,6 +459,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Create speech
@@ -392,6 +482,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Create transcriptions
@@ -410,6 +505,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Create translations
@@ -428,6 +528,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Create assistant
@@ -445,6 +550,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: List assistants
@@ -467,6 +577,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: assistant_id
           required: true
@@ -490,6 +605,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Modify assistant
@@ -512,6 +632,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Delete assistant
@@ -535,6 +660,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Create assistant file
@@ -557,6 +687,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: List assistant files
@@ -575,6 +710,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: assistant_id
           required: true
@@ -612,6 +752,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Delete assistant file
@@ -630,6 +775,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Create thread
@@ -652,6 +802,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: thread_id
           required: true
@@ -670,6 +825,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: thread_id
           required: true
@@ -692,6 +852,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Delete thread
@@ -710,6 +875,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: thread_id
           required: true
@@ -732,6 +902,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: thread_id
           required: true
@@ -760,6 +935,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: message_id
           required: true
@@ -782,6 +962,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: message_id
           required: true
@@ -814,6 +999,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: file_id
           required: true
@@ -853,6 +1043,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: List message files
@@ -871,6 +1066,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: thread_id
           required: true
@@ -892,6 +1092,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: thread_id
           required: true
@@ -920,6 +1125,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: run_id
           required: true
@@ -954,6 +1164,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Modify run
@@ -972,6 +1187,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: thread_id
           required: true
@@ -1000,6 +1220,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - OpenAI
       summary: Create thread and run
@@ -1022,6 +1247,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: step_id
           required: true
@@ -1052,6 +1282,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: thread_id
           required: true
@@ -1084,6 +1319,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: deployment_id
           required: true
@@ -1114,6 +1354,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: deployment_id
           required: true
@@ -1143,6 +1388,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: deployment_id
           required: true
@@ -1169,6 +1419,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: header
           name: Content-Type
           schema:
@@ -1198,6 +1453,11 @@ paths:
             type: string
           description: Metadata in stringified JSON format.
         - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: header
           name: Content-Type
           schema:
             type: string
@@ -1225,6 +1485,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - Bedrock
       summary: Create Bedrock Anthropic completion
@@ -1238,6 +1503,11 @@ paths:
           schema:
             type: string
           description: Custom Id that can be used to retrieve an event associated with each proxy request.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: header
           name: Content-Type
           schema:
@@ -1261,6 +1531,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - vLLM
       summary: Create chat completions
@@ -1279,6 +1554,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - vLLM
       summary: Create completions
@@ -1297,6 +1577,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - DeepInfra
       summary: Create chat completions
@@ -1315,6 +1600,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - DeepInfra
       summary: Create completions
@@ -1333,6 +1623,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - DeepInfra
       summary: Create embeddings
@@ -1351,6 +1646,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
           name: provider
           required: true
@@ -1375,6 +1675,11 @@ paths:
           schema:
             type: string
           description: Metadata in stringified JSON format.
+        - in: header
+          name: X-REQUEST-TIMEOUT
+          schema:
+            type: string
+          description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
       tags:
         - Route
       summary: Call a route
