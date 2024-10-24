@@ -17,7 +17,7 @@ import (
 	goopenai "github.com/sashabaranov/go-openai"
 )
 
-func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
+func getDeepinfraCompletionsHandler(prod, private bool, client http.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_deepinfra_completions_handler.requests", nil, 1)
@@ -26,7 +26,7 @@ func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, time
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.deepinfra.com/v1/openai/completions", c.Request.Body)
@@ -221,7 +221,7 @@ func getDeepinfraCompletionsHandler(prod, private bool, client http.Client, time
 	}
 }
 
-func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
+func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_deepinfra_chat_completions_handler.requests", nil, 1)
@@ -230,7 +230,7 @@ func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, 
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.deepinfra.com/v1/openai/chat/completions", c.Request.Body)
@@ -416,7 +416,7 @@ func getDeepinfraChatCompletionsHandler(prod, private bool, client http.Client, 
 	}
 }
 
-func getDeepinfraEmbeddingsHandler(prod, private bool, client http.Client, e deepinfraEstimator, timeout time.Duration) gin.HandlerFunc {
+func getDeepinfraEmbeddingsHandler(prod, private bool, client http.Client, e deepinfraEstimator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_deepinfra_embeddings_handler.requests", nil, 1)
@@ -425,7 +425,7 @@ func getDeepinfraEmbeddingsHandler(prod, private bool, client http.Client, e dee
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.deepinfra.com/v1/openai/embeddings", c.Request.Body)

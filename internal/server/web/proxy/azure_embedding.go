@@ -14,7 +14,7 @@ import (
 	goopenai "github.com/sashabaranov/go-openai"
 )
 
-func getAzureEmbeddingsHandler(prod, private bool, client http.Client, aoe azureEstimator, timeOut time.Duration) gin.HandlerFunc {
+func getAzureEmbeddingsHandler(prod, private bool, client http.Client, aoe azureEstimator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_azure_embeddings_handler.requests", nil, 1)
@@ -31,7 +31,7 @@ func getAzureEmbeddingsHandler(prod, private bool, client http.Client, aoe azure
 		// 	return
 		// }
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, c.Request.Method, buildAzureUrl(c.FullPath(), c.Param("deployment_id"), c.Query("api-version"), c.GetString("resourceName")), c.Request.Body)

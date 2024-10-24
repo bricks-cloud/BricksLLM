@@ -79,12 +79,13 @@ func CorsMiddleware() gin.HandlerFunc {
 	}
 }
 
-func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyManager, rm routeManager, a authenticator, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, r recorder, pub publisher, rlm rateLimitManager, timeOut time.Duration, ac accessCache, uac userAccessCache, pm PoliciesManager, scanner Scanner, cd CustomPolicyDetector, die deepinfraEstimator, um userManager, removeAgentHeaders bool) (*ProxyServer, error) {
+func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyManager, rm routeManager, a authenticator, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, r recorder, pub publisher, rlm rateLimitManager, timeout time.Duration, ac accessCache, uac userAccessCache, pm PoliciesManager, scanner Scanner, cd CustomPolicyDetector, die deepinfraEstimator, um userManager, removeAgentHeaders bool) (*ProxyServer, error) {
 	router := gin.New()
 	prod := mode == "production"
 	private := privacyMode == "strict"
 
 	router.Use(CorsMiddleware())
+	router.Use(getTimeoutMiddleware(timeout))
 	router.Use(getMiddleware(cpm, rm, pm, a, prod, private, log, pub, "proxy", ac, uac, http.Client{}, scanner, cd, um, removeAgentHeaders))
 
 	client := http.Client{}
@@ -96,128 +97,128 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	router.GET("/api/health", getGetHealthCheckHandler())
 
 	// audios
-	router.POST("/api/providers/openai/v1/audio/speech", getSpeechHandler(prod, client, timeOut))
-	router.POST("/api/providers/openai/v1/audio/transcriptions", getTranscriptionsHandler(prod, client, timeOut, e))
-	router.POST("/api/providers/openai/v1/audio/translations", getTranslationsHandler(prod, client, timeOut, e))
+	router.POST("/api/providers/openai/v1/audio/speech", getSpeechHandler(prod, client))
+	router.POST("/api/providers/openai/v1/audio/transcriptions", getTranscriptionsHandler(prod, client, e))
+	router.POST("/api/providers/openai/v1/audio/translations", getTranslationsHandler(prod, client, e))
 
 	// completions
-	router.POST("/api/providers/openai/v1/chat/completions", getChatCompletionHandler(prod, private, client, e, timeOut))
+	router.POST("/api/providers/openai/v1/chat/completions", getChatCompletionHandler(prod, private, client, e))
 
 	// embeddings
-	router.POST("/api/providers/openai/v1/embeddings", getEmbeddingHandler(prod, private, client, e, timeOut))
+	router.POST("/api/providers/openai/v1/embeddings", getEmbeddingHandler(prod, private, client, e))
 
 	// moderations
-	router.POST("/api/providers/openai/v1/moderations", getPassThroughHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/openai/v1/moderations", getPassThroughHandler(prod, private, client))
 
 	// models
-	router.GET("/api/providers/openai/v1/models", getPassThroughHandler(prod, private, client, timeOut))
-	router.GET("/api/providers/openai/v1/models/:model", getPassThroughHandler(prod, private, client, timeOut))
-	router.DELETE("/api/providers/openai/v1/models/:model", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/models", getPassThroughHandler(prod, private, client))
+	router.GET("/api/providers/openai/v1/models/:model", getPassThroughHandler(prod, private, client))
+	router.DELETE("/api/providers/openai/v1/models/:model", getPassThroughHandler(prod, private, client))
 
 	// assistants
-	router.POST("/api/providers/openai/v1/assistants", getPassThroughHandler(prod, private, client, timeOut))
-	router.GET("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(prod, private, client, timeOut))
-	router.POST("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(prod, private, client, timeOut))
-	router.DELETE("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(prod, private, client, timeOut))
-	router.GET("/api/providers/openai/v1/assistants", getPassThroughHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/openai/v1/assistants", getPassThroughHandler(prod, private, client))
+	router.GET("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(prod, private, client))
+	router.POST("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(prod, private, client))
+	router.DELETE("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(prod, private, client))
+	router.GET("/api/providers/openai/v1/assistants", getPassThroughHandler(prod, private, client))
 
 	// assistant files
-	router.POST("/api/providers/openai/v1/assistants/:assistant_id/files", getPassThroughHandler(prod, private, client, timeOut))
-	router.GET("/api/providers/openai/v1/assistants/:assistant_id/files/:file_id", getPassThroughHandler(prod, private, client, timeOut))
-	router.DELETE("/api/providers/openai/v1/assistants/:assistant_id/files/:file_id", getPassThroughHandler(prod, private, client, timeOut))
-	router.GET("/api/providers/openai/v1/assistants/:assistant_id/files", getPassThroughHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/openai/v1/assistants/:assistant_id/files", getPassThroughHandler(prod, private, client))
+	router.GET("/api/providers/openai/v1/assistants/:assistant_id/files/:file_id", getPassThroughHandler(prod, private, client))
+	router.DELETE("/api/providers/openai/v1/assistants/:assistant_id/files/:file_id", getPassThroughHandler(prod, private, client))
+	router.GET("/api/providers/openai/v1/assistants/:assistant_id/files", getPassThroughHandler(prod, private, client))
 
 	// threads
-	router.POST("/api/providers/openai/v1/threads", getPassThroughHandler(prod, private, client, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(prod, private, client, timeOut))
-	router.POST("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(prod, private, client, timeOut))
-	router.DELETE("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/openai/v1/threads", getPassThroughHandler(prod, private, client))
+	router.GET("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(prod, private, client))
+	router.POST("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(prod, private, client))
+	router.DELETE("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(prod, private, client))
 
 	// messages
-	router.POST("/api/providers/openai/v1/threads/:thread_id/messages", getPassThroughHandler(prod, private, client, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id", getPassThroughHandler(prod, private, client, timeOut))
-	router.POST("/api/providers/openai/v1/threads/:thread_id/messages/:message_id", getPassThroughHandler(prod, private, client, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/messages", getPassThroughHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/messages", getPassThroughHandler(prod, private, client))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id", getPassThroughHandler(prod, private, client))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/messages/:message_id", getPassThroughHandler(prod, private, client))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/messages", getPassThroughHandler(prod, private, client))
 
 	// message files
-	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files/:file_id", getPassThroughHandler(prod, private, client, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files/:file_id", getPassThroughHandler(prod, private, client))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files", getPassThroughHandler(prod, private, client))
 
 	// runs
-	router.POST("/api/providers/openai/v1/threads/:thread_id/runs", getPassThroughHandler(prod, private, client, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id", getPassThroughHandler(prod, private, client, timeOut))
-	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id", getPassThroughHandler(prod, private, client, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/runs", getPassThroughHandler(prod, private, client, timeOut))
-	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs", getPassThroughHandler(prod, private, client, timeOut))
-	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/cancel", getPassThroughHandler(prod, private, client, timeOut))
-	router.POST("/api/providers/openai/v1/threads/runs", getPassThroughHandler(prod, private, client, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps/:step_id", getPassThroughHandler(prod, private, client, timeOut))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps", getPassThroughHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/runs", getPassThroughHandler(prod, private, client))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id", getPassThroughHandler(prod, private, client))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id", getPassThroughHandler(prod, private, client))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/runs", getPassThroughHandler(prod, private, client))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs", getPassThroughHandler(prod, private, client))
+	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/cancel", getPassThroughHandler(prod, private, client))
+	router.POST("/api/providers/openai/v1/threads/runs", getPassThroughHandler(prod, private, client))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps/:step_id", getPassThroughHandler(prod, private, client))
+	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps", getPassThroughHandler(prod, private, client))
 
 	// files
-	router.GET("/api/providers/openai/v1/files", getPassThroughHandler(prod, private, client, timeOut))
-	router.POST("/api/providers/openai/v1/files", getPassThroughHandler(prod, private, client, timeOut))
-	router.DELETE("/api/providers/openai/v1/files/:file_id", getPassThroughHandler(prod, private, client, timeOut))
-	router.GET("/api/providers/openai/v1/files/:file_id", getPassThroughHandler(prod, private, client, timeOut))
-	router.GET("/api/providers/openai/v1/files/:file_id/content", getPassThroughHandler(prod, private, client, timeOut))
+	router.GET("/api/providers/openai/v1/files", getPassThroughHandler(prod, private, client))
+	router.POST("/api/providers/openai/v1/files", getPassThroughHandler(prod, private, client))
+	router.DELETE("/api/providers/openai/v1/files/:file_id", getPassThroughHandler(prod, private, client))
+	router.GET("/api/providers/openai/v1/files/:file_id", getPassThroughHandler(prod, private, client))
+	router.GET("/api/providers/openai/v1/files/:file_id/content", getPassThroughHandler(prod, private, client))
 
 	// batch
-	router.POST("/api/providers/openai/v1/batches", getPassThroughHandler(prod, private, client, timeOut))
-	router.GET("/api/providers/openai/v1/batches/:batch_id", getPassThroughHandler(prod, private, client, timeOut))
-	router.POST("/api/providers/openai/v1/batches/:batch_id/cancel", getPassThroughHandler(prod, private, client, timeOut))
-	router.GET("/api/providers/openai/v1/batches", getPassThroughHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/openai/v1/batches", getPassThroughHandler(prod, private, client))
+	router.GET("/api/providers/openai/v1/batches/:batch_id", getPassThroughHandler(prod, private, client))
+	router.POST("/api/providers/openai/v1/batches/:batch_id/cancel", getPassThroughHandler(prod, private, client))
+	router.GET("/api/providers/openai/v1/batches", getPassThroughHandler(prod, private, client))
 
 	// images
-	router.POST("/api/providers/openai/v1/images/generations", getPassThroughHandler(prod, private, client, timeOut))
-	router.POST("/api/providers/openai/v1/images/edits", getPassThroughHandler(prod, private, client, timeOut))
-	router.POST("/api/providers/openai/v1/images/variations", getPassThroughHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/openai/v1/images/generations", getPassThroughHandler(prod, private, client))
+	router.POST("/api/providers/openai/v1/images/edits", getPassThroughHandler(prod, private, client))
+	router.POST("/api/providers/openai/v1/images/variations", getPassThroughHandler(prod, private, client))
 
 	// azure
-	router.POST("/api/providers/azure/openai/deployments/:deployment_id/chat/completions", getAzureChatCompletionHandler(prod, private, client, aoe, timeOut))
-	router.POST("/api/providers/azure/openai/deployments/:deployment_id/embeddings", getAzureEmbeddingsHandler(prod, private, client, aoe, timeOut))
-	router.POST("/api/providers/azure/openai/deployments/:deployment_id/completions", getAzureCompletionsHandler(prod, private, client, aoe, timeOut))
+	router.POST("/api/providers/azure/openai/deployments/:deployment_id/chat/completions", getAzureChatCompletionHandler(prod, private, client, aoe))
+	router.POST("/api/providers/azure/openai/deployments/:deployment_id/embeddings", getAzureEmbeddingsHandler(prod, private, client, aoe))
+	router.POST("/api/providers/azure/openai/deployments/:deployment_id/completions", getAzureCompletionsHandler(prod, private, client, aoe))
 
 	// anthropic
-	router.POST("/api/providers/anthropic/v1/complete", getCompletionHandler(prod, private, client, timeOut))
-	router.POST("/api/providers/anthropic/v1/messages", getMessagesHandler(prod, private, client, ae, timeOut))
+	router.POST("/api/providers/anthropic/v1/complete", getCompletionHandler(prod, private, client))
+	router.POST("/api/providers/anthropic/v1/messages", getMessagesHandler(prod, private, client, ae))
 
 	// bedrock anthropic
-	router.POST("/api/providers/bedrock/anthropic/v1/complete", getBedrockCompletionHandler(prod, ae, timeOut))
-	router.POST("/api/providers/bedrock/anthropic/v1/messages", getBedrockMessagesHandler(prod, ae, timeOut))
+	router.POST("/api/providers/bedrock/anthropic/v1/complete", getBedrockCompletionHandler(prod, ae))
+	router.POST("/api/providers/bedrock/anthropic/v1/messages", getBedrockMessagesHandler(prod, ae))
 
 	// vllm
-	router.POST("/api/providers/vllm/v1/chat/completions", getVllmChatCompletionsHandler(prod, private, client, timeOut))
-	router.POST("/api/providers/vllm/v1/completions", getVllmCompletionsHandler(prod, private, client, timeOut))
+	router.POST("/api/providers/vllm/v1/chat/completions", getVllmChatCompletionsHandler(prod, private, client))
+	router.POST("/api/providers/vllm/v1/completions", getVllmCompletionsHandler(prod, private, client))
 
 	// deepinfra
-	router.POST("/api/providers/deepinfra/v1/chat/completions", getDeepinfraChatCompletionsHandler(prod, private, client, timeOut))
-	router.POST("/api/providers/deepinfra/v1/completions", getDeepinfraCompletionsHandler(prod, private, client, timeOut))
-	router.POST("/api/providers/deepinfra/v1/embeddings", getDeepinfraEmbeddingsHandler(prod, private, client, die, timeOut))
+	router.POST("/api/providers/deepinfra/v1/chat/completions", getDeepinfraChatCompletionsHandler(prod, private, client))
+	router.POST("/api/providers/deepinfra/v1/completions", getDeepinfraCompletionsHandler(prod, private, client))
+	router.POST("/api/providers/deepinfra/v1/embeddings", getDeepinfraEmbeddingsHandler(prod, private, client, die))
 
 	// custom provider
-	router.POST("/api/custom/providers/:provider/*wildcard", getCustomProviderHandler(prod, client, timeOut))
+	router.POST("/api/custom/providers/:provider/*wildcard", getCustomProviderHandler(prod, client))
 
 	// custom route
 	router.POST("/api/routes/*route", getRouteHandler(prod, c, aoe, e, client, r))
 
 	// vector store
-	router.POST("/api/providers/openai/v1/vector_stores", getCreateVectorStoreHandler(prod, client, timeOut))
-	router.GET("/api/providers/openai/v1/vector_stores", getListVectorStoresHandler(prod, client, timeOut))
-	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id", getGetVectorStoreHandler(prod, client, timeOut))
-	router.POST("/api/providers/openai/v1/vector_stores/:vector_store_id", getModifyVectorStoreHandler(prod, client, timeOut))
-	router.DELETE("/api/providers/openai/v1/vector_stores/:vector_store_id", getDeleteVectorStoreHandler(prod, client, timeOut))
+	router.POST("/api/providers/openai/v1/vector_stores", getCreateVectorStoreHandler(prod, client))
+	router.GET("/api/providers/openai/v1/vector_stores", getListVectorStoresHandler(prod, client))
+	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id", getGetVectorStoreHandler(prod, client))
+	router.POST("/api/providers/openai/v1/vector_stores/:vector_store_id", getModifyVectorStoreHandler(prod, client))
+	router.DELETE("/api/providers/openai/v1/vector_stores/:vector_store_id", getDeleteVectorStoreHandler(prod, client))
 
 	// vector store files
-	router.POST("/api/providers/openai/v1/vector_stores/:vector_store_id/files", getCreateVectorStoreFileHandler(prod, client, timeOut))
-	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id/files", getListVectorStoreFilesHandler(prod, client, timeOut))
-	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id/files/:file_id", getGetVectorStoreFileHandler(prod, client, timeOut))
-	router.DELETE("/api/providers/openai/v1/vector_stores/:vector_store_id/files/:file_id", getDeleteVectorStoreFileHandler(prod, client, timeOut))
+	router.POST("/api/providers/openai/v1/vector_stores/:vector_store_id/files", getCreateVectorStoreFileHandler(prod, client))
+	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id/files", getListVectorStoreFilesHandler(prod, client))
+	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id/files/:file_id", getGetVectorStoreFileHandler(prod, client))
+	router.DELETE("/api/providers/openai/v1/vector_stores/:vector_store_id/files/:file_id", getDeleteVectorStoreFileHandler(prod, client))
 
 	// vector store file batches
-	router.POST("/api/providers/openai/v1/vector_stores/:vector_store_id/file_batches", getCreateVectorStoreFileBatchHandler(prod, client, timeOut))
-	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id", getGetVectorStoreFileBatchHandler(prod, client, timeOut))
-	router.POST("/api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id/cancel", getCancelVectorStoreFileBatchHandler(prod, client, timeOut))
-	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id/files", getListVectorStoreFileBatchFilesHandler(prod, client, timeOut))
+	router.POST("/api/providers/openai/v1/vector_stores/:vector_store_id/file_batches", getCreateVectorStoreFileBatchHandler(prod, client))
+	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id", getGetVectorStoreFileBatchHandler(prod, client))
+	router.POST("/api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id/cancel", getCancelVectorStoreFileBatchHandler(prod, client))
+	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id/files", getListVectorStoreFileBatchFilesHandler(prod, client))
 
 	srv := &http.Server{
 		Addr:    ":8002",
@@ -278,7 +279,7 @@ func writeFieldToBuffer(fields []string, c *gin.Context, writer *multipart.Write
 	return nil
 }
 
-func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
+func getPassThroughHandler(prod, private bool, client http.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 
@@ -293,7 +294,7 @@ func getPassThroughHandler(prod, private bool, client http.Client, timeOut time.
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		targetUrl, err := buildProxyUrl(c)

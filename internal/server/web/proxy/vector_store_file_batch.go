@@ -13,7 +13,7 @@ import (
 	goopenai "github.com/sashabaranov/go-openai"
 )
 
-func getCreateVectorStoreFileBatchHandler(prod bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
+func getCreateVectorStoreFileBatchHandler(prod bool, client http.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_create_vector_store_file_batch_handler.requests", nil, 1)
@@ -23,7 +23,7 @@ func getCreateVectorStoreFileBatchHandler(prod bool, client http.Client, timeOut
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/vector_stores/"+c.Param("vector_store_id")+"/file_batches", c.Request.Body)
@@ -94,7 +94,7 @@ func getCreateVectorStoreFileBatchHandler(prod bool, client http.Client, timeOut
 	}
 }
 
-func getGetVectorStoreFileBatchHandler(prod bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
+func getGetVectorStoreFileBatchHandler(prod bool, client http.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_get_vector_store_file_batch_handler.requests", nil, 1)
@@ -104,7 +104,7 @@ func getGetVectorStoreFileBatchHandler(prod bool, client http.Client, timeOut ti
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.openai.com/v1/vector_stores/"+c.Param("vector_store_id")+"/file_batches/"+c.Param("batch_id"), c.Request.Body)
@@ -175,7 +175,7 @@ func getGetVectorStoreFileBatchHandler(prod bool, client http.Client, timeOut ti
 	}
 }
 
-func getCancelVectorStoreFileBatchHandler(prod bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
+func getCancelVectorStoreFileBatchHandler(prod bool, client http.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_cancel_vector_store_file_batch_handler.requests", nil, 1)
@@ -185,7 +185,7 @@ func getCancelVectorStoreFileBatchHandler(prod bool, client http.Client, timeOut
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/vector_stores/"+c.Param("vector_store_id")+"/file_batches/"+c.Param("batch_id")+"/cancel", c.Request.Body)
@@ -256,7 +256,7 @@ func getCancelVectorStoreFileBatchHandler(prod bool, client http.Client, timeOut
 	}
 }
 
-func getListVectorStoreFileBatchFilesHandler(prod bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
+func getListVectorStoreFileBatchFilesHandler(prod bool, client http.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_list_vector_store_file_batch_files_handler.requests", nil, 1)
@@ -266,7 +266,7 @@ func getListVectorStoreFileBatchFilesHandler(prod bool, client http.Client, time
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.openai.com/v1/vector_stores/"+c.Param("vector_store_id")+"/file_batches/"+c.Param("batch_id")+"/files", c.Request.Body)

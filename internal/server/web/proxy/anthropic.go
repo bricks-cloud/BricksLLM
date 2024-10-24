@@ -30,7 +30,7 @@ type anthropicEstimator interface {
 
 func copyHttpHeaders(source *http.Request, dest *http.Request, removeUseAgent bool) {
 	for k := range source.Header {
-		if strings.ToLower(k) != "X-CUSTOM-EVENT-ID" {
+		if strings.ToLower(k) != "x-custom-event-id" {
 			dest.Header.Set(k, source.Header.Get(k))
 		}
 	}
@@ -42,7 +42,7 @@ func copyHttpHeaders(source *http.Request, dest *http.Request, removeUseAgent bo
 	dest.Header.Set("Accept-Encoding", "*")
 }
 
-func getCompletionHandler(prod, private bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
+func getCompletionHandler(prod, private bool, client http.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_completion_handler.requests", nil, 1)
@@ -52,7 +52,7 @@ func getCompletionHandler(prod, private bool, client http.Client, timeOut time.D
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.anthropic.com/v1/complete", c.Request.Body)
@@ -198,6 +198,7 @@ func getCompletionHandler(prod, private bool, client http.Client, timeOut time.D
 		eventName := ""
 		c.Stream(func(w io.Writer) bool {
 			raw, err := buffer.ReadBytes('\n')
+
 			if err != nil {
 				if err == io.EOF {
 					return false
@@ -296,7 +297,7 @@ var (
 	eventContentBlockStop  = []byte("event: content_block_stop")
 )
 
-func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstimator, timeOut time.Duration) gin.HandlerFunc {
+func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstimator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_messages_handler.requests", nil, 1)
@@ -306,7 +307,7 @@ func getMessagesHandler(prod, private bool, client http.Client, e anthropicEstim
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.anthropic.com/v1/messages", c.Request.Body)

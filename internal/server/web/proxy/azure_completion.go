@@ -66,7 +66,7 @@ func logAzureCompletionsResponse(log *zap.Logger, prod, private bool, cr *goopen
 	}
 }
 
-func getAzureCompletionsHandler(prod, private bool, client http.Client, aoe azureEstimator, timeOut time.Duration) gin.HandlerFunc {
+func getAzureCompletionsHandler(prod, private bool, client http.Client, aoe azureEstimator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_azure_completions_handler.requests", nil, 1)
@@ -76,7 +76,7 @@ func getAzureCompletionsHandler(prod, private bool, client http.Client, aoe azur
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, buildAzureUrl(c.FullPath(), c.Param("deployment_id"), c.Query("api-version"), c.GetString("resourceName")), c.Request.Body)

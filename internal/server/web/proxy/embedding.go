@@ -30,7 +30,7 @@ type EmbeddingResponseBase64 struct {
 	Usage  goopenai.Usage             `json:"usage"`
 }
 
-func getEmbeddingHandler(prod, private bool, client http.Client, e estimator, timeOut time.Duration) gin.HandlerFunc {
+func getEmbeddingHandler(prod, private bool, client http.Client, e estimator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_embedding_handler.requests", nil, 1)
@@ -47,7 +47,7 @@ func getEmbeddingHandler(prod, private bool, client http.Client, e estimator, ti
 		// 	return
 		// }
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, c.Request.Method, "https://api.openai.com/v1/embeddings", c.Request.Body)

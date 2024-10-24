@@ -27,7 +27,7 @@ func setAnthropicVersionIfExists(version string, req *anthropic.BedrockMessageRe
 	}
 }
 
-func getBedrockCompletionHandler(prod bool, e anthropicEstimator, timeOut time.Duration) gin.HandlerFunc {
+func getBedrockCompletionHandler(prod bool, e anthropicEstimator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_bedrock_completion_handler.requests", nil, 1)
@@ -82,7 +82,7 @@ func getBedrockCompletionHandler(prod bool, e anthropicEstimator, timeOut time.D
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 		cfg, err := config.LoadDefaultConfig(ctx,
 			config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
@@ -103,7 +103,7 @@ func getBedrockCompletionHandler(prod bool, e anthropicEstimator, timeOut time.D
 		client := bedrockruntime.NewFromConfig(cfg)
 		stream := c.GetBool("stream")
 
-		ctx, cancel = context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel = context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		start := time.Now()
@@ -282,7 +282,7 @@ func getEventNameFromLine(line []byte) string {
 	return ""
 }
 
-func getBedrockMessagesHandler(prod bool, e anthropicEstimator, timeOut time.Duration) gin.HandlerFunc {
+func getBedrockMessagesHandler(prod bool, e anthropicEstimator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_bedrock_messages_handler.requests", nil, 1)
@@ -335,7 +335,7 @@ func getBedrockMessagesHandler(prod bool, e anthropicEstimator, timeOut time.Dur
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 		cfg, err := config.LoadDefaultConfig(ctx,
 			config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
@@ -356,7 +356,7 @@ func getBedrockMessagesHandler(prod bool, e anthropicEstimator, timeOut time.Dur
 		client := bedrockruntime.NewFromConfig(cfg)
 		stream := c.GetBool("stream")
 
-		ctx, cancel = context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel = context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		start := time.Now()

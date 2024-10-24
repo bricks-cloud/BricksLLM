@@ -20,7 +20,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
+func getVllmCompletionsHandler(prod, private bool, client http.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_vllm_completions_handler.requests", nil, 1)
@@ -36,7 +36,7 @@ func getVllmCompletionsHandler(prod, private bool, client http.Client, timeOut t
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url+"/v1/completions", c.Request.Body)
@@ -368,7 +368,7 @@ func logVllmCompletionResponse(log *zap.Logger, cr *goopenai.CompletionResponse,
 	}
 }
 
-func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
+func getVllmChatCompletionsHandler(prod, private bool, client http.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_vllm_chat_completions_handler.requests", nil, 1)
@@ -384,7 +384,7 @@ func getVllmChatCompletionsHandler(prod, private bool, client http.Client, timeO
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url+"/v1/chat/completions", c.Request.Body)

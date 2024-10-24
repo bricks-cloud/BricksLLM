@@ -30,7 +30,7 @@ func buildAzureUrl(path, deploymentId, apiVersion, resourceName string) string {
 	return fmt.Sprintf("https://%s.openai.azure.com/openai/deployments/%s/embeddings?api-version=%s", resourceName, deploymentId, apiVersion)
 }
 
-func getAzureChatCompletionHandler(prod, private bool, client http.Client, aoe azureEstimator, timeOut time.Duration) gin.HandlerFunc {
+func getAzureChatCompletionHandler(prod, private bool, client http.Client, aoe azureEstimator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_azure_chat_completion_handler.requests", nil, 1)
@@ -40,7 +40,7 @@ func getAzureChatCompletionHandler(prod, private bool, client http.Client, aoe a
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, buildAzureUrl(c.FullPath(), c.Param("deployment_id"), c.Query("api-version"), c.GetString("resourceName")), c.Request.Body)

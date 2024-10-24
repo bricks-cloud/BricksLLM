@@ -20,7 +20,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func getSpeechHandler(prod bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
+func getSpeechHandler(prod bool, client http.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_speech_handler.requests", nil, 1)
@@ -30,7 +30,7 @@ func getSpeechHandler(prod bool, client http.Client, timeOut time.Duration) gin.
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, c.Request.Method, "https://api.openai.com/v1/audio/speech", c.Request.Body)
@@ -167,7 +167,7 @@ func getContentType(format string) string {
 	return "text/plain; charset=utf-8"
 }
 
-func getTranscriptionsHandler(prod bool, client http.Client, timeOut time.Duration, e estimator) gin.HandlerFunc {
+func getTranscriptionsHandler(prod bool, client http.Client, e estimator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_transcriptions_handler.requests", nil, 1)
@@ -177,7 +177,7 @@ func getTranscriptionsHandler(prod bool, client http.Client, timeOut time.Durati
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, c.Request.Method, "https://api.openai.com/v1/audio/transcriptions", c.Request.Body)
@@ -331,7 +331,7 @@ func getTranscriptionsHandler(prod bool, client http.Client, timeOut time.Durati
 	}
 }
 
-func getTranslationsHandler(prod bool, client http.Client, timeOut time.Duration, e estimator) gin.HandlerFunc {
+func getTranslationsHandler(prod bool, client http.Client, e estimator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_translations_handler.requests", nil, 1)
@@ -341,7 +341,7 @@ func getTranslationsHandler(prod bool, client http.Client, timeOut time.Duration
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		req, err := http.NewRequestWithContext(ctx, c.Request.Method, "https://api.openai.com/v1/audio/translations", c.Request.Body)

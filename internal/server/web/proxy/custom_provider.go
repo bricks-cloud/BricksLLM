@@ -46,7 +46,7 @@ type ErrorResponse struct {
 	Error *Error `json:"error"`
 }
 
-func getCustomProviderHandler(prod bool, client http.Client, timeOut time.Duration) gin.HandlerFunc {
+func getCustomProviderHandler(prod bool, client http.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tags := []string{
 			fmt.Sprintf("path:%s", c.FullPath()),
@@ -68,7 +68,7 @@ func getCustomProviderHandler(prod bool, client http.Client, timeOut time.Durati
 		}
 
 		logWithCid := util.GetLogFromCtx(c)
-		ctx, cancel := context.WithTimeout(context.Background(), timeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
 		body, err := io.ReadAll(c.Request.Body)
