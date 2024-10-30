@@ -17,7 +17,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13
 	github.com/pkoukk/tiktoken-go v0.1.7
 	github.com/redis/go-redis/v9 v9.0.5
-	github.com/sashabaranov/go-openai v1.26.3
+	github.com/sashabaranov/go-openai v1.32.5
 	github.com/stretchr/testify v1.8.4
 	github.com/tidwall/gjson v1.17.0
 	go.uber.org/zap v1.24.0
