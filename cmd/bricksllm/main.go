@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"os"
@@ -173,22 +174,25 @@ func main() {
 	}
 	rMemStore.Listen()
 
-	rateLimitRedisCache := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
-		Password: cfg.RedisPassword,
-		DB:       0,
-	})
+	defaultRedisOption := func(cfg *config.Config, dbIndex int) *redis.Options {
+		return &redis.Options{
+			Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
+			Password: cfg.RedisPassword,
+			DB:       cfg.RedisDBStartIndex + dbIndex,
+			TLSConfig: &tls.Config{
+				InsecureSkipVerify: cfg.RedisInsecureSkipVerify,
+			},
+		}
+	}
+
+	rateLimitRedisCache := redis.NewClient(defaultRedisOption(cfg, 0))
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	if err := rateLimitRedisCache.Ping(ctx).Err(); err != nil {
 		log.Sugar().Fatalf("error connecting to rate limit redis cache: %v", err)
 	}
 
-	costLimitRedisCache := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
-		Password: cfg.RedisPassword,
-		DB:       1,
-	})
+	costLimitRedisCache := redis.NewClient(defaultRedisOption(cfg, 1))
 
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -196,11 +200,7 @@ func main() {
 		log.Sugar().Fatalf("error connecting to cost limit redis cache: %v", err)
 	}
 
-	costRedisStorage := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
-		Password: cfg.RedisPassword,
-		DB:       2,
-	})
+	costRedisStorage := redis.NewClient(defaultRedisOption(cfg, 2))
 
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -208,11 +208,7 @@ func main() {
 		log.Sugar().Fatalf("error connecting to cost limit redis storage: %v", err)
 	}
 
-	apiRedisCache := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
-		Password: cfg.RedisPassword,
-		DB:       3,
-	})
+	apiRedisCache := redis.NewClient(defaultRedisOption(cfg, 3))
 
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -220,87 +216,59 @@ func main() {
 		log.Sugar().Fatalf("error connecting to api redis cache: %v", err)
 	}
 
-	accessRedisCache := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
-		Password: cfg.RedisPassword,
-		DB:       4,
-	})
+	accessRedisCache := redis.NewClient(defaultRedisOption(cfg, 4))
 
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	if err := apiRedisCache.Ping(ctx).Err(); err != nil {
+	if err := accessRedisCache.Ping(ctx).Err(); err != nil {
 		log.Sugar().Fatalf("error connecting to api redis cache: %v", err)
 	}
 
-	userRateLimitRedisCache := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
-		Password: cfg.RedisPassword,
-		DB:       5,
-	})
+	userRateLimitRedisCache := redis.NewClient(defaultRedisOption(cfg, 5))
 
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	if err := rateLimitRedisCache.Ping(ctx).Err(); err != nil {
+	if err := userRateLimitRedisCache.Ping(ctx).Err(); err != nil {
 		log.Sugar().Fatalf("error connecting to user rate limit redis cache: %v", err)
 	}
 
-	userCostLimitRedisCache := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
-		Password: cfg.RedisPassword,
-		DB:       6,
-	})
+	userCostLimitRedisCache := redis.NewClient(defaultRedisOption(cfg, 6))
 
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	if err := costLimitRedisCache.Ping(ctx).Err(); err != nil {
+	if err := userCostLimitRedisCache.Ping(ctx).Err(); err != nil {
 		log.Sugar().Fatalf("error connecting to user cost limit redis cache: %v", err)
 	}
 
-	userCostRedisStorage := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
-		Password: cfg.RedisPassword,
-		DB:       7,
-	})
+	userCostRedisStorage := redis.NewClient(defaultRedisOption(cfg, 7))
 
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	if err := apiRedisCache.Ping(ctx).Err(); err != nil {
+	if err := userCostRedisStorage.Ping(ctx).Err(); err != nil {
 		log.Sugar().Fatalf("error connecting to user cost redis cache: %v", err)
 	}
 
-	userAccessRedisCache := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
-		Password: cfg.RedisPassword,
-		DB:       8,
-	})
+	userAccessRedisCache := redis.NewClient(defaultRedisOption(cfg, 8))
 
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	if err := costRedisStorage.Ping(ctx).Err(); err != nil {
+	if err := userAccessRedisCache.Ping(ctx).Err(); err != nil {
 		log.Sugar().Fatalf("error connecting to user access redis storage: %v", err)
 	}
 
-	providerSettingsRedisCache := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
-		Password: cfg.RedisPassword,
-		DB:       9,
-	})
+	providerSettingsRedisCache := redis.NewClient(defaultRedisOption(cfg, 9))
 
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	if err := costRedisStorage.Ping(ctx).Err(); err != nil {
+	if err := providerSettingsRedisCache.Ping(ctx).Err(); err != nil {
 		log.Sugar().Fatalf("error connecting to provider settings redis storage: %v", err)
 	}
 
-	keysRedisCache := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
-		Password: cfg.RedisPassword,
-		DB:       10,
-	})
+	keysRedisCache := redis.NewClient(defaultRedisOption(cfg, 10))
 
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	if err := costRedisStorage.Ping(ctx).Err(); err != nil {
+	if err := keysRedisCache.Ping(ctx).Err(); err != nil {
 		log.Sugar().Fatalf("error connecting to keys redis storage: %v", err)
 	}
 
