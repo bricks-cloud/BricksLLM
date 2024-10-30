@@ -9,8 +9,11 @@ import (
 )
 
 var AzureOpenAiPerThousandTokenCost = map[string]map[string]float64{
+	// updated according to this link:
+	// https://azure.microsoft.com/en-gb/pricing/details/cognitive-services/openai-service/
 	"prompt": {
-		"gpt-4o":                 0.005,
+		"gpt-4o":                 0.0025,
+		"gpt-4o-2024-08-16":      0.0025,
 		"gpt-4o-2024-05-13":      0.005,
 		"gpt-4-turbo":            0.01,
 		"gpt-4-turbo-2024-04-09": 0.01,
@@ -28,7 +31,8 @@ var AzureOpenAiPerThousandTokenCost = map[string]map[string]float64{
 		"text-embedding-3-small": 0.00002,
 	},
 	"completion": {
-		"gpt-4o":                 0.015,
+		"gpt-4o":                 0.01,
+		"gpt-4o-2024-08-16":      0.01,
 		"gpt-4o-2024-05-13":      0.015,
 		"gpt-4-turbo":            0.03,
 		"gpt-4-turbo-2024-04-09": 0.03,
