@@ -101,6 +101,7 @@ func checkModelValidity(provider, model string) bool {
 
 var (
 	azureSupportedModels = []string{
+		"gpt-4o-2024-08-26",
 		"gpt-4o-2024-05-13",
 		"gpt-4o",
 		"gpt-4o-mini",
@@ -128,6 +129,7 @@ var (
 	}
 
 	openaiSupportedModels = []string{
+		"gpt-4o-2024-08-06",
 		"gpt-4o-2024-05-13",
 		"gpt-4o",
 		"gpt-4o-mini",
@@ -158,6 +160,7 @@ var (
 	}
 
 	supportedModels = []string{
+		"gpt-4o-2024-08-06",
 		"gpt-4o-2024-05-13",
 		"gpt-4o",
 		"gpt-4o-mini",
@@ -212,6 +215,7 @@ var (
 		"gpt-35-turbo-0613",
 		"gpt-35-turbo-16k",
 		"gpt-35-turbo-16k-0613",
+		"gpt-4o-2024-08-06",
 		"gpt-4o-2024-05-13",
 		"gpt-4o",
 		"gpt-4o-mini",
