@@ -10,13 +10,13 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Install Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.22.x
+          go-version: '^1.23.2'
           check-latest: true
 
       - name: Check Out Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install the Apple certificate and provisioning profile
         env:
@@ -58,27 +58,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.22.x
+          go-version: '^1.23.2'
           check-latest: true
 
       - name: Check Out Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
       - name: Install Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v3
 
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: luyuanxin1995/bricksllm
           tags: |
@@ -88,7 +88,7 @@ jobs:
 
       - name: Docker meta
         id: meta-datadog
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: luyuanxin1995/bricksllm-datadog
           tags: |
@@ -97,7 +97,7 @@ jobs:
             type=semver,pattern={{major}}
 
       - name: Build and push
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v6
         with:
           context: ./
           file: ./Dockerfile.prod
@@ -107,7 +107,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
 
       - name: Build and push
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v6
         with:
           context: ./
           file: ./Dockerfile.datadog
