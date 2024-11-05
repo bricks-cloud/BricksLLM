@@ -1,0 +1,21 @@
+---
+apiVersion: v2
+name: bricksllm
+description: A Helm chart for deploying BricksLLM and its dependencies
+
+type: application
+
+version: 0.1.0
+
+# bricksllm version
+appVersion: "1.37.0"
+
+dependencies:
+  - condition: redis.enabled
+    name: redis
+    repository: oci://registry-1.docker.io/bitnamicharts
+    version: ~20
+  - conditions: postgresql.enabled
+    name: postgresql
+    repository: oci://registry-1.docker.io/bitnamicharts
+    version: ~16
