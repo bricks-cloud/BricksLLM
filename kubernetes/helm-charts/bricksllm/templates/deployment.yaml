@@ -1,7 +1,9 @@
+{{ $fullname := include "bricksllm.fullname" . -}}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "bricksllm.fullname" . }}
+  name: {{ $fullname }}
   labels:
     {{- include "bricksllm.labels" . | nindent 4 }}
 spec:
@@ -35,14 +37,30 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          env:
+            - name: POSTGRESQL_HOSTS
+              value: '{{ $fullname }}-postgresql'
+            - name: POSTGRESQL_USERNAME
+              value: postgres
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: '{{ $fullname }}-postgresql'
+                  key: postgres-password
+            - name: REDIS_HOSTS
+              value: '{{ $fullname }}-redis-master'
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: '{{ $fullname }}-redis'
+                  key: redis-password
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            - name: control
-              containerPort: {{ .Values.services.control.port }}
+            {{- range $name, $v := .Values.services }}
+            - name: {{ $name }}
+              containerPort: {{ $v.port }}
               protocol: TCP
-            - name: data
-              containerPort: {{ .Values.services.data.port }}
-              protocol: TCP
+            {{- end }}
           {{- with .Values.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}

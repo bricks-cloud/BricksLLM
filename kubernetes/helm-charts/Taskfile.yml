@@ -1,0 +1,12 @@
+---
+version: '3'
+tasks:
+  default:
+    cmds:
+      - |
+        helm upgrade \
+          --create-namespace \
+          -n bricksllm \
+          --install \
+          bricksllm \
+          ./bricksllm
