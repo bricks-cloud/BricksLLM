@@ -10,12 +10,12 @@ metadata:
     "helm.sh/hook": test
 spec:
   containers:
-{{- range $name, $v := .Values.services }}
+{{- range $n, $p := .Values.services.ports }}
     - name: wget
       image: busybox
       command:
         - wget
       args:
-        - '{{ $fullname }}-{{ $name }}:{{ $v.port }}'
+        - '{{ $fullname }}:{{ $p }}'
 {{- end }}
   restartPolicy: Never

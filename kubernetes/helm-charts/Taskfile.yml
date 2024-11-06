@@ -10,3 +10,7 @@ tasks:
           --install \
           bricksllm \
           ./bricksllm
+  delete:
+    cmds:
+      - helm delete -n bricksllm bricksllm
+

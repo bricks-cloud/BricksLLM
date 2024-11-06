@@ -1,21 +1,21 @@
-{{- $fullName := include "bricksllm.fullname" . }}
+{{- $fullname := include "bricksllm.fullname" . }}
 {{- $labels := include "bricksllm.labels" . }}
 {{- $selectorLabels := include "bricksllm.selectorLabels" . }}
-{{- range $name, $v := .Values.services -}}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ $fullName }}-{{ $name }}
+  name: {{ $fullname }}
   labels:
     {{- $labels | nindent 4 }}
 spec:
-  type: {{ $v.type }}
+  type: {{ .Values.services.type }}
   ports:
-    - port: {{ $v.port }}
-      targetPort: http
+{{- range $n, $p := .Values.services.ports }}
+    - port: {{ $p }}
+      targetPort: {{ $p }}
       protocol: TCP
-      name: {{ $name | quote }}
+      name: {{ $n | quote }}
+{{- end }}
   selector:
     {{- $selectorLabels | nindent 4 }}
-{{- end }}

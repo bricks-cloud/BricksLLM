@@ -41,9 +41,9 @@ spec:
             {{- end }}
             backend:
               service:
-                name: {{ $fullname }}-{{ $name }}
+                name: {{ $fullname }}
                 port:
-                  number: {{ get (get $.Values.services $name) "port" }}
+                  name: {{ $name | quote }}
           {{- end }}
     {{- end }}
 {{- end }}

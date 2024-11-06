@@ -47,12 +47,10 @@ securityContext: {}
   # runAsUser: 1000
 
 services:
-  admin:
-    type: ClusterIP
-    port: 8001
-  proxy:
-    type: ClusterIP
-    port: 8002
+  type: ClusterIP
+  ports:
+    admin: 8001
+    proxy: 8002
 
 # Configuring Ingresses
 ingresses:

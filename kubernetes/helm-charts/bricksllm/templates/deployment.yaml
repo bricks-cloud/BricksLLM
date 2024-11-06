@@ -56,9 +56,9 @@ spec:
                   key: redis-password
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            {{- range $name, $v := .Values.services }}
-            - name: {{ $name }}
-              containerPort: {{ $v.port }}
+            {{- range $n, $p := .Values.services.ports }}
+            - name: {{ $n }}
+              containerPort: {{ $p }}
               protocol: TCP
             {{- end }}
           {{- with .Values.livenessProbe }}
