@@ -18,6 +18,7 @@ import (
 
 // SetupOTelSDK bootstraps [otel.SetTracerProvider] and [otel.SetTextMapPropagator] from [config.Config].
 // If it does not return an error, make sure to call shutdown for proper cleanup.
+// TODO: add [otel.SetMeterProvider] and [otel.SetLogger] if needed.
 //
 // this code is adapted from open telemetry getting started guide:
 // https://opentelemetry.io/docs/languages/go/getting-started/#initialize-the-opentelemetry-sdk
