@@ -5,7 +5,7 @@ services:
     ports:
       - '6379:6379'
     command: redis-server --save 20 1 --loglevel warning --requirepass eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
-    volumes: 
+    volumes:
       - redis:/data
   postgresql:
     image: postgres:14.1-alpine
@@ -15,10 +15,10 @@ services:
       - POSTGRES_PASSWORD=postgres
     ports:
       - '5432:5432'
-    volumes: 
+    volumes:
       - postgresql:/var/lib/postgresql/data
   # bricksllm:
-  #   depends_on: 
+  #   depends_on:
   #     - redis
   #     - postgresql
   #   image: luyuanxin1995/bricksllm
