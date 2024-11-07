@@ -9,7 +9,14 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
-func getOtelMiddlware() gin.HandlerFunc {
+func getOtelMiddlware(enableOtel bool) gin.HandlerFunc {
+	// returns a no-op middleware if OpenTelemetry is disabled
+	if !enableOtel {
+		return func(c *gin.Context) {
+			c.Next()
+		}
+	}
+
 	spanName := func(r *http.Request) string {
 		return "HTTP " + r.Method + " " + r.URL.Path
 	}
@@ -23,7 +30,12 @@ func getOtelMiddlware() gin.HandlerFunc {
 	return md
 }
 
-func getOtelTransport() *otelhttp.Transport {
+func getOtelTransport(enableOtel bool) http.RoundTripper {
+	// returns a no-op transport if OpenTelemetry is disabled
+	if !enableOtel {
+		return http.DefaultTransport
+	}
+
 	spanName := func(_ string, r *http.Request) string {
 		return "HTTP " + r.Method + " " + r.URL.Path
 	}
