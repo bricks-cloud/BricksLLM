@@ -19,6 +19,8 @@
     "stats_address":"127.0.0.1:8125",
     "prometheus_enabled":false,
     "prometheus_port":"2112",
+    "open_telemetry_enabled": false,
+    "open_telemetry_endpoint": "localhost:4318",
     "admin_pass": "",
     "proxy_timeout": "600s",
     "number_of_event_message_consumers": 3,
