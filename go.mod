@@ -21,6 +21,7 @@ require (
 	github.com/sashabaranov/go-openai v1.32.5
 	github.com/stretchr/testify v1.8.4
 	github.com/tidwall/gjson v1.17.0
+	github.com/tidwall/sjson v1.2.5
 	go.uber.org/zap v1.24.0
 )
 

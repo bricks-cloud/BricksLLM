@@ -23,6 +23,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	"go.uber.org/zap"
 
 	goopenai "github.com/sashabaranov/go-openai"
@@ -763,7 +764,13 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 
 		if c.FullPath() == "/api/providers/openai/v1/chat/completions" {
 			ccr := &goopenai.ChatCompletionRequest{}
-			err = json.Unmarshal(body, ccr)
+			// this is a hack around an open issue in go-openai.
+			// https://github.com/sashabaranov/go-openai/issues/884
+			cleaned, err := sjson.Delete(string(body), "response_format.json_schema")
+			if err != nil {
+				logWithCid.Warn("removing response_format.json_schema", zap.Error(err))
+			}
+			err = json.Unmarshal([]byte(cleaned), ccr)
 			if err != nil {
 				logError(logWithCid, "error when unmarshalling chat completion request", prod, err)
 				return
