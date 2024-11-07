@@ -57,6 +57,12 @@ func main() {
 		log.Sugar().Fatalf("cannot connect to telemetry provider: %v", err)
 	}
 
+	// Set up OpenTelemetry.
+	otelShutdown, err := telemetry.SetupOTelSDK(context.Background(), cfg)
+	if err != nil {
+		log.Sugar().Fatalf("cannot setup open telemetry sdk: %v", err)
+	}
+
 	store, err := postgresql.NewStore(
 		fmt.Sprintf("postgresql:///%s?sslmode=%s&user=%s&password=%s&host=%s&port=%s", cfg.PostgresqlDbName, cfg.PostgresqlSslMode, cfg.PostgresqlUsername, cfg.PostgresqlPassword, cfg.PostgresqlHosts, cfg.PostgresqlPort),
 		cfg.PostgresqlWriteTimeout,
@@ -374,6 +380,12 @@ func main() {
 	defer cancel()
 	if err := ps.Shutdown(ctx); err != nil {
 		log.Sugar().Debugf("proxy server shutdown: %v", err)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := otelShutdown(ctx); err != nil {
+		log.Sugar().Debugf("otel shutdown: %v", err)
 	}
 
 	select {

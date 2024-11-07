@@ -85,10 +85,12 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	private := privacyMode == "strict"
 
 	router.Use(CorsMiddleware())
+	router.Use(getOtelMiddlware())
 	router.Use(getTimeoutMiddleware(timeout))
 	router.Use(getMiddleware(cpm, rm, pm, a, prod, private, log, pub, "proxy", ac, uac, http.Client{}, scanner, cd, um, removeAgentHeaders))
 
-	client := http.Client{}
+	// client := http.Client{}
+	client := http.Client{Transport: getOtelTransport()}
 
 	// health check
 	router.POST("/api/health", getGetHealthCheckHandler())
