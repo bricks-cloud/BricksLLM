@@ -175,14 +175,20 @@ func main() {
 	rMemStore.Listen()
 
 	defaultRedisOption := func(cfg *config.Config, dbIndex int) *redis.Options {
-		return &redis.Options{
+
+		options := &redis.Options{
 			Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
 			Password: cfg.RedisPassword,
 			DB:       cfg.RedisDBStartIndex + dbIndex,
-			TLSConfig: &tls.Config{
-				InsecureSkipVerify: cfg.RedisInsecureSkipVerify,
-			},
 		}
+
+		if cfg.RedisEnableTLS {
+			options.TLSConfig = &tls.Config{
+				InsecureSkipVerify: cfg.RedisInsecureSkipVerify,
+			}
+		}
+
+		return options
 	}
 
 	rateLimitRedisCache := redis.NewClient(defaultRedisOption(cfg, 0))

@@ -25,6 +25,7 @@ type Config struct {
 	RedisPort                     string        `koanf:"redis_port" env:"REDIS_PORT" envDefault:"6379"`
 	RedisUsername                 string        `koanf:"redis_username" env:"REDIS_USERNAME"`
 	RedisPassword                 string        `koanf:"redis_password" env:"REDIS_PASSWORD"`
+	RedisEnableTLS                bool          `koanf:"redis_enable_tls" env:"REDIS_ENABLE_TLS" envDefault:"false"`
 	RedisInsecureSkipVerify       bool          `koanf:"redis_insecure_skip_verify" env:"REDIS_INSECURE_SKIP_VERIFY" envDefault:"false"`
 	RedisDBStartIndex             int           `koanf:"redis_db_start_index" env:"REDIS_DB_START_INDEX" envDefault:"0"`
 	RedisReadTimeout              time.Duration `koanf:"redis_read_time_out" env:"REDIS_READ_TIME_OUT" envDefault:"1s"`
