@@ -1,3 +1,9 @@
+## 1.38.0 - 2024-11-09
+### Added
+- Added support for `claude-3-5-haiku`
+- Added support for Redis TLS config
+- Added support for `gpt-4o-2024-08-06`
+
 ## 1.37.0 - 2024-10-23
 ### Added
 - Added request level timeout with HTTP header `x-request-timeout`
