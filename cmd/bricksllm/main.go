@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"flag"
 	"fmt"
 	"os"
@@ -13,6 +12,7 @@ import (
 	auth "github.com/bricks-cloud/bricksllm/internal/authenticator"
 	"github.com/bricks-cloud/bricksllm/internal/cache"
 	"github.com/bricks-cloud/bricksllm/internal/config"
+	"github.com/bricks-cloud/bricksllm/internal/encryptor"
 	"github.com/bricks-cloud/bricksllm/internal/logger/zap"
 	"github.com/bricks-cloud/bricksllm/internal/manager"
 	"github.com/bricks-cloud/bricksllm/internal/message"
@@ -182,12 +182,6 @@ func main() {
 			DB:       cfg.RedisDBStartIndex + dbIndex,
 		}
 
-		if cfg.RedisEnableTLS {
-			options.TLSConfig = &tls.Config{
-				InsecureSkipVerify: cfg.RedisInsecureSkipVerify,
-			}
-		}
-
 		return options
 	}
 
@@ -292,9 +286,11 @@ func main() {
 	psCache := redisStorage.NewProviderSettingsCache(providerSettingsRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 	keysCache := redisStorage.NewKeysCache(keysRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 
+	encryptor := encryptor.NewEncryptor(cfg.DecryptionEndpoint, cfg.EncryptionEndpoint, cfg.EnableEncrytion, cfg.EncryptionTimeout)
+
 	m := manager.NewManager(store, costLimitCache, rateLimitCache, accessCache, keysCache)
 	krm := manager.NewReportingManager(costStorage, store, store)
-	psm := manager.NewProviderSettingsManager(store, psCache)
+	psm := manager.NewProviderSettingsManager(store, psCache, encryptor)
 	cpm := manager.NewCustomProvidersManager(store, cpMemStore)
 	rm := manager.NewRouteManager(store, store, rMemStore, psm)
 	pm := manager.NewPolicyManager(store, rMemStore)
@@ -332,7 +328,7 @@ func main() {
 
 	rec := recorder.NewRecorder(costStorage, userCostStorage, costLimitCache, userCostLimitCache, ce, store)
 	rlm := manager.NewRateLimitManager(rateLimitCache, userRateLimitCache)
-	a := auth.NewAuthenticator(psm, m, rm, store)
+	a := auth.NewAuthenticator(psm, m, rm, store, encryptor)
 
 	c := cache.NewCache(apiCache)
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"strings"
 
 	internal_errors "github.com/bricks-cloud/bricksllm/internal/errors"
@@ -34,19 +35,26 @@ type keyStorage interface {
 	GetKeyByHash(hash string) (*key.ResponseKey, error)
 }
 
-type Authenticator struct {
-	psm providerSettingsManager
-	kc  keysCache
-	rm  routesManager
-	ks  keyStorage
+type Decryptor interface {
+	Decrypt(input string, headers map[string]string) (string, error)
+	Enabled() bool
 }
 
-func NewAuthenticator(psm providerSettingsManager, kc keysCache, rm routesManager, ks keyStorage) *Authenticator {
+type Authenticator struct {
+	psm       providerSettingsManager
+	kc        keysCache
+	rm        routesManager
+	ks        keyStorage
+	decryptor Decryptor
+}
+
+func NewAuthenticator(psm providerSettingsManager, kc keysCache, rm routesManager, ks keyStorage, decryptor Decryptor) *Authenticator {
 	return &Authenticator{
-		psm: psm,
-		kc:  kc,
-		rm:  rm,
-		ks:  ks,
+		psm:       psm,
+		kc:        kc,
+		rm:        rm,
+		ks:        ks,
+		decryptor: decryptor,
 	}
 }
 
@@ -266,6 +274,30 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 		used := selected[0]
 		if key.RotationEnabled {
 			used = selected[rand.Intn(len(selected))]
+		}
+
+		if a.decryptor.Enabled() {
+			encryptedParam := ""
+			if used.Provider == "amazon" {
+				encryptedParam = used.Setting["awsSecretAccessKey"]
+			} else if len(used.Setting["apikey"]) != 0 {
+				encryptedParam = used.Setting["apikey"]
+			}
+
+			if len(encryptedParam) != 0 {
+				decryptedSecret, err := a.decryptor.Decrypt(encryptedParam, map[string]string{"X-UPDATED-AT": strconv.FormatInt(used.UpdatedAt, 10)})
+				if err == nil {
+					if used.Provider == "amazon" {
+						used.Setting["awsSecretAccessKey"] = decryptedSecret
+					} else {
+						used.Setting["apikey"] = decryptedSecret
+					}
+				}
+
+				if err != nil {
+					fmt.Println(fmt.Printf("error when encrypting %v", err))
+				}
+			}
 		}
 
 		err := rewriteHttpAuthHeader(req, used)

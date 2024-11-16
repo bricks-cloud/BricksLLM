@@ -1,3 +1,11 @@
+## 1.39.0 - 2024-11-15
+### Added
+- Added encryption integration
+
+### Changed
+- Removed support for Redis TLS config
+
+
 ## 1.38.0 - 2024-11-09
 ### Added
 - Added support for `claude-3-5-haiku`

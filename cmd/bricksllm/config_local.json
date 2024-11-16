@@ -7,8 +7,6 @@
     "postgresql_port": "5432",
     "redis_hosts": "localhost",
     "redis_port": "6379",
-    "redis_enable_tls": false,
-    "redis_insecure_skip_verify": false,
     "redis_username": "",
     "redis_password": "",
     "redis_read_time_out": "1s",

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"time"
@@ -25,8 +26,6 @@ type Config struct {
 	RedisPort                     string        `koanf:"redis_port" env:"REDIS_PORT" envDefault:"6379"`
 	RedisUsername                 string        `koanf:"redis_username" env:"REDIS_USERNAME"`
 	RedisPassword                 string        `koanf:"redis_password" env:"REDIS_PASSWORD"`
-	RedisEnableTLS                bool          `koanf:"redis_enable_tls" env:"REDIS_ENABLE_TLS" envDefault:"false"`
-	RedisInsecureSkipVerify       bool          `koanf:"redis_insecure_skip_verify" env:"REDIS_INSECURE_SKIP_VERIFY" envDefault:"false"`
 	RedisDBStartIndex             int           `koanf:"redis_db_start_index" env:"REDIS_DB_START_INDEX" envDefault:"0"`
 	RedisReadTimeout              time.Duration `koanf:"redis_read_time_out" env:"REDIS_READ_TIME_OUT" envDefault:"1s"`
 	RedisWriteTimeout             time.Duration `koanf:"redis_write_time_out" env:"REDIS_WRITE_TIME_OUT" envDefault:"500ms"`
@@ -47,6 +46,10 @@ type Config struct {
 	AmazonRequestTimeout          time.Duration `koanf:"amazon_request_timeout" env:"AMAZON_REQUEST_TIMEOUT" envDefault:"5s"`
 	AmazonConnectionTimeout       time.Duration `koanf:"amazon_connection_timeout" env:"AMAZON_CONNECTION_TIMEOUT" envDefault:"10s"`
 	RemoveUserAgent               bool          `koanf:"remove_user_agent" env:"REMOVE_USER_AGENT" envDefault:"false"`
+	EnableEncrytion               bool          `koanf:"enable_encryption" env:"ENABLE_ENCRYPTION" envDefault:"false"`
+	EncryptionEndpoint            string        `koanf:"encryption_endpoint" env:"ENCRYPTION_ENDPOINT"`
+	DecryptionEndpoint            string        `koanf:"decryption_endpoint" env:"DECRYPTION_ENDPOINT"`
+	EncryptionTimeout             time.Duration `koanf:"encryption_timeout" env:"ENCRYPTION_TIMEOUT" envDefault:"5s"`
 }
 
 func prepareDotEnv(envFilePath string) error {
@@ -80,6 +83,10 @@ func LoadConfig(log *zap.Logger) (*Config, error) {
 	err := env.Parse(cfg)
 	if err != nil {
 		return nil, err
+	}
+
+	if cfg.EnableEncrytion && len(cfg.EncryptionEndpoint) == 0 {
+		return nil, errors.New("encryption endpoint cannot be empty")
 	}
 
 	err = prepareDotEnv(".env")
