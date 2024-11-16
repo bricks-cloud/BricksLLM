@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -109,6 +110,8 @@ func (e Encryptor) Decrypt(input string, headers map[string]string) (string, err
 	if err != nil {
 		return "", err
 	}
+
+	fmt.Println(string(bytes))
 
 	decryptionSecret := DecryptionResponse{}
 	err = json.Unmarshal(bytes, &decryptionSecret)
