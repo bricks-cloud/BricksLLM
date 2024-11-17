@@ -4,17 +4,18 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
+
+	"google.golang.org/api/idtoken"
 )
 
 type Encryptor struct {
 	decryptionURL string
 	encryptionURL string
 	enabled       bool
-	client        http.Client
+	client        *http.Client
 	timeout       time.Duration
 }
 
@@ -30,14 +31,22 @@ type DecryptionResponse struct {
 	DecryptedSecret string `json:"decryptedSecret"`
 }
 
-func NewEncryptor(decryptionURL string, encryptionURL string, enabled bool, timeout time.Duration) Encryptor {
+func NewEncryptor(decryptionURL string, encryptionURL string, enabled bool, timeout time.Duration, audience string) (Encryptor, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	client, err := idtoken.NewClient(ctx, audience)
+	if err != nil {
+		return Encryptor{}, err
+	}
+
 	return Encryptor{
 		decryptionURL: decryptionURL,
 		encryptionURL: encryptionURL,
-		client:        http.Client{},
 		enabled:       enabled,
 		timeout:       timeout,
-	}
+		client:        client,
+	}, nil
 }
 
 func (e Encryptor) Encrypt(input string, headers map[string]string) (string, error) {
@@ -110,8 +119,6 @@ func (e Encryptor) Decrypt(input string, headers map[string]string) (string, err
 	if err != nil {
 		return "", err
 	}
-
-	fmt.Println(string(bytes))
 
 	decryptionSecret := DecryptionResponse{}
 	err = json.Unmarshal(bytes, &decryptionSecret)

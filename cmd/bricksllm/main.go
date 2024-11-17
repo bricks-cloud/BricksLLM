@@ -286,7 +286,10 @@ func main() {
 	psCache := redisStorage.NewProviderSettingsCache(providerSettingsRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 	keysCache := redisStorage.NewKeysCache(keysRedisCache, cfg.RedisWriteTimeout, cfg.RedisReadTimeout)
 
-	encryptor := encryptor.NewEncryptor(cfg.DecryptionEndpoint, cfg.EncryptionEndpoint, cfg.EnableEncrytion, cfg.EncryptionTimeout)
+	encryptor, err := encryptor.NewEncryptor(cfg.DecryptionEndpoint, cfg.EncryptionEndpoint, cfg.EnableEncrytion, cfg.EncryptionTimeout, cfg.Audience)
+	if cfg.EnableEncrytion && err != nil {
+		log.Sugar().Fatalf("error creating encryption client: %v", err)
+	}
 
 	m := manager.NewManager(store, costLimitCache, rateLimitCache, accessCache, keysCache)
 	krm := manager.NewReportingManager(costStorage, store, store)

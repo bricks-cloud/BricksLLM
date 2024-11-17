@@ -50,6 +50,7 @@ type Config struct {
 	EncryptionEndpoint            string        `koanf:"encryption_endpoint" env:"ENCRYPTION_ENDPOINT"`
 	DecryptionEndpoint            string        `koanf:"decryption_endpoint" env:"DECRYPTION_ENDPOINT"`
 	EncryptionTimeout             time.Duration `koanf:"encryption_timeout" env:"ENCRYPTION_TIMEOUT" envDefault:"5s"`
+	Audience                      string        `koanf:"audience" env:"AUDIENCE"`
 }
 
 func prepareDotEnv(envFilePath string) error {

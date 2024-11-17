@@ -293,10 +293,6 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 						used.Setting["apikey"] = decryptedSecret
 					}
 				}
-
-				if err != nil {
-					fmt.Println(fmt.Printf("error when encrypting %v", err))
-				}
 			}
 		}
 
