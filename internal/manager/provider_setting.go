@@ -203,7 +203,7 @@ func (m *ProviderSettingsManager) UpdateSetting(id string, setting *provider.Upd
 	}
 
 	if m.Encryptor.Enabled() {
-		params, err := m.EncryptParams(existing.UpdatedAt, existing.Provider, setting.Setting)
+		params, err := m.EncryptParams(setting.UpdatedAt, existing.Provider, setting.Setting)
 		if err != nil {
 			return nil, err
 		}
