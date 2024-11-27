@@ -55,39 +55,33 @@ services:
 # Configuring Ingresses
 ingresses:
   admin:
-    enabled: true
-    className: tailscale
+    enabled: false
+    #className: "tailscale"
     #annotations:
     #  kubernetes.io/ingress.class: nginx
     #  kubernetes.io/tls-acme: "true"
-    hosts:
-      - host: bricksllm-admin.elephant-frog.ts.net
-        paths:
-          - path: /
-            pathType: ImplementationSpecific
-    tls:
-      - hosts:
-          - bricksllm-admin.elephant-frog.ts.net
-    #  - secretName: chart-example-tls
-    #    hosts:
-    #      - chart-example.local
+    #hosts:
+    #  - host: bricksllm-admin.elephant-frog.ts.net
+    #    paths:
+    #      - path: /
+    #        pathType: ImplementationSpecific
+    #tls:
+    #  - hosts:
+    #      - bricksllm-admin.elephant-frog.ts.net
   proxy:
-    enabled: true
-    className: tailscale
+    enabled: false
+    #className: tailscale
     #annotations:
     #  kubernetes.io/ingress.class: nginx
     #  kubernetes.io/tls-acme: "true"
-    hosts:
-      - host: bricksllm-proxy.elephant-frog.ts.net
-        paths:
-          - path: /
-            pathType: ImplementationSpecific
-    tls:
-      - hosts:
-          - bricksllm-proxy.elephant-frog.ts.net
-    #  - secretName: chart-example-tls
-    #    hosts:
-    #      - chart-example.local
+    #hosts:
+    #  - host: bricksllm-proxy.elephant-frog.ts.net
+    #    paths:
+    #      - path: /
+    #        pathType: ImplementationSpecific
+    #tls:
+    #  - hosts:
+    #      - bricksllm-proxy.elephant-frog.ts.net
 
 #resources:
 #  limits:
