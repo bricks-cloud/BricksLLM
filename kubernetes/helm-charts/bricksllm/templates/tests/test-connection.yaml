@@ -1,0 +1,21 @@
+{{ $fullname := include "bricksllm.fullname" . -}}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ $fullname }}-test-connection"
+  labels:
+    {{- include "bricksllm.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+{{- range $n, $p := .Values.services.ports }}
+    - name: wget
+      image: busybox
+      command:
+        - wget
+      args:
+        - '{{ $fullname }}:{{ $p }}'
+{{- end }}
+  restartPolicy: Never

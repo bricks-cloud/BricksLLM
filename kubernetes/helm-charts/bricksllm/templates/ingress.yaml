@@ -1,0 +1,50 @@
+{{- $fullname := include "bricksllm.fullname" . }}
+{{- $labels := include "bricksllm.labels" . }}
+{{- range $name, $v := .Values.ingresses }}
+{{- if $v.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullname }}-{{ $name }}
+  labels:
+    {{- $labels | nindent 4 }}
+  {{- with $v.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with $v.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if $v.tls }}
+  tls:
+    {{- range $v.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      {{- with .secretName }}
+      secretName: {{ . }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range $v.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            {{- with .pathType }}
+            pathType: {{ . }}
+            {{- end }}
+            backend:
+              service:
+                name: {{ $fullname }}
+                port:
+                  name: {{ $name | quote }}
+          {{- end }}
+    {{- end }}
+{{- end }}
+{{- end }}
