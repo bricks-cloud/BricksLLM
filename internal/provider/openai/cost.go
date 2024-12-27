@@ -34,6 +34,8 @@ func parseFinetuneModel(model string) string {
 
 var OpenAiPerThousandTokenCost = map[string]map[string]float64{
 	"prompt": {
+		"o1":                          0.015,
+		"o1-2024-12-17":               0.015,
 		"o1-preview":                  0.015,
 		"o1-preview-2024-09-12":       0.015,
 		"gpt-4o":                      0.0025,
@@ -98,6 +100,8 @@ var OpenAiPerThousandTokenCost = map[string]map[string]float64{
 		"tts-1-hd":  0.03,
 	},
 	"completion": {
+		"o1":                          0.06,
+		"o1-2024-12-17":               0.06,
 		"o1-preview":                  0.06,
 		"o1-preview-2024-09-12":       0.06,
 		"gpt-3.5-turbo-1106":          0.002,
