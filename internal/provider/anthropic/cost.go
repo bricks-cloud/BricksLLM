@@ -94,13 +94,28 @@ func selectModel(model string) string {
 	return ""
 }
 
+func convertAmazonModelToAnthropicModel(model string) string {
+	parts := strings.Split(model, ".")
+	if len(parts) < 3 {
+		return model
+	}
+
+	return selectModel(parts[2])
+}
+
 func (ce *CostEstimator) EstimateCompletionCost(model string, tks int) (float64, error) {
 	costMap, ok := ce.tokenCostMap["completion"]
 	if !ok {
 		return 0, errors.New("prompt token cost is not provided")
 	}
 
-	selected := selectModel(model)
+	selected := ""
+	if strings.HasPrefix(model, "us") {
+		selected = convertAmazonModelToAnthropicModel(model)
+	} else {
+		selected = selectModel(model)
+	}
+
 	cost, ok := costMap[selected]
 	if !ok {
 		return 0, errors.New("model is not present in the cost map provided")
