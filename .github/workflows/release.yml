@@ -144,5 +144,5 @@ jobs:
         with:
           image: bricksllm
           tags: latest
-          dockerfile: Dockerfile.aws.datadog
+          dockerfile: Dockerfile.datadog
           registry: ${{ steps.login-ecr.outputs.registry }}
