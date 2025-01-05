@@ -35,6 +35,16 @@ func NewEncryptor(decryptionURL string, encryptionURL string, enabled bool, time
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	if len(audience) == 0 {
+		return Encryptor{
+			decryptionURL: decryptionURL,
+			encryptionURL: encryptionURL,
+			enabled:       enabled,
+			timeout:       timeout,
+			client:        &http.Client{},
+		}, nil
+	}
+
 	client, err := idtoken.NewClient(ctx, audience)
 	if err != nil {
 		return Encryptor{}, err
