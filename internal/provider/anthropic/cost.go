@@ -64,7 +64,13 @@ func (ce *CostEstimator) EstimatePromptCost(model string, tks int) (float64, err
 
 	}
 
-	selected := selectModel(model)
+	selected := ""
+	if strings.HasPrefix(model, "us") {
+		selected = convertAmazonModelToAnthropicModel(model)
+	} else {
+		selected = selectModel(model)
+	}
+
 	cost, ok := costMap[selected]
 	if !ok {
 		return 0, fmt.Errorf("%s is not present in the cost map provided", model)
