@@ -13,7 +13,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/key"
 	"github.com/bricks-cloud/bricksllm/internal/provider"
 	"github.com/bricks-cloud/bricksllm/internal/provider/anthropic"
-	"github.com/caarlos0/env"
+	"github.com/caarlos0/env/v11"
 	goopenai "github.com/sashabaranov/go-openai"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

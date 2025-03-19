@@ -20,7 +20,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func getSpeechHandler(prod bool, client http.Client) gin.HandlerFunc {
+func getSpeechHandler(prod bool, client http.Client, openAiUrl string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_speech_handler.requests", nil, 1)
@@ -33,7 +33,7 @@ func getSpeechHandler(prod bool, client http.Client) gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
-		req, err := http.NewRequestWithContext(ctx, c.Request.Method, "https://api.openai.com/v1/audio/speech", c.Request.Body)
+		req, err := http.NewRequestWithContext(ctx, c.Request.Method, openAiUrl+"/v1/audio/speech", c.Request.Body)
 		if err != nil {
 			logError(log, "error when creating openai http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai http request")
@@ -167,7 +167,7 @@ func getContentType(format string) string {
 	return "text/plain; charset=utf-8"
 }
 
-func getTranscriptionsHandler(prod bool, client http.Client, e estimator) gin.HandlerFunc {
+func getTranscriptionsHandler(prod bool, client http.Client, e estimator, openAiUrl string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_transcriptions_handler.requests", nil, 1)
@@ -180,7 +180,7 @@ func getTranscriptionsHandler(prod bool, client http.Client, e estimator) gin.Ha
 		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
-		req, err := http.NewRequestWithContext(ctx, c.Request.Method, "https://api.openai.com/v1/audio/transcriptions", c.Request.Body)
+		req, err := http.NewRequestWithContext(ctx, c.Request.Method, openAiUrl+"/v1/audio/transcriptions", c.Request.Body)
 		if err != nil {
 			logError(log, "error when creating transcriptions openai http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai transcriptions http request")
@@ -331,7 +331,7 @@ func getTranscriptionsHandler(prod bool, client http.Client, e estimator) gin.Ha
 	}
 }
 
-func getTranslationsHandler(prod bool, client http.Client, e estimator) gin.HandlerFunc {
+func getTranslationsHandler(prod bool, client http.Client, e estimator, openAiUrl string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_translations_handler.requests", nil, 1)
@@ -344,7 +344,7 @@ func getTranslationsHandler(prod bool, client http.Client, e estimator) gin.Hand
 		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
-		req, err := http.NewRequestWithContext(ctx, c.Request.Method, "https://api.openai.com/v1/audio/translations", c.Request.Body)
+		req, err := http.NewRequestWithContext(ctx, c.Request.Method, openAiUrl+"/v1/audio/translations", c.Request.Body)
 		if err != nil {
 			logError(log, "error when creating translations openai http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai translations http request")

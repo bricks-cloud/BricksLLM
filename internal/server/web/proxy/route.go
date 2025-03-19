@@ -25,7 +25,7 @@ type cache interface {
 	GetBytes(key string) ([]byte, error)
 }
 
-func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, client http.Client, rec recorder) gin.HandlerFunc {
+func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, client http.Client, rec recorder, openAiUrls map[string]string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		trueStart := time.Now()
@@ -107,7 +107,7 @@ func getRouteHandler(prod bool, ca cache, aoe azureEstimator, e estimator, clien
 			rreq.Request = bs
 		}
 
-		runRes, err := rc.RunStepsV2(rreq, rec, log, kc)
+		runRes, err := rc.RunStepsV2(rreq, rec, log, kc, openAiUrls)
 		if err != nil {
 			telemetry.Incr("bricksllm.proxy.get_route_handeler.run_steps_error", tags, 1)
 			logError(log, "error when running steps", prod, err)

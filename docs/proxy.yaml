@@ -37,7 +37,7 @@ paths:
         200:
           description: Service is up and running.
 
-  /api/providers/openai/v1/chat/completions:
+  /api/providers/{openaiProviderName}/v1/chat/completions:
     post:
       parameters:
         - in: header
@@ -55,12 +55,19 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
       tags:
         - OpenAI
       summary: OpenAI Chat Completions
       description: This endpoint is set up for proxying OpenAI chat completion requests. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/chat).
 
-  /api/providers/openai/v1/embeddings:
+  /api/providers/{openaiProviderName}/v1/embeddings:
     post:
       parameters:
         - in: header
@@ -78,12 +85,19 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
       tags:
         - OpenAI
       summary: Call OpenAI embeddings
       description: This endpoint is set up for proxying OpenAI embedding requests. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/embeddings/create).
 
-  /api/providers/openai/v1/moderations:
+  /api/providers/{openaiProviderName}/v1/moderations:
     post:
       parameters:
         - in: header
@@ -101,12 +115,19 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
       tags:
         - OpenAI
       summary: Call OpenAI moderations
       description: This endpoint is set up for proxying OpenAI moderation requests. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/moderations/create).
 
-  /api/providers/openai/v1/models:
+  /api/providers/{openaiProviderName}/v1/models:
     get:
       parameters:
         - in: header
@@ -119,12 +140,19 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
       tags:
         - OpenAI
       summary: Get OpenAI models
       description: This endpoint is set up for retrieving OpenAI models. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/models/list).
 
-  /api/providers/openai/v1/models/{model}:
+  /api/providers/{openaiProviderName}/v1/models/{model}:
     get:
       tags:
         - OpenAI
@@ -147,13 +175,20 @@ paths:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
+        - in: path
           name: model
           required: true
           schema:
             type: string
           description: Model identifier
 
-  /api/providers/openai/v1/files:
+  /api/providers/{openaiProviderName}/v1/files:
     get:
       parameters:
         - in: header
@@ -171,6 +206,13 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
       tags:
         - OpenAI
       summary: List files
@@ -198,7 +240,7 @@ paths:
       summary: Upload a file
       description: This endpoint is set up for creating an OpenAI file. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/files/create).
 
-  /api/providers/openai/v1/files/{file_id}:
+  /api/providers/{openaiProviderName}/v1/files/{file_id}:
     post:
       tags:
         - OpenAI
@@ -220,6 +262,13 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
         - in: path
           name: file_id
           required: true
@@ -254,7 +303,7 @@ paths:
       summary: Retrieve a file
       description: This endpoint is set up for retrieving an OpenAI file. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/files/retrieve).
 
-  /api/providers/openai/v1/files/{file_id}/content:
+  /api/providers/{openaiProviderName}/v1/files/{file_id}/content:
     get:
       parameters:
         - in: header
@@ -273,6 +322,13 @@ paths:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
+        - in: path
           name: file_id
           required: true
           schema:
@@ -282,7 +338,7 @@ paths:
       summary: Retrieve file content
       description: This endpoint is set up for retrieving an OpenAI file content. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/files/retrieve-contents).
 
-  /api/providers/openai/v1/batches:
+  /api/providers/{openaiProviderName}/v1/batches:
     post:
       parameters:
         - in: header
@@ -300,6 +356,13 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
       tags:
         - OpenAI
       summary: Create a batch
@@ -327,7 +390,7 @@ paths:
       summary: List batches
       description: This endpoint is set up for listing batches. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/batch/list).
 
-  /api/providers/openai/v1/batches/{batch_id}:
+  /api/providers/{openaiProviderName}/v1/batches/{batch_id}:
     get:
       tags:
         - OpenAI
@@ -349,6 +412,13 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
         - in: path
           name: batch_id
           required: true
@@ -377,7 +447,7 @@ paths:
       summary: Cancel a batch
       description: This endpoint is set up for canceling a batch. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/batch/cancel).
 
-  /api/providers/openai/v1/images/generations:
+  /api/providers/{openaiProviderName}/v1/images/generations:
     post:
       parameters:
         - in: header
@@ -395,12 +465,19 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
       tags:
         - OpenAI
       summary: Generate images
       description: This endpoint is set up for generating OpenAI images. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/images/create).
 
-  /api/providers/openai/v1/images/edits:
+  /api/providers/{openaiProviderName}/v1/images/edits:
     post:
       parameters:
         - in: header
@@ -418,12 +495,19 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
       tags:
         - OpenAI
       summary: Edit images
       description: This endpoint is set up for editing OpenAI generated images. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/images/createEdit).
 
-  /api/providers/openai/v1/images/variations:
+  /api/providers/{openaiProviderName}/v1/images/variations:
     post:
       parameters:
         - in: header
@@ -441,12 +525,19 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
       tags:
         - OpenAI
       summary: Create image variations
       description: This endpoint is set up for creating OpenAI image variations. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/images/createVariation).
 
-  /api/providers/openai/v1/audio/speech:
+  /api/providers/{openaiProviderName}/v1/audio/speech:
     post:
       parameters:
         - in: header
@@ -464,12 +555,19 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
       tags:
         - OpenAI
       summary: Create speech
       description: This endpoint is set up for creating speeches. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/audio/createSpeech).
 
-  /api/providers/openai/v1/audio/transcriptions:
+  /api/providers/{openaiProviderName}/v1/audio/transcriptions:
     post:
       parameters:
         - in: header
@@ -487,12 +585,19 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
       tags:
         - OpenAI
       summary: Create transcriptions
       description: This endpoint is set up for editing generated images. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/audio/createTranscription).
 
-  /api/providers/openai/v1/audios/translations:
+  /api/providers/{openaiProviderName}/v1/audios/translations:
     post:
       parameters:
         - in: header
@@ -510,12 +615,19 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
       tags:
         - OpenAI
       summary: Create translations
       description: This endpoint is set up for creating translations. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/audio/createTranslation).
 
-  /api/providers/openai/v1/assistants:
+  /api/providers/{openaiProviderName}/v1/assistants:
     post:
       parameters:
         - in: header
@@ -533,6 +645,13 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
       tags:
         - OpenAI
       summary: Create assistant
@@ -560,7 +679,7 @@ paths:
       summary: List assistants
       description: This endpoint is set up for listing OpenAI assistants. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/listAssistants).
 
-  /api/providers/openai/v1/assistants/{assistant_id}:
+  /api/providers/{openaiProviderName}/v1/assistants/{assistant_id}:
     get:
       tags:
         - OpenAI
@@ -582,6 +701,13 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
         - in: path
           name: assistant_id
           required: true
@@ -642,7 +768,7 @@ paths:
       summary: Delete assistant
       description: This endpoint is set up for deleting an OpenAI assistant. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/deleteAssistant).
 
-  /api/providers/openai/v1/assistants/{assistant_id}/files:
+  /api/providers/{openaiProviderName}/v1/assistants/{assistant_id}/files:
     post:
       parameters:
         - in: path
@@ -665,6 +791,13 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
       tags:
         - OpenAI
       summary: Create assistant file
@@ -697,7 +830,7 @@ paths:
       summary: List assistant files
       description: This endpoint is set up for retrieving OpenAI assistant files. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/listAssistantFiles).
 
-  /api/providers/openai/v1/assistants/{assistant_id}/files/{file_id}:
+  /api/providers/{openaiProviderName}/v1/assistants/{assistant_id}/files/{file_id}:
     get:
       parameters:
         - in: header
@@ -715,6 +848,13 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
         - in: path
           name: assistant_id
           required: true
@@ -762,7 +902,7 @@ paths:
       summary: Delete assistant file
       description: This endpoint is set up for deleting an OpenAI assistant file. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/assistants/deleteAssistantFile).
 
-  /api/providers/openai/v1/threads:
+  /api/providers/{openaiProviderName}/v1/threads:
     post:
       parameters:
         - in: header
@@ -780,12 +920,19 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
       tags:
         - OpenAI
       summary: Create thread
       description: This endpoint is set up for creating an OpenAI thread. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/threads/createThread).
 
-  /api/providers/openai/v1/threads/{thread_id}:
+  /api/providers/{openaiProviderName}/v1/threads/{thread_id}:
     get:
       tags:
         - OpenAI
@@ -807,6 +954,13 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
         - in: path
           name: thread_id
           required: true
@@ -862,7 +1016,7 @@ paths:
       summary: Delete thread
       description: This endpoint is set up for deleting an OpenAI thread. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/threads/deleteThread).
 
-  /api/providers/openai/v1/threads/{thread_id}/messages:
+  /api/providers/{openaiProviderName}/v1/threads/{thread_id}/messages:
     post:
       parameters:
         - in: header
@@ -880,6 +1034,13 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
         - in: path
           name: thread_id
           required: true
@@ -918,7 +1079,7 @@ paths:
       summary: List messages
       description: This endpoint is set up for listing OpenAI messages. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/messages/listMessages).
 
-  /api/providers/openai/v1/threads/{thread_id}/messages/{message_id}:
+  /api/providers/{openaiProviderName}/v1/threads/{thread_id}/messages/{message_id}:
     get:
       tags:
         - OpenAI
@@ -940,6 +1101,13 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
         - in: path
           name: message_id
           required: true
@@ -982,7 +1150,7 @@ paths:
       summary: Modify message
       description: This endpoint is set up for modifying an OpenAI message. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/messages/modifyMessage).
 
-  ? /api/providers/openai/v1/threads/{thread_id}/messages/{message_id}/files/{file_id}
+  ? /api/providers/{openaiProviderName}/v1/threads/{thread_id}/messages/{message_id}/files/{file_id}
   : get:
       tags:
         - OpenAI
@@ -1005,6 +1173,13 @@ paths:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
+        - in: path
           name: file_id
           required: true
           schema:
@@ -1020,9 +1195,16 @@ paths:
           schema:
             type: string
 
-  /api/providers/openai/v1/threads/{thread_id}/messages/{message_id}/files:
+  /api/providers/{openaiProviderName}/v1/threads/{thread_id}/messages/{message_id}/files:
     get:
       parameters:
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
         - in: path
           name: thread_id
           required: true
@@ -1053,7 +1235,7 @@ paths:
       summary: List message files
       description: This endpoint is set up for retrieving OpenAI message files. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/messages/listMessageFiles).
 
-  /api/providers/openai/v1/threads/{thread_id}/runs:
+  /api/providers/{openaiProviderName}/v1/threads/{thread_id}/runs:
     post:
       parameters:
         - in: header
@@ -1071,6 +1253,13 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
         - in: path
           name: thread_id
           required: true
@@ -1108,7 +1297,7 @@ paths:
       summary: List runs
       description: This endpoint is set up for retrieving OpenAI runs. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/listRuns).
 
-  /api/providers/openai/v1/threads/{thread_id}/runs/{run_id}:
+  /api/providers/{openaiProviderName}/v1/threads/{thread_id}/runs/{run_id}:
     get:
       tags:
         - OpenAI
@@ -1130,6 +1319,13 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
         - in: path
           name: run_id
           required: true
@@ -1174,7 +1370,7 @@ paths:
       summary: Modify run
       description: This endpoint is set up for modifying an OpenAI run. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/modifyRun).
 
-  /api/providers/openai/v1/threads/{thread_id}/runs/{run_id}/cancel:
+  /api/providers/{openaiProviderName}/v1/threads/{thread_id}/runs/{run_id}/cancel:
     post:
       parameters:
         - in: header
@@ -1192,6 +1388,13 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
         - in: path
           name: thread_id
           required: true
@@ -1207,7 +1410,7 @@ paths:
       summary: Cancel a run
       description: This endpoint is set up for cancelling an OpenAI run. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/cancelRun).
 
-  /api/providers/openai/v1/threads/runs:
+  /api/providers/{openaiProviderName}/v1/threads/runs:
     post:
       parameters:
         - in: header
@@ -1225,12 +1428,19 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
       tags:
         - OpenAI
       summary: Create thread and run
       description: This endpoint is set up for creating an OpenAI thread and run. Documentation for this endpoint can be found [here](https://platform.openai.com/docs/api-reference/runs/createThreadAndRun).
 
-  /api/providers/openai/v1/threads/{thread_id}/runs/{run_id}/steps/{step_id}:
+  /api/providers/{openaiProviderName}/v1/threads/{thread_id}/runs/{run_id}/steps/{step_id}:
     get:
       tags:
         - OpenAI
@@ -1253,6 +1463,13 @@ paths:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
         - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
+        - in: path
           name: step_id
           required: true
           schema:
@@ -1269,7 +1486,7 @@ paths:
           schema:
             type: string
 
-  /api/providers/openai/v1/threads/{thread_id}/runs/{run_id}/steps:
+  /api/providers/{openaiProviderName}/v1/threads/{thread_id}/runs/{run_id}/steps:
     get:
       parameters:
         - in: header
@@ -1287,6 +1504,13 @@ paths:
           schema:
             type: string
           description: Timeout for the request. Format can be `1s`, `1m`, `1h`, etc.
+        - in: path
+          name: openaiProviderName
+          required: true
+          schema:
+            type: string
+          description: Name of OpenAI provider
+          example: openai
         - in: path
           name: thread_id
           required: true

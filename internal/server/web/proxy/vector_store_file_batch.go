@@ -13,7 +13,7 @@ import (
 	goopenai "github.com/sashabaranov/go-openai"
 )
 
-func getCreateVectorStoreFileBatchHandler(prod bool, client http.Client) gin.HandlerFunc {
+func getCreateVectorStoreFileBatchHandler(prod bool, client http.Client, openAiUrl string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_create_vector_store_file_batch_handler.requests", nil, 1)
@@ -26,7 +26,7 @@ func getCreateVectorStoreFileBatchHandler(prod bool, client http.Client) gin.Han
 		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/vector_stores/"+c.Param("vector_store_id")+"/file_batches", c.Request.Body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, openAiUrl+"/v1/vector_stores/"+c.Param("vector_store_id")+"/file_batches", c.Request.Body)
 		if err != nil {
 			logError(log, "error when creating openai http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create azure openai http request")
@@ -94,7 +94,7 @@ func getCreateVectorStoreFileBatchHandler(prod bool, client http.Client) gin.Han
 	}
 }
 
-func getGetVectorStoreFileBatchHandler(prod bool, client http.Client) gin.HandlerFunc {
+func getGetVectorStoreFileBatchHandler(prod bool, client http.Client, openAiUrl string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_get_vector_store_file_batch_handler.requests", nil, 1)
@@ -107,7 +107,7 @@ func getGetVectorStoreFileBatchHandler(prod bool, client http.Client) gin.Handle
 		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.openai.com/v1/vector_stores/"+c.Param("vector_store_id")+"/file_batches/"+c.Param("batch_id"), c.Request.Body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, openAiUrl+"/v1/vector_stores/"+c.Param("vector_store_id")+"/file_batches/"+c.Param("batch_id"), c.Request.Body)
 		if err != nil {
 			logError(log, "error when creating openai http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create openai http request")
@@ -175,7 +175,7 @@ func getGetVectorStoreFileBatchHandler(prod bool, client http.Client) gin.Handle
 	}
 }
 
-func getCancelVectorStoreFileBatchHandler(prod bool, client http.Client) gin.HandlerFunc {
+func getCancelVectorStoreFileBatchHandler(prod bool, client http.Client, openAiUrl string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_cancel_vector_store_file_batch_handler.requests", nil, 1)
@@ -188,7 +188,7 @@ func getCancelVectorStoreFileBatchHandler(prod bool, client http.Client) gin.Han
 		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/vector_stores/"+c.Param("vector_store_id")+"/file_batches/"+c.Param("batch_id")+"/cancel", c.Request.Body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, openAiUrl+"/v1/vector_stores/"+c.Param("vector_store_id")+"/file_batches/"+c.Param("batch_id")+"/cancel", c.Request.Body)
 		if err != nil {
 			logError(log, "error when creating openai http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create azure openai http request")
@@ -256,7 +256,7 @@ func getCancelVectorStoreFileBatchHandler(prod bool, client http.Client) gin.Han
 	}
 }
 
-func getListVectorStoreFileBatchFilesHandler(prod bool, client http.Client) gin.HandlerFunc {
+func getListVectorStoreFileBatchFilesHandler(prod bool, client http.Client, openAiUrl string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_list_vector_store_file_batch_files_handler.requests", nil, 1)
@@ -269,7 +269,7 @@ func getListVectorStoreFileBatchFilesHandler(prod bool, client http.Client) gin.
 		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.openai.com/v1/vector_stores/"+c.Param("vector_store_id")+"/file_batches/"+c.Param("batch_id")+"/files", c.Request.Body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, openAiUrl+"/v1/vector_stores/"+c.Param("vector_store_id")+"/file_batches/"+c.Param("batch_id")+"/files", c.Request.Body)
 		if err != nil {
 			logError(log, "error when creating openai http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create azure openai http request")

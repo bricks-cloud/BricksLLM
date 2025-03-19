@@ -341,7 +341,7 @@ func main() {
 
 	handler := message.NewHandler(rec, log, ace, ce, vllme, aoe, v, uv, m, um, rlm, accessCache, userAccessCache)
 
-	eventConsumer := message.NewConsumer(eventMessageChan, log, 4, handler.HandleEventWithRequestAndResponse)
+	eventConsumer := message.NewConsumer(eventMessageChan, log, 4, handler.HandleEventWithRequestAndResponse, cfg.OpenAiUrls)
 	eventConsumer.StartEventMessageConsumers()
 
 	detector, err := amazon.NewClient(cfg.AmazonRequestTimeout, cfg.AmazonConnectionTimeout, log, cfg.AmazonRegion)
@@ -352,7 +352,7 @@ func main() {
 	scanner := pii.NewScanner(detector)
 	cd := custompolicy.NewOpenAiDetector(cfg.CustomPolicyDetectionTimeout, cfg.OpenAiApiKey)
 
-	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, c, m, rm, a, psm, cpm, store, ce, ace, aoe, v, rec, messageBus, rlm, cfg.ProxyTimeout, accessCache, userAccessCache, pm, scanner, cd, die, um, cfg.RemoveUserAgent)
+	ps, err := proxy.NewProxyServer(log, *modePtr, *privacyPtr, c, m, rm, a, psm, cpm, store, ce, ace, aoe, v, rec, messageBus, rlm, cfg.ProxyTimeout, accessCache, userAccessCache, pm, scanner, cd, die, um, cfg.RemoveUserAgent, cfg.OpenAiUrls)
 	if err != nil {
 		log.Sugar().Fatalf("error creating proxy http server: %v", err)
 	}

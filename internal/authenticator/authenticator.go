@@ -163,13 +163,15 @@ func (a *Authenticator) getProviderSettingsThatCanAccessCustomRoute(path string,
 	return selected
 }
 
-func canAccessPath(provider string, path string) bool {
+func canAccessPath(provider string, path string, openAiUrls map[string]string) bool {
 	if provider == "bedrock" && !strings.HasPrefix(path, "/api/providers/bedrock") {
 		return false
 	}
 
-	if provider == "openai" && !strings.HasPrefix(path, "/api/providers/openai") {
-		return false
+	for openAiName := range openAiUrls {
+		if provider == openAiName && !strings.HasPrefix(path, "/api/providers/"+openAiName) {
+			return false
+		}
 	}
 
 	if provider == "azure" && !strings.HasPrefix(path, "/api/providers/azure/openai") {
@@ -204,7 +206,7 @@ func anonymize(input string) string {
 	return string(input[0:5]) + "**********************************************"
 }
 
-func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.ResponseKey, []*provider.Setting, error) {
+func (a *Authenticator) AuthenticateHttpRequest(req *http.Request, openAiUrls map[string]string) (*key.ResponseKey, []*provider.Setting, error) {
 	raw, err := getApiKey(req)
 	if err != nil {
 		return nil, nil, err
@@ -255,7 +257,7 @@ func (a *Authenticator) AuthenticateHttpRequest(req *http.Request) (*key.Respons
 			continue
 		}
 
-		if canAccessPath(setting.Provider, req.URL.Path) {
+		if canAccessPath(setting.Provider, req.URL.Path, openAiUrls) {
 			selected = append(selected, setting)
 		}
 
