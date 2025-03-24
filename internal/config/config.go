@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/caarlos0/env"
+	"github.com/caarlos0/env/v11"
 
 	"github.com/joho/godotenv"
 	"github.com/knadh/koanf/parsers/json"
@@ -16,41 +16,42 @@ import (
 )
 
 type Config struct {
-	PostgresqlHosts               string        `koanf:"postgresql_hosts" env:"POSTGRESQL_HOSTS" envSeparator:":" envDefault:"localhost"`
-	PostgresqlDbName              string        `koanf:"postgresql_db_name" env:"POSTGRESQL_DB_NAME"`
-	PostgresqlUsername            string        `koanf:"postgresql_username" env:"POSTGRESQL_USERNAME"`
-	PostgresqlPassword            string        `koanf:"postgresql_password" env:"POSTGRESQL_PASSWORD"`
-	PostgresqlSslMode             string        `koanf:"postgresql_ssl_mode" env:"POSTGRESQL_SSL_MODE" envDefault:"disable"`
-	PostgresqlPort                string        `koanf:"postgresql_port" env:"POSTGRESQL_PORT" envDefault:"5432"`
-	RedisHosts                    string        `koanf:"redis_hosts" env:"REDIS_HOSTS" envSeparator:":" envDefault:"localhost"`
-	RedisPort                     string        `koanf:"redis_port" env:"REDIS_PORT" envDefault:"6379"`
-	RedisUsername                 string        `koanf:"redis_username" env:"REDIS_USERNAME"`
-	RedisPassword                 string        `koanf:"redis_password" env:"REDIS_PASSWORD"`
-	RedisDBStartIndex             int           `koanf:"redis_db_start_index" env:"REDIS_DB_START_INDEX" envDefault:"0"`
-	RedisReadTimeout              time.Duration `koanf:"redis_read_time_out" env:"REDIS_READ_TIME_OUT" envDefault:"1s"`
-	RedisWriteTimeout             time.Duration `koanf:"redis_write_time_out" env:"REDIS_WRITE_TIME_OUT" envDefault:"500ms"`
-	PostgresqlReadTimeout         time.Duration `koanf:"postgresql_read_time_out" env:"POSTGRESQL_READ_TIME_OUT" envDefault:"10m"`
-	PostgresqlWriteTimeout        time.Duration `koanf:"postgresql_write_time_out" env:"POSTGRESQL_WRITE_TIME_OUT" envDefault:"5s"`
-	InMemoryDbUpdateInterval      time.Duration `koanf:"in_memory_db_update_interval" env:"IN_MEMORY_DB_UPDATE_INTERVAL" envDefault:"5s"`
-	TelemetryProvider             string        `koanf:"telemetry_provider" env:"TELEMETRY_PROVIDER" envDefault:"statsd"`
-	StatsEnabled                  bool          `koanf:"stats_enabled" env:"STATS_ENABLED" envDefault:"true"`
-	StatsAddress                  string        `koanf:"stats_address" env:"STATS_ADDRESS" envDefault:"127.0.0.1:8125"`
-	PrometheusEnabled             bool          `koanf:"prometheus_enabled" env:"PROMETHEUS_ENABLED" envDefault:"true"`
-	PrometheusPort                string        `koanf:"prometheus_port" env:"PROMETHEUS_PORT" envDefault:"2112"`
-	AdminPass                     string        `koanf:"admin_pass" env:"ADMIN_PASS"`
-	ProxyTimeout                  time.Duration `koanf:"proxy_timeout" env:"PROXY_TIMEOUT" envDefault:"600s"`
-	NumberOfEventMessageConsumers int           `koanf:"number_of_event_message_consumers" env:"NUMBER_OF_EVENT_MESSAGE_CONSUMERS" envDefault:"3"`
-	OpenAiApiKey                  string        `koanf:"openai_api_key" env:"OPENAI_API_KEY"`
-	CustomPolicyDetectionTimeout  time.Duration `koanf:"custom_policy_detection_timeout" env:"CUSTOM_POLICY_DETECTION_TIMEOUT" envDefault:"10m"`
-	AmazonRegion                  string        `koanf:"amazon_region" env:"AMAZON_REGION" envDefault:"us-west-2"`
-	AmazonRequestTimeout          time.Duration `koanf:"amazon_request_timeout" env:"AMAZON_REQUEST_TIMEOUT" envDefault:"5s"`
-	AmazonConnectionTimeout       time.Duration `koanf:"amazon_connection_timeout" env:"AMAZON_CONNECTION_TIMEOUT" envDefault:"10s"`
-	RemoveUserAgent               bool          `koanf:"remove_user_agent" env:"REMOVE_USER_AGENT" envDefault:"false"`
-	EnableEncrytion               bool          `koanf:"enable_encryption" env:"ENABLE_ENCRYPTION" envDefault:"false"`
-	EncryptionEndpoint            string        `koanf:"encryption_endpoint" env:"ENCRYPTION_ENDPOINT"`
-	DecryptionEndpoint            string        `koanf:"decryption_endpoint" env:"DECRYPTION_ENDPOINT"`
-	EncryptionTimeout             time.Duration `koanf:"encryption_timeout" env:"ENCRYPTION_TIMEOUT" envDefault:"5s"`
-	Audience                      string        `koanf:"audience" env:"AUDIENCE"`
+	PostgresqlHosts               string            `koanf:"postgresql_hosts" env:"POSTGRESQL_HOSTS" envSeparator:":" envDefault:"localhost"`
+	PostgresqlDbName              string            `koanf:"postgresql_db_name" env:"POSTGRESQL_DB_NAME"`
+	PostgresqlUsername            string            `koanf:"postgresql_username" env:"POSTGRESQL_USERNAME"`
+	PostgresqlPassword            string            `koanf:"postgresql_password" env:"POSTGRESQL_PASSWORD"`
+	PostgresqlSslMode             string            `koanf:"postgresql_ssl_mode" env:"POSTGRESQL_SSL_MODE" envDefault:"disable"`
+	PostgresqlPort                string            `koanf:"postgresql_port" env:"POSTGRESQL_PORT" envDefault:"5432"`
+	RedisHosts                    string            `koanf:"redis_hosts" env:"REDIS_HOSTS" envSeparator:":" envDefault:"localhost"`
+	RedisPort                     string            `koanf:"redis_port" env:"REDIS_PORT" envDefault:"6379"`
+	RedisUsername                 string            `koanf:"redis_username" env:"REDIS_USERNAME"`
+	RedisPassword                 string            `koanf:"redis_password" env:"REDIS_PASSWORD"`
+	RedisDBStartIndex             int               `koanf:"redis_db_start_index" env:"REDIS_DB_START_INDEX" envDefault:"0"`
+	RedisReadTimeout              time.Duration     `koanf:"redis_read_time_out" env:"REDIS_READ_TIME_OUT" envDefault:"1s"`
+	RedisWriteTimeout             time.Duration     `koanf:"redis_write_time_out" env:"REDIS_WRITE_TIME_OUT" envDefault:"500ms"`
+	PostgresqlReadTimeout         time.Duration     `koanf:"postgresql_read_time_out" env:"POSTGRESQL_READ_TIME_OUT" envDefault:"10m"`
+	PostgresqlWriteTimeout        time.Duration     `koanf:"postgresql_write_time_out" env:"POSTGRESQL_WRITE_TIME_OUT" envDefault:"5s"`
+	InMemoryDbUpdateInterval      time.Duration     `koanf:"in_memory_db_update_interval" env:"IN_MEMORY_DB_UPDATE_INTERVAL" envDefault:"5s"`
+	TelemetryProvider             string            `koanf:"telemetry_provider" env:"TELEMETRY_PROVIDER" envDefault:"statsd"`
+	StatsEnabled                  bool              `koanf:"stats_enabled" env:"STATS_ENABLED" envDefault:"true"`
+	StatsAddress                  string            `koanf:"stats_address" env:"STATS_ADDRESS" envDefault:"127.0.0.1:8125"`
+	PrometheusEnabled             bool              `koanf:"prometheus_enabled" env:"PROMETHEUS_ENABLED" envDefault:"true"`
+	PrometheusPort                string            `koanf:"prometheus_port" env:"PROMETHEUS_PORT" envDefault:"2112"`
+	AdminPass                     string            `koanf:"admin_pass" env:"ADMIN_PASS"`
+	ProxyTimeout                  time.Duration     `koanf:"proxy_timeout" env:"PROXY_TIMEOUT" envDefault:"600s"`
+	NumberOfEventMessageConsumers int               `koanf:"number_of_event_message_consumers" env:"NUMBER_OF_EVENT_MESSAGE_CONSUMERS" envDefault:"3"`
+	OpenAiApiKey                  string            `koanf:"openai_api_key" env:"OPENAI_API_KEY"`
+	OpenAiUrls                    map[string]string `koanf:"openai_api_urls" env:"OPENAI_API_URLS" envKeyValSeparator:"=" envSeparator:"," envDefault:"openai=https://api.openai.com,openai-eu=https://eu.api.openai.com"`
+	CustomPolicyDetectionTimeout  time.Duration     `koanf:"custom_policy_detection_timeout" env:"CUSTOM_POLICY_DETECTION_TIMEOUT" envDefault:"10m"`
+	AmazonRegion                  string            `koanf:"amazon_region" env:"AMAZON_REGION" envDefault:"us-west-2"`
+	AmazonRequestTimeout          time.Duration     `koanf:"amazon_request_timeout" env:"AMAZON_REQUEST_TIMEOUT" envDefault:"5s"`
+	AmazonConnectionTimeout       time.Duration     `koanf:"amazon_connection_timeout" env:"AMAZON_CONNECTION_TIMEOUT" envDefault:"10s"`
+	RemoveUserAgent               bool              `koanf:"remove_user_agent" env:"REMOVE_USER_AGENT" envDefault:"false"`
+	EnableEncrytion               bool              `koanf:"enable_encryption" env:"ENABLE_ENCRYPTION" envDefault:"false"`
+	EncryptionEndpoint            string            `koanf:"encryption_endpoint" env:"ENCRYPTION_ENDPOINT"`
+	DecryptionEndpoint            string            `koanf:"decryption_endpoint" env:"DECRYPTION_ENDPOINT"`
+	EncryptionTimeout             time.Duration     `koanf:"encryption_timeout" env:"ENCRYPTION_TIMEOUT" envDefault:"5s"`
+	Audience                      string            `koanf:"audience" env:"AUDIENCE"`
 }
 
 func prepareDotEnv(envFilePath string) error {

@@ -67,7 +67,7 @@ type deepinfraEstimator interface {
 }
 
 type authenticator interface {
-	AuthenticateHttpRequest(req *http.Request) (*key.ResponseKey, []*provider.Setting, error)
+	AuthenticateHttpRequest(req *http.Request, openAiUrls map[string]string) (*key.ResponseKey, []*provider.Setting, error)
 }
 
 type validator interface {
@@ -169,7 +169,7 @@ type CustomPolicyDetector interface {
 	Detect(input []string, requirements []string) (bool, error)
 }
 
-func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManager, a authenticator, prod, private bool, log *zap.Logger, pub publisher, prefix string, ac accessCache, uac userAccessCache, client http.Client, scanner Scanner, cd CustomPolicyDetector, um userManager, removeUserAgent bool) gin.HandlerFunc {
+func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManager, a authenticator, prod, private bool, log *zap.Logger, pub publisher, prefix string, ac accessCache, uac userAccessCache, client http.Client, scanner Scanner, cd CustomPolicyDetector, um userManager, removeUserAgent bool, openAiUrls map[string]string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil || c.Request == nil {
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] request is empty")
@@ -304,7 +304,7 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			return
 		}
 
-		kc, settings, err := a.AuthenticateHttpRequest(c.Request)
+		kc, settings, err := a.AuthenticateHttpRequest(c.Request, openAiUrls)
 		enrichedEvent.Key = kc
 		_, ok := err.(notAuthorizedError)
 		if ok {
@@ -762,389 +762,392 @@ func getMiddleware(cpm CustomProvidersManager, rm routeManager, pm PoliciesManag
 			policyInput = er
 		}
 
-		if c.FullPath() == "/api/providers/openai/v1/chat/completions" {
-			ccr := &goopenai.ChatCompletionRequest{}
-			// this is a hack around an open issue in go-openai.
-			// https://github.com/sashabaranov/go-openai/issues/884
-			cleaned, err := sjson.Delete(string(body), "response_format.json_schema")
-			if err != nil {
-				logWithCid.Warn("removing response_format.json_schema", zap.Error(err))
+		for openAiName := range openAiUrls {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/chat/completions", openAiName) {
+				ccr := &goopenai.ChatCompletionRequest{}
+				// this is a hack around an open issue in go-openai.
+				// https://github.com/sashabaranov/go-openai/issues/884
+				cleaned, err := sjson.Delete(string(body), "response_format.json_schema")
+				if err != nil {
+					logWithCid.Warn("removing response_format.json_schema", zap.Error(err))
+				}
+				err = json.Unmarshal([]byte(cleaned), ccr)
+				if err != nil {
+					logError(logWithCid, "error when unmarshalling chat completion request", prod, err)
+					return
+				}
+
+				userId = ccr.User
+
+				enrichedEvent.Request = ccr
+
+				c.Set("model", ccr.Model)
+
+				logRequest(logWithCid, prod, private, ccr)
+
+				if ccr.Stream {
+					c.Set("stream", true)
+				}
+
+				policyInput = ccr
 			}
-			err = json.Unmarshal([]byte(cleaned), ccr)
-			if err != nil {
-				logError(logWithCid, "error when unmarshalling chat completion request", prod, err)
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/embeddings", openAiName) {
+				er := &goopenai.EmbeddingRequest{}
+				err = json.Unmarshal(body, er)
+				if err != nil {
+					logError(logWithCid, "error when unmarshalling embedding request", prod, err)
+					return
+				}
+
+				userId = er.User
+
+				c.Set("model", string(er.Model))
+				c.Set("encoding_format", string(er.EncodingFormat))
+
+				logEmbeddingRequest(logWithCid, prod, private, er)
+
+				policyInput = er
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/images/generations", openAiName) && c.Request.Method == http.MethodPost {
+				ir := &goopenai.ImageRequest{}
+				err := json.Unmarshal(body, ir)
+				if err != nil {
+					logError(logWithCid, "error when unmarshalling create image request", prod, err)
+					return
+				}
+
+				c.Set("model", ir.Model)
+
+				if len(ir.Model) == 0 {
+					c.Set("model", "dall-e-2")
+				}
+
+				c.Set("model", ir.Model)
+				logCreateImageRequest(logWithCid, ir, prod, private)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/images/edits", openAiName) && c.Request.Method == http.MethodPost {
+				prompt := c.PostForm("model")
+				model := c.PostForm("model")
+				size := c.PostForm("size")
+				user := c.PostForm("user")
+
+				userId = user
+
+				responseFormat := c.PostForm("response_format")
+				n, _ := strconv.Atoi(c.PostForm("n"))
+
+				c.Set("model", model)
+
+				if len(model) == 0 {
+					c.Set("model", "dall-e-2")
+				}
+
+				logEditImageRequest(logWithCid, prompt, model, n, size, responseFormat, user, prod, private)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/images/variations", openAiName) && c.Request.Method == http.MethodPost {
+				model := c.PostForm("model")
+				size := c.PostForm("size")
+				user := c.PostForm("user")
+
+				userId = user
+
+				responseFormat := c.PostForm("response_format")
+				n, _ := strconv.Atoi(c.PostForm("n"))
+
+				c.Set("model", model)
+
+				if len(model) == 0 {
+					c.Set("model", "dall-e-2")
+				}
+
+				logImageVariationsRequest(logWithCid, model, n, size, responseFormat, user, prod)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/audio/speech", openAiName) && c.Request.Method == http.MethodPost {
+				sr := &goopenai.CreateSpeechRequest{}
+				err := json.Unmarshal(body, sr)
+				if err != nil {
+					logError(logWithCid, "error when unmarshalling create speech request", prod, err)
+					return
+				}
+
+				enrichedEvent.Request = sr
+
+				c.Set("model", string(sr.Model))
+
+				logCreateSpeechRequest(logWithCid, sr, prod, private)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/audio/transcriptions", openAiName) && c.Request.Method == http.MethodPost {
+				model := c.PostForm("model")
+				language := c.PostForm("language")
+				prompt := c.PostForm("prompt")
+				responseFormat := c.PostForm("response_format")
+				temperature := c.PostForm("temperature")
+
+				c.Set("model", model)
+
+				converted, _ := strconv.ParseFloat(temperature, 64)
+				logCreateTranscriptionRequest(logWithCid, model, language, prompt, responseFormat, converted, prod, private)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/audio/translations", openAiName) && c.Request.Method == http.MethodPost {
+				model := c.PostForm("model")
+				prompt := c.PostForm("prompt")
+				responseFormat := c.PostForm("response_format")
+				temperature := c.PostForm("temperature")
+
+				c.Set("model", model)
+
+				converted, _ := strconv.ParseFloat(temperature, 64)
+				logCreateTranslationRequest(logWithCid, model, prompt, responseFormat, converted, prod, private)
+			}
+
+			if len(kc.AllowedPaths) != 0 && !containsPath(kc.AllowedPaths, c.FullPath(), c.Request.Method) {
+				telemetry.Incr("bricksllm.proxy.get_middleware.path_not_allowed", nil, 1)
+				JSON(c, http.StatusForbidden, "[BricksLLM] path is not allowed")
+				c.Abort()
 				return
 			}
 
-			userId = ccr.User
-
-			enrichedEvent.Request = ccr
-
-			c.Set("model", ccr.Model)
-
-			logRequest(logWithCid, prod, private, ccr)
-
-			if ccr.Stream {
-				c.Set("stream", true)
-			}
-
-			policyInput = ccr
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/embeddings" {
-			er := &goopenai.EmbeddingRequest{}
-			err = json.Unmarshal(body, er)
-			if err != nil {
-				logError(logWithCid, "error when unmarshalling embedding request", prod, err)
+			model := c.GetString("model")
+			if !isModelAllowed(model, settings) {
+				telemetry.Incr("bricksllm.proxy.get_middleware.model_not_allowed", nil, 1)
+				JSON(c, http.StatusForbidden, "[BricksLLM] model is not allowed")
+				c.Abort()
 				return
 			}
 
-			userId = er.User
+			aid := c.Param("assistant_id")
+			fid := c.Param("file_id")
+			tid := c.Param("thread_id")
+			mid := c.Param("message_id")
+			rid := c.Param("run_id")
+			sid := c.Param("step_id")
+			md := c.Param("model")
+			qm := map[string]string{}
 
-			c.Set("model", string(er.Model))
-			c.Set("encoding_format", string(er.EncodingFormat))
-
-			logEmbeddingRequest(logWithCid, prod, private, er)
-
-			policyInput = er
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/images/generations" && c.Request.Method == http.MethodPost {
-			ir := &goopenai.ImageRequest{}
-			err := json.Unmarshal(body, ir)
-			if err != nil {
-				logError(logWithCid, "error when unmarshalling create image request", prod, err)
-				return
+			if val, ok := c.GetQuery("limit"); ok {
+				qm["limit"] = val
 			}
 
-			c.Set("model", ir.Model)
-
-			if len(ir.Model) == 0 {
-				c.Set("model", "dall-e-2")
+			if val, ok := c.GetQuery("order"); ok {
+				qm["order"] = val
 			}
 
-			c.Set("model", ir.Model)
-			logCreateImageRequest(logWithCid, ir, prod, private)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/images/edits" && c.Request.Method == http.MethodPost {
-			prompt := c.PostForm("model")
-			model := c.PostForm("model")
-			size := c.PostForm("size")
-			user := c.PostForm("user")
-
-			userId = user
-
-			responseFormat := c.PostForm("response_format")
-			n, _ := strconv.Atoi(c.PostForm("n"))
-
-			c.Set("model", model)
-
-			if len(model) == 0 {
-				c.Set("model", "dall-e-2")
+			if val, ok := c.GetQuery("after"); ok {
+				qm["after"] = val
 			}
 
-			logEditImageRequest(logWithCid, prompt, model, n, size, responseFormat, user, prod, private)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/images/variations" && c.Request.Method == http.MethodPost {
-			model := c.PostForm("model")
-			size := c.PostForm("size")
-			user := c.PostForm("user")
-
-			userId = user
-
-			responseFormat := c.PostForm("response_format")
-			n, _ := strconv.Atoi(c.PostForm("n"))
-
-			c.Set("model", model)
-
-			if len(model) == 0 {
-				c.Set("model", "dall-e-2")
+			if val, ok := c.GetQuery("before"); ok {
+				qm["before"] = val
 			}
 
-			logImageVariationsRequest(logWithCid, model, n, size, responseFormat, user, prod)
-		}
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants", openAiName) && c.Request.Method == http.MethodPost {
+				logCreateAssistantRequest(logWithCid, body, prod, private)
 
-		if c.FullPath() == "/api/providers/openai/v1/audio/speech" && c.Request.Method == http.MethodPost {
-			sr := &goopenai.CreateSpeechRequest{}
-			err := json.Unmarshal(body, sr)
-			if err != nil {
-				logError(logWithCid, "error when unmarshalling create speech request", prod, err)
-				return
+				ar := &goopenai.AssistantRequest{}
+
+				err = json.Unmarshal(body, ar)
+				if err != nil {
+					logError(logWithCid, "error when unmarshalling assistant request", prod, err)
+				}
+
+				if err == nil {
+					c.Set("model", ar.Model)
+
+					policyInput = ar
+				}
 			}
 
-			enrichedEvent.Request = sr
-
-			c.Set("model", string(sr.Model))
-
-			logCreateSpeechRequest(logWithCid, sr, prod, private)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/audio/transcriptions" && c.Request.Method == http.MethodPost {
-			model := c.PostForm("model")
-			language := c.PostForm("language")
-			prompt := c.PostForm("prompt")
-			responseFormat := c.PostForm("response_format")
-			temperature := c.PostForm("temperature")
-
-			c.Set("model", model)
-
-			converted, _ := strconv.ParseFloat(temperature, 64)
-			logCreateTranscriptionRequest(logWithCid, model, language, prompt, responseFormat, converted, prod, private)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/audio/translations" && c.Request.Method == http.MethodPost {
-			model := c.PostForm("model")
-			prompt := c.PostForm("prompt")
-			responseFormat := c.PostForm("response_format")
-			temperature := c.PostForm("temperature")
-
-			c.Set("model", model)
-
-			converted, _ := strconv.ParseFloat(temperature, 64)
-			logCreateTranslationRequest(logWithCid, model, prompt, responseFormat, converted, prod, private)
-		}
-
-		if len(kc.AllowedPaths) != 0 && !containsPath(kc.AllowedPaths, c.FullPath(), c.Request.Method) {
-			telemetry.Incr("bricksllm.proxy.get_middleware.path_not_allowed", nil, 1)
-			JSON(c, http.StatusForbidden, "[BricksLLM] path is not allowed")
-			c.Abort()
-			return
-		}
-
-		model := c.GetString("model")
-		if !isModelAllowed(model, settings) {
-			telemetry.Incr("bricksllm.proxy.get_middleware.model_not_allowed", nil, 1)
-			JSON(c, http.StatusForbidden, "[BricksLLM] model is not allowed")
-			c.Abort()
-			return
-		}
-
-		aid := c.Param("assistant_id")
-		fid := c.Param("file_id")
-		tid := c.Param("thread_id")
-		mid := c.Param("message_id")
-		rid := c.Param("run_id")
-		sid := c.Param("step_id")
-		md := c.Param("model")
-		qm := map[string]string{}
-
-		if val, ok := c.GetQuery("limit"); ok {
-			qm["limit"] = val
-		}
-
-		if val, ok := c.GetQuery("order"); ok {
-			qm["order"] = val
-		}
-
-		if val, ok := c.GetQuery("after"); ok {
-			qm["after"] = val
-		}
-
-		if val, ok := c.GetQuery("before"); ok {
-			qm["before"] = val
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/assistants" && c.Request.Method == http.MethodPost {
-			logCreateAssistantRequest(logWithCid, body, prod, private)
-
-			ar := &goopenai.AssistantRequest{}
-
-			err = json.Unmarshal(body, ar)
-			if err != nil {
-				logError(logWithCid, "error when unmarshalling assistant request", prod, err)
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id", openAiName) && c.Request.Method == http.MethodGet {
+				logRetrieveAssistantRequest(logWithCid, prod, aid)
 			}
 
-			if err == nil {
-				c.Set("model", ar.Model)
-
-				policyInput = ar
-			}
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id" && c.Request.Method == http.MethodGet {
-			logRetrieveAssistantRequest(logWithCid, prod, aid)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id" && c.Request.Method == http.MethodPost {
-			logModifyAssistantRequest(logWithCid, body, prod, private, aid)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id" && c.Request.Method == http.MethodDelete {
-			logDeleteAssistantRequest(logWithCid, prod, aid)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/assistants" && c.Request.Method == http.MethodGet {
-			logListAssistantsRequest(logWithCid, prod)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files" && c.Request.Method == http.MethodPost {
-			logCreateAssistantFileRequest(logWithCid, body, prod, aid)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files/:file_id" && c.Request.Method == http.MethodGet {
-			logRetrieveAssistantFileRequest(logWithCid, prod, fid, aid)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files/:file_id" && c.Request.Method == http.MethodDelete {
-			logDeleteAssistantFileRequest(logWithCid, prod, fid, aid)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files" && c.Request.Method == http.MethodGet {
-			logListAssistantFilesRequest(logWithCid, prod, aid, qm)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/threads" && c.Request.Method == http.MethodPost {
-			logCreateThreadRequest(logWithCid, body, prod, private)
-
-			tr := &openai.ThreadRequest{}
-
-			err = json.Unmarshal(body, tr)
-			if err != nil {
-				logError(logWithCid, "error when unmarshalling create thread request", prod, err)
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id", openAiName) && c.Request.Method == http.MethodPost {
+				logModifyAssistantRequest(logWithCid, body, prod, private, aid)
 			}
 
-			if err == nil {
-				policyInput = tr
-			}
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodGet {
-			logRetrieveThreadRequest(logWithCid, prod, tid)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodPost {
-			logModifyThreadRequest(logWithCid, body, prod, tid)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodDelete {
-			logDeleteThreadRequest(logWithCid, prod, tid)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages" && c.Request.Method == http.MethodPost {
-			logCreateMessageRequest(logWithCid, body, prod, private)
-
-			mr := &openai.MessageRequest{}
-			err := json.Unmarshal(body, mr)
-			if err != nil {
-				logError(logWithCid, "error when unmarshalling create message request", prod, err)
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id", openAiName) && c.Request.Method == http.MethodDelete {
+				logDeleteAssistantRequest(logWithCid, prod, aid)
 			}
 
-			if err == nil {
-				policyInput = mr
-			}
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id" && c.Request.Method == http.MethodGet {
-			logRetrieveMessageRequest(logWithCid, prod, mid, tid)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id" && c.Request.Method == http.MethodPost {
-			logModifyMessageRequest(logWithCid, body, prod, private, tid, mid)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages" && c.Request.Method == http.MethodGet {
-			logListMessagesRequest(logWithCid, prod, aid)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files/:file_id" && c.Request.Method == http.MethodGet {
-			logRetrieveMessageFileRequest(logWithCid, prod, mid, tid, fid)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files" && c.Request.Method == http.MethodGet {
-			logListMessageFilesRequest(logWithCid, prod, tid, mid, qm)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs" && c.Request.Method == http.MethodPost {
-			logCreateRunRequest(logWithCid, body, prod, private)
-
-			rr := &goopenai.RunRequest{}
-			err := json.Unmarshal(body, rr)
-			if err != nil {
-				logError(logWithCid, "error when unmarshalling create run request", prod, err)
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants", openAiName) && c.Request.Method == http.MethodGet {
+				logListAssistantsRequest(logWithCid, prod)
 			}
 
-			if err == nil {
-				c.Set("model", rr.Model)
-				policyInput = rr
-			}
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id" && c.Request.Method == http.MethodGet {
-			logRetrieveRunRequest(logWithCid, prod, tid, rid)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id" && c.Request.Method == http.MethodPost {
-			logModifyRunRequest(logWithCid, body, prod, tid, rid)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs" && c.Request.Method == http.MethodGet {
-			logListRunsRequest(logWithCid, prod, tid, qm)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs" && c.Request.Method == http.MethodPost {
-			logSubmitToolOutputsRequest(logWithCid, body, prod, tid, rid)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/cancel" && c.Request.Method == http.MethodPost {
-			logCancelARunRequest(logWithCid, prod, tid, rid)
-		}
-
-		if c.FullPath() == "/api/providers/openai/v1/threads/runs" && c.Request.Method == http.MethodPost {
-			logCreateThreadAndRunRequest(logWithCid, body, prod, private)
-
-			r := &openai.CreateThreadAndRunRequest{}
-			err := json.Unmarshal(body, r)
-			if err != nil {
-				logError(logWithCid, "error when unmarshalling create thread and run request", prod, err)
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id/files", openAiName) && c.Request.Method == http.MethodPost {
+				logCreateAssistantFileRequest(logWithCid, body, prod, aid)
 			}
 
-			if err == nil {
-				c.Set("model", r.Model)
-				policyInput = r
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id/files/:file_id", openAiName) && c.Request.Method == http.MethodGet {
+				logRetrieveAssistantFileRequest(logWithCid, prod, fid, aid)
 			}
-		}
 
-		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps/:step_id" && c.Request.Method == http.MethodGet {
-			logRetrieveRunStepRequest(logWithCid, prod, tid, rid, sid)
-		}
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id/files/:file_id", openAiName) && c.Request.Method == http.MethodDelete {
+				logDeleteAssistantFileRequest(logWithCid, prod, fid, aid)
+			}
 
-		if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps" && c.Request.Method == http.MethodGet {
-			logListRunStepsRequest(logWithCid, prod, tid, rid, qm)
-		}
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id/files", openAiName) && c.Request.Method == http.MethodGet {
+				logListAssistantFilesRequest(logWithCid, prod, aid, qm)
+			}
 
-		if c.FullPath() == "/api/providers/openai/v1/moderations" && c.Request.Method == http.MethodPost {
-			logCreateModerationRequest(logWithCid, body, prod, private)
-		}
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads", openAiName) && c.Request.Method == http.MethodPost {
+				logCreateThreadRequest(logWithCid, body, prod, private)
 
-		if c.FullPath() == "/api/providers/openai/v1/models/:model" && c.Request.Method == http.MethodGet {
-			logRetrieveModelRequest(logWithCid, prod, md)
-		}
+				tr := &openai.ThreadRequest{}
 
-		if c.FullPath() == "/api/providers/openai/v1/models/:model" && c.Request.Method == http.MethodDelete {
-			logDeleteModelRequest(logWithCid, prod, md)
-		}
+				err = json.Unmarshal(body, tr)
+				if err != nil {
+					logError(logWithCid, "error when unmarshalling create thread request", prod, err)
+				}
 
-		if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodGet {
-			logListFilesRequest(logWithCid, prod, qm)
-		}
+				if err == nil {
+					policyInput = tr
+				}
+			}
 
-		if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodPost {
-			purpose := c.PostForm("purpose")
-			logUploadFileRequest(logWithCid, prod, purpose)
-		}
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id", openAiName) && c.Request.Method == http.MethodGet {
+				logRetrieveThreadRequest(logWithCid, prod, tid)
+			}
 
-		if c.FullPath() == "/api/providers/openai/v1/files/:file_id" && c.Request.Method == http.MethodDelete {
-			logDeleteFileRequest(logWithCid, prod, fid)
-		}
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id", openAiName) && c.Request.Method == http.MethodPost {
+				logModifyThreadRequest(logWithCid, body, prod, tid)
+			}
 
-		if c.FullPath() == "/api/providers/openai/v1/files/:file_id" && c.Request.Method == http.MethodGet {
-			logRetrieveFileRequest(logWithCid, prod, fid)
-		}
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id", openAiName) && c.Request.Method == http.MethodDelete {
+				logDeleteThreadRequest(logWithCid, prod, tid)
+			}
 
-		if c.FullPath() == "/api/providers/openai/v1/files/:file_id/content" && c.Request.Method == http.MethodGet {
-			logRetrieveFileContentRequest(logWithCid, prod, fid)
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages", openAiName) && c.Request.Method == http.MethodPost {
+				logCreateMessageRequest(logWithCid, body, prod, private)
+
+				mr := &openai.MessageRequest{}
+				err := json.Unmarshal(body, mr)
+				if err != nil {
+					logError(logWithCid, "error when unmarshalling create message request", prod, err)
+				}
+
+				if err == nil {
+					policyInput = mr
+				}
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages/:message_id", openAiName) && c.Request.Method == http.MethodGet {
+				logRetrieveMessageRequest(logWithCid, prod, mid, tid)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages/:message_id", openAiName) && c.Request.Method == http.MethodPost {
+				logModifyMessageRequest(logWithCid, body, prod, private, tid, mid)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages", openAiName) && c.Request.Method == http.MethodGet {
+				logListMessagesRequest(logWithCid, prod, aid)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages/:message_id/files/:file_id", openAiName) && c.Request.Method == http.MethodGet {
+				logRetrieveMessageFileRequest(logWithCid, prod, mid, tid, fid)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages/:message_id/files", openAiName) && c.Request.Method == http.MethodGet {
+				logListMessageFilesRequest(logWithCid, prod, tid, mid, qm)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs", openAiName) && c.Request.Method == http.MethodPost {
+				logCreateRunRequest(logWithCid, body, prod, private)
+
+				rr := &goopenai.RunRequest{}
+				err := json.Unmarshal(body, rr)
+				if err != nil {
+					logError(logWithCid, "error when unmarshalling create run request", prod, err)
+				}
+
+				if err == nil {
+					c.Set("model", rr.Model)
+					policyInput = rr
+				}
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id", openAiName) && c.Request.Method == http.MethodGet {
+				logRetrieveRunRequest(logWithCid, prod, tid, rid)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id", openAiName) && c.Request.Method == http.MethodPost {
+				logModifyRunRequest(logWithCid, body, prod, tid, rid)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs", openAiName) && c.Request.Method == http.MethodGet {
+				logListRunsRequest(logWithCid, prod, tid, qm)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs", openAiName) && c.Request.Method == http.MethodPost {
+				logSubmitToolOutputsRequest(logWithCid, body, prod, tid, rid)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id/cancel", openAiName) && c.Request.Method == http.MethodPost {
+				logCancelARunRequest(logWithCid, prod, tid, rid)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/runs", openAiName) && c.Request.Method == http.MethodPost {
+				logCreateThreadAndRunRequest(logWithCid, body, prod, private)
+
+				r := &openai.CreateThreadAndRunRequest{}
+				err := json.Unmarshal(body, r)
+				if err != nil {
+					logError(logWithCid, "error when unmarshalling create thread and run request", prod, err)
+				}
+
+				if err == nil {
+					c.Set("model", r.Model)
+					policyInput = r
+				}
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id/steps/:step_id", openAiName) && c.Request.Method == http.MethodGet {
+				logRetrieveRunStepRequest(logWithCid, prod, tid, rid, sid)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id/steps", openAiName) && c.Request.Method == http.MethodGet {
+				logListRunStepsRequest(logWithCid, prod, tid, rid, qm)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/moderations", openAiName) && c.Request.Method == http.MethodPost {
+				logCreateModerationRequest(logWithCid, body, prod, private)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/models/:model", openAiName) && c.Request.Method == http.MethodGet {
+				logRetrieveModelRequest(logWithCid, prod, md)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/models/:model", openAiName) && c.Request.Method == http.MethodDelete {
+				logDeleteModelRequest(logWithCid, prod, md)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/files", openAiName) && c.Request.Method == http.MethodGet {
+				logListFilesRequest(logWithCid, prod, qm)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/files", openAiName) && c.Request.Method == http.MethodPost {
+				purpose := c.PostForm("purpose")
+				logUploadFileRequest(logWithCid, prod, purpose)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/files/:file_id", openAiName) && c.Request.Method == http.MethodDelete {
+				logDeleteFileRequest(logWithCid, prod, fid)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/files/:file_id", openAiName) && c.Request.Method == http.MethodGet {
+				logRetrieveFileRequest(logWithCid, prod, fid)
+			}
+
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/files/:file_id/content", openAiName) && c.Request.Method == http.MethodGet {
+				logRetrieveFileContentRequest(logWithCid, prod, fid)
+			}
+
 		}
 
 		if ac.GetAccessStatus(kc.KeyId) {

@@ -13,7 +13,7 @@ import (
 	goopenai "github.com/sashabaranov/go-openai"
 )
 
-func getCreateVectorStoreHandler(prod bool, client http.Client) gin.HandlerFunc {
+func getCreateVectorStoreHandler(prod bool, client http.Client, openAiUrl string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_create_vector_store_handler.requests", nil, 1)
@@ -26,7 +26,7 @@ func getCreateVectorStoreHandler(prod bool, client http.Client) gin.HandlerFunc 
 		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/vector_stores", c.Request.Body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, openAiUrl+"/v1/vector_stores", c.Request.Body)
 		if err != nil {
 			logError(log, "error when creating openai http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create azure openai http request")
@@ -94,7 +94,7 @@ func getCreateVectorStoreHandler(prod bool, client http.Client) gin.HandlerFunc 
 	}
 }
 
-func getListVectorStoresHandler(prod bool, client http.Client) gin.HandlerFunc {
+func getListVectorStoresHandler(prod bool, client http.Client, openAiUrl string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_list_vector_stores_handler.requests", nil, 1)
@@ -107,7 +107,7 @@ func getListVectorStoresHandler(prod bool, client http.Client) gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.openai.com/v1/vector_stores", c.Request.Body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, openAiUrl+"/v1/vector_stores", c.Request.Body)
 		if err != nil {
 			logError(log, "error when creating openai http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create azure openai http request")
@@ -175,7 +175,7 @@ func getListVectorStoresHandler(prod bool, client http.Client) gin.HandlerFunc {
 	}
 }
 
-func getGetVectorStoreHandler(prod bool, client http.Client) gin.HandlerFunc {
+func getGetVectorStoreHandler(prod bool, client http.Client, openAiUrl string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_get_vector_store_handler.requests", nil, 1)
@@ -188,7 +188,7 @@ func getGetVectorStoreHandler(prod bool, client http.Client) gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.openai.com/v1/vector_stores/"+c.Param("vector_store_id"), c.Request.Body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, openAiUrl+"/v1/vector_stores/"+c.Param("vector_store_id"), c.Request.Body)
 		if err != nil {
 			logError(log, "error when creating openai http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create azure openai http request")
@@ -256,7 +256,7 @@ func getGetVectorStoreHandler(prod bool, client http.Client) gin.HandlerFunc {
 	}
 }
 
-func getModifyVectorStoreHandler(prod bool, client http.Client) gin.HandlerFunc {
+func getModifyVectorStoreHandler(prod bool, client http.Client, openAiUrl string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_modify_vector_store_handler.requests", nil, 1)
@@ -269,7 +269,7 @@ func getModifyVectorStoreHandler(prod bool, client http.Client) gin.HandlerFunc 
 		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/vector_stores/"+c.Param("vector_store_id"), c.Request.Body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, openAiUrl+"/v1/vector_stores/"+c.Param("vector_store_id"), c.Request.Body)
 		if err != nil {
 			logError(log, "error when creating openai http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create azure openai http request")
@@ -337,7 +337,7 @@ func getModifyVectorStoreHandler(prod bool, client http.Client) gin.HandlerFunc 
 	}
 }
 
-func getDeleteVectorStoreHandler(prod bool, client http.Client) gin.HandlerFunc {
+func getDeleteVectorStoreHandler(prod bool, client http.Client, openAiUrl string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 		telemetry.Incr("bricksllm.proxy.get_delete_vector_store_handler.requests", nil, 1)
@@ -350,7 +350,7 @@ func getDeleteVectorStoreHandler(prod bool, client http.Client) gin.HandlerFunc 
 		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, "https://api.openai.com/v1/vector_stores/"+c.Param("vector_store_id"), c.Request.Body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, openAiUrl+"/v1/vector_stores/"+c.Param("vector_store_id"), c.Request.Body)
 		if err != nil {
 			logError(log, "error when creating openai http request", prod, err)
 			JSON(c, http.StatusInternalServerError, "[BricksLLM] failed to create azure openai http request")

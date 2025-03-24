@@ -36,8 +36,9 @@ type PoliciesManager interface {
 }
 
 type ProxyServer struct {
-	server *http.Server
-	log    *zap.Logger
+	server     *http.Server
+	log        *zap.Logger
+	openAiUrls map[string]string
 }
 
 type recorder interface {
@@ -79,14 +80,14 @@ func CorsMiddleware() gin.HandlerFunc {
 	}
 }
 
-func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyManager, rm routeManager, a authenticator, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, r recorder, pub publisher, rlm rateLimitManager, timeout time.Duration, ac accessCache, uac userAccessCache, pm PoliciesManager, scanner Scanner, cd CustomPolicyDetector, die deepinfraEstimator, um userManager, removeAgentHeaders bool) (*ProxyServer, error) {
+func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyManager, rm routeManager, a authenticator, psm ProviderSettingsManager, cpm CustomProvidersManager, ks keyStorage, e estimator, ae anthropicEstimator, aoe azureEstimator, v validator, r recorder, pub publisher, rlm rateLimitManager, timeout time.Duration, ac accessCache, uac userAccessCache, pm PoliciesManager, scanner Scanner, cd CustomPolicyDetector, die deepinfraEstimator, um userManager, removeAgentHeaders bool, openAiUrls map[string]string) (*ProxyServer, error) {
 	router := gin.New()
 	prod := mode == "production"
 	private := privacyMode == "strict"
 
 	router.Use(CorsMiddleware())
 	router.Use(getTimeoutMiddleware(timeout))
-	router.Use(getMiddleware(cpm, rm, pm, a, prod, private, log, pub, "proxy", ac, uac, http.Client{}, scanner, cd, um, removeAgentHeaders))
+	router.Use(getMiddleware(cpm, rm, pm, a, prod, private, log, pub, "proxy", ac, uac, http.Client{}, scanner, cd, um, removeAgentHeaders, openAiUrls))
 
 	client := http.Client{}
 
@@ -96,82 +97,105 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	// health check
 	router.GET("/api/health", getGetHealthCheckHandler())
 
-	// audios
-	router.POST("/api/providers/openai/v1/audio/speech", getSpeechHandler(prod, client))
-	router.POST("/api/providers/openai/v1/audio/transcriptions", getTranscriptionsHandler(prod, client, e))
-	router.POST("/api/providers/openai/v1/audio/translations", getTranslationsHandler(prod, client, e))
+	// For each openAI URL
+	for openAiName, openAiUrl := range openAiUrls {
 
-	// completions
-	router.POST("/api/providers/openai/v1/chat/completions", getChatCompletionHandler(prod, private, client, e))
+		// audios
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/audio/speech", openAiName), getSpeechHandler(prod, client, openAiUrl))
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/audio/transcriptions", openAiName), getTranscriptionsHandler(prod, client, e, openAiUrl))
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/audio/translations", openAiName), getTranslationsHandler(prod, client, e, openAiUrl))
 
-	// embeddings
-	router.POST("/api/providers/openai/v1/embeddings", getEmbeddingHandler(prod, private, client, e))
+		// completions
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/chat/completions", openAiName), getChatCompletionHandler(prod, private, client, e, openAiUrl))
 
-	// moderations
-	router.POST("/api/providers/openai/v1/moderations", getPassThroughHandler(prod, private, client))
+		// embeddings
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/embeddings", openAiName), getEmbeddingHandler(prod, private, client, e, openAiUrl))
 
-	// models
-	router.GET("/api/providers/openai/v1/models", getPassThroughHandler(prod, private, client))
-	router.GET("/api/providers/openai/v1/models/:model", getPassThroughHandler(prod, private, client))
-	router.DELETE("/api/providers/openai/v1/models/:model", getPassThroughHandler(prod, private, client))
+		// moderations
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/moderations", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
 
-	// assistants
-	router.POST("/api/providers/openai/v1/assistants", getPassThroughHandler(prod, private, client))
-	router.GET("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(prod, private, client))
-	router.POST("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(prod, private, client))
-	router.DELETE("/api/providers/openai/v1/assistants/:assistant_id", getPassThroughHandler(prod, private, client))
-	router.GET("/api/providers/openai/v1/assistants", getPassThroughHandler(prod, private, client))
+		// models
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/models", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/models/:model", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.DELETE(fmt.Sprintf("/api/providers/%s/v1/models/:model", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
 
-	// assistant files
-	router.POST("/api/providers/openai/v1/assistants/:assistant_id/files", getPassThroughHandler(prod, private, client))
-	router.GET("/api/providers/openai/v1/assistants/:assistant_id/files/:file_id", getPassThroughHandler(prod, private, client))
-	router.DELETE("/api/providers/openai/v1/assistants/:assistant_id/files/:file_id", getPassThroughHandler(prod, private, client))
-	router.GET("/api/providers/openai/v1/assistants/:assistant_id/files", getPassThroughHandler(prod, private, client))
+		// assistants
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/assistants", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.DELETE(fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/assistants", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
 
-	// threads
-	router.POST("/api/providers/openai/v1/threads", getPassThroughHandler(prod, private, client))
-	router.GET("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(prod, private, client))
-	router.POST("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(prod, private, client))
-	router.DELETE("/api/providers/openai/v1/threads/:thread_id", getPassThroughHandler(prod, private, client))
+		// assistant files
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id/files", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id/files/:file_id", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.DELETE(fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id/files/:file_id", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id/files", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
 
-	// messages
-	router.POST("/api/providers/openai/v1/threads/:thread_id/messages", getPassThroughHandler(prod, private, client))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id", getPassThroughHandler(prod, private, client))
-	router.POST("/api/providers/openai/v1/threads/:thread_id/messages/:message_id", getPassThroughHandler(prod, private, client))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/messages", getPassThroughHandler(prod, private, client))
+		// threads
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/threads", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.DELETE(fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
 
-	// message files
-	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files/:file_id", getPassThroughHandler(prod, private, client))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files", getPassThroughHandler(prod, private, client))
+		// messages
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages/:message_id", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages/:message_id", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
 
-	// runs
-	router.POST("/api/providers/openai/v1/threads/:thread_id/runs", getPassThroughHandler(prod, private, client))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id", getPassThroughHandler(prod, private, client))
-	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id", getPassThroughHandler(prod, private, client))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/runs", getPassThroughHandler(prod, private, client))
-	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs", getPassThroughHandler(prod, private, client))
-	router.POST("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/cancel", getPassThroughHandler(prod, private, client))
-	router.POST("/api/providers/openai/v1/threads/runs", getPassThroughHandler(prod, private, client))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps/:step_id", getPassThroughHandler(prod, private, client))
-	router.GET("/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps", getPassThroughHandler(prod, private, client))
+		// message files
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages/:message_id/files/:file_id", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages/:message_id/files", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
 
-	// files
-	router.GET("/api/providers/openai/v1/files", getPassThroughHandler(prod, private, client))
-	router.POST("/api/providers/openai/v1/files", getPassThroughHandler(prod, private, client))
-	router.DELETE("/api/providers/openai/v1/files/:file_id", getPassThroughHandler(prod, private, client))
-	router.GET("/api/providers/openai/v1/files/:file_id", getPassThroughHandler(prod, private, client))
-	router.GET("/api/providers/openai/v1/files/:file_id/content", getPassThroughHandler(prod, private, client))
+		// runs
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id/cancel", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/threads/runs", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id/steps/:step_id", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id/steps", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
 
-	// batch
-	router.POST("/api/providers/openai/v1/batches", getPassThroughHandler(prod, private, client))
-	router.GET("/api/providers/openai/v1/batches/:batch_id", getPassThroughHandler(prod, private, client))
-	router.POST("/api/providers/openai/v1/batches/:batch_id/cancel", getPassThroughHandler(prod, private, client))
-	router.GET("/api/providers/openai/v1/batches", getPassThroughHandler(prod, private, client))
+		// files
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/files", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/files", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.DELETE(fmt.Sprintf("/api/providers/%s/v1/files/:file_id", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/files/:file_id", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/files/:file_id/content", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
 
-	// images
-	router.POST("/api/providers/openai/v1/images/generations", getPassThroughHandler(prod, private, client))
-	router.POST("/api/providers/openai/v1/images/edits", getPassThroughHandler(prod, private, client))
-	router.POST("/api/providers/openai/v1/images/variations", getPassThroughHandler(prod, private, client))
+		// batch
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/batches", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/batches/:batch_id", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/batches/:batch_id/cancel", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/batches", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+
+		// images
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/images/generations", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/images/edits", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/images/variations", openAiName), getPassThroughHandler(prod, private, client, openAiName, openAiUrl))
+
+		// vector store
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/vector_stores", openAiName), getCreateVectorStoreHandler(prod, client, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/vector_stores", openAiName), getListVectorStoresHandler(prod, client, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/vector_stores/:vector_store_id", openAiName), getGetVectorStoreHandler(prod, client, openAiUrl))
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/vector_stores/:vector_store_id", openAiName), getModifyVectorStoreHandler(prod, client, openAiUrl))
+		router.DELETE(fmt.Sprintf("/api/providers/%s/v1/vector_stores/:vector_store_id", openAiName), getDeleteVectorStoreHandler(prod, client, openAiUrl))
+
+		// vector store files
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/vector_stores/:vector_store_id/files", openAiName), getCreateVectorStoreFileHandler(prod, client, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/vector_stores/:vector_store_id/files", openAiName), getListVectorStoreFilesHandler(prod, client, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/vector_stores/:vector_store_id/files/:file_id", openAiName), getGetVectorStoreFileHandler(prod, client, openAiUrl))
+		router.DELETE(fmt.Sprintf("/api/providers/%s/v1/vector_stores/:vector_store_id/files/:file_id", openAiName), getDeleteVectorStoreFileHandler(prod, client, openAiUrl))
+
+		// vector store file batches
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/vector_stores/:vector_store_id/file_batches", openAiName), getCreateVectorStoreFileBatchHandler(prod, client, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/vector_stores/:vector_store_id/file_batches/:batch_id", openAiName), getGetVectorStoreFileBatchHandler(prod, client, openAiUrl))
+		router.POST(fmt.Sprintf("/api/providers/%s/v1/vector_stores/:vector_store_id/file_batches/:batch_id/cancel", openAiName), getCancelVectorStoreFileBatchHandler(prod, client, openAiUrl))
+		router.GET(fmt.Sprintf("/api/providers/%s/v1/vector_stores/:vector_store_id/file_batches/:batch_id/files", openAiName), getListVectorStoreFileBatchFilesHandler(prod, client, openAiUrl))
+	}
 
 	// azure
 	router.POST("/api/providers/azure/openai/deployments/:deployment_id/chat/completions", getAzureChatCompletionHandler(prod, private, client, aoe))
@@ -199,26 +223,7 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	router.POST("/api/custom/providers/:provider/*wildcard", getCustomProviderHandler(prod, client))
 
 	// custom route
-	router.POST("/api/routes/*route", getRouteHandler(prod, c, aoe, e, client, r))
-
-	// vector store
-	router.POST("/api/providers/openai/v1/vector_stores", getCreateVectorStoreHandler(prod, client))
-	router.GET("/api/providers/openai/v1/vector_stores", getListVectorStoresHandler(prod, client))
-	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id", getGetVectorStoreHandler(prod, client))
-	router.POST("/api/providers/openai/v1/vector_stores/:vector_store_id", getModifyVectorStoreHandler(prod, client))
-	router.DELETE("/api/providers/openai/v1/vector_stores/:vector_store_id", getDeleteVectorStoreHandler(prod, client))
-
-	// vector store files
-	router.POST("/api/providers/openai/v1/vector_stores/:vector_store_id/files", getCreateVectorStoreFileHandler(prod, client))
-	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id/files", getListVectorStoreFilesHandler(prod, client))
-	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id/files/:file_id", getGetVectorStoreFileHandler(prod, client))
-	router.DELETE("/api/providers/openai/v1/vector_stores/:vector_store_id/files/:file_id", getDeleteVectorStoreFileHandler(prod, client))
-
-	// vector store file batches
-	router.POST("/api/providers/openai/v1/vector_stores/:vector_store_id/file_batches", getCreateVectorStoreFileBatchHandler(prod, client))
-	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id", getGetVectorStoreFileBatchHandler(prod, client))
-	router.POST("/api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id/cancel", getCancelVectorStoreFileBatchHandler(prod, client))
-	router.GET("/api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id/files", getListVectorStoreFileBatchFilesHandler(prod, client))
+	router.POST("/api/routes/*route", getRouteHandler(prod, c, aoe, e, client, r, openAiUrls))
 
 	srv := &http.Server{
 		Addr:    ":8002",
@@ -226,8 +231,9 @@ func NewProxyServer(log *zap.Logger, mode, privacyMode string, c cache, m KeyMan
 	}
 
 	return &ProxyServer{
-		log:    log,
-		server: srv,
+		log:        log,
+		server:     srv,
+		openAiUrls: openAiUrls,
 	}, nil
 }
 
@@ -279,7 +285,7 @@ func writeFieldToBuffer(fields []string, c *gin.Context, writer *multipart.Write
 	return nil
 }
 
-func getPassThroughHandler(prod, private bool, client http.Client) gin.HandlerFunc {
+func getPassThroughHandler(prod, private bool, client http.Client, openAiName, openAiUrl string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log := util.GetLogFromCtx(c)
 
@@ -297,7 +303,7 @@ func getPassThroughHandler(prod, private bool, client http.Client) gin.HandlerFu
 		ctx, cancel := context.WithTimeout(context.Background(), c.GetDuration("requestTimeout"))
 		defer cancel()
 
-		targetUrl, err := buildProxyUrl(c)
+		targetUrl, err := buildProxyUrl(c, openAiName, openAiUrl)
 		if err != nil {
 			telemetry.Incr("bricksllm.proxy.get_pass_through_handler.proxy_url_not_found", tags, 1)
 			logError(log, "error when building proxy url", prod, err)
@@ -317,7 +323,7 @@ func getPassThroughHandler(prod, private bool, client http.Client) gin.HandlerFu
 
 		copyHttpHeaders(c.Request, req, c.GetBool("removeUserAgent"))
 
-		if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodPost {
+		if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/files", openAiName) && c.Request.Method == http.MethodPost {
 			purpose := c.PostForm("purpose")
 
 			var b bytes.Buffer
@@ -364,7 +370,7 @@ func getPassThroughHandler(prod, private bool, client http.Client) gin.HandlerFu
 			req.Body = io.NopCloser(&b)
 		}
 
-		if c.FullPath() == "/api/providers/openai/v1/images/edits" && c.Request.Method == http.MethodPost {
+		if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/images/edits", openAiName) && c.Request.Method == http.MethodPost {
 			var b bytes.Buffer
 			writer := multipart.NewWriter(&b)
 
@@ -445,7 +451,7 @@ func getPassThroughHandler(prod, private bool, client http.Client) gin.HandlerFu
 			req.Body = io.NopCloser(&b)
 		}
 
-		if c.FullPath() == "/api/providers/openai/v1/images/variations" && c.Request.Method == http.MethodPost {
+		if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/images/variations", openAiName) && c.Request.Method == http.MethodPost {
 			var b bytes.Buffer
 			writer := multipart.NewWriter(&b)
 
@@ -525,163 +531,163 @@ func getPassThroughHandler(prod, private bool, client http.Client) gin.HandlerFu
 			telemetry.Incr("bricksllm.proxy.get_pass_through_handler.success", tags, 1)
 			telemetry.Timing("bricksllm.proxy.get_pass_through_handler.success_latency", dur, tags, 1)
 
-			if c.FullPath() == "/api/providers/openai/v1/assistants" && c.Request.Method == http.MethodPost {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants", openAiName) && c.Request.Method == http.MethodPost {
 				logAssistantResponse(log, bytes, prod, private)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id" && c.Request.Method == http.MethodGet {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id", openAiName) && c.Request.Method == http.MethodGet {
 				logAssistantResponse(log, bytes, prod, private)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id" && c.Request.Method == http.MethodPost {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id", openAiName) && c.Request.Method == http.MethodPost {
 				logAssistantResponse(log, bytes, prod, private)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id" && c.Request.Method == http.MethodDelete {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id", openAiName) && c.Request.Method == http.MethodDelete {
 				logDeleteAssistantResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/assistants" && c.Request.Method == http.MethodGet {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants", openAiName) && c.Request.Method == http.MethodGet {
 				logListAssistantsResponse(log, bytes, prod, private)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files" && c.Request.Method == http.MethodPost {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id/files", openAiName) && c.Request.Method == http.MethodPost {
 				logAssistantFileResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files/:file_id" && c.Request.Method == http.MethodGet {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id/files/:file_id", openAiName) && c.Request.Method == http.MethodGet {
 				logAssistantFileResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files/:file_id" && c.Request.Method == http.MethodDelete {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id/files/:file_id", openAiName) && c.Request.Method == http.MethodDelete {
 				logDeleteAssistantFileResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files" && c.Request.Method == http.MethodGet {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id/files", openAiName) && c.Request.Method == http.MethodGet {
 				logListAssistantFilesResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/threads" && c.Request.Method == http.MethodPost {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads", openAiName) && c.Request.Method == http.MethodPost {
 				logThreadResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodGet {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id", openAiName) && c.Request.Method == http.MethodGet {
 				logThreadResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodPost {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id", openAiName) && c.Request.Method == http.MethodPost {
 				logThreadResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodDelete {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id", openAiName) && c.Request.Method == http.MethodDelete {
 				logDeleteThreadResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages" && c.Request.Method == http.MethodPost {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages", openAiName) && c.Request.Method == http.MethodPost {
 				logMessageResponse(log, bytes, prod, private)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id" && c.Request.Method == http.MethodGet {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages/:message_id", openAiName) && c.Request.Method == http.MethodGet {
 				logMessageResponse(log, bytes, prod, private)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id" && c.Request.Method == http.MethodPost {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages/:message_id", openAiName) && c.Request.Method == http.MethodPost {
 				logMessageResponse(log, bytes, prod, private)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages" && c.Request.Method == http.MethodGet {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages", openAiName) && c.Request.Method == http.MethodGet {
 				logListMessagesResponse(log, bytes, prod, private)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files/:file_id" && c.Request.Method == http.MethodGet {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages/:message_id/files/:file_id", openAiName) && c.Request.Method == http.MethodGet {
 				logRetrieveMessageFileResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files" && c.Request.Method == http.MethodGet {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages/:message_id/files", openAiName) && c.Request.Method == http.MethodGet {
 				logListMessageFilesResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs" && c.Request.Method == http.MethodPost {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs", openAiName) && c.Request.Method == http.MethodPost {
 				logRunResponse(log, bytes, prod, private)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id" && c.Request.Method == http.MethodGet {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id", openAiName) && c.Request.Method == http.MethodGet {
 				logRunResponse(log, bytes, prod, private)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id" && c.Request.Method == http.MethodPost {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id", openAiName) && c.Request.Method == http.MethodPost {
 				logRunResponse(log, bytes, prod, private)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs" && c.Request.Method == http.MethodGet {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs", openAiName) && c.Request.Method == http.MethodGet {
 				logListRunsResponse(log, bytes, prod, private)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs" && c.Request.Method == http.MethodPost {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs", openAiName) && c.Request.Method == http.MethodPost {
 				logRunResponse(log, bytes, prod, private)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/cancel" && c.Request.Method == http.MethodPost {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id/cancel", openAiName) && c.Request.Method == http.MethodPost {
 				logRunResponse(log, bytes, prod, private)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/threads/runs" && c.Request.Method == http.MethodPost {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/runs", openAiName) && c.Request.Method == http.MethodPost {
 				logRunResponse(log, bytes, prod, private)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps/:step_id" && c.Request.Method == http.MethodGet {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id/steps/:step_id", openAiName) && c.Request.Method == http.MethodGet {
 				logRetrieveRunStepResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps" && c.Request.Method == http.MethodGet {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id/steps", openAiName) && c.Request.Method == http.MethodGet {
 				logListRunStepsResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/moderations" && c.Request.Method == http.MethodPost {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/moderations", openAiName) && c.Request.Method == http.MethodPost {
 				logCreateModerationResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/models" && c.Request.Method == http.MethodGet {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/models", openAiName) && c.Request.Method == http.MethodGet {
 				logListModelsResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/models/:model" && c.Request.Method == http.MethodGet {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/models/:model", openAiName) && c.Request.Method == http.MethodGet {
 				logRetrieveModelResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/models/:model" && c.Request.Method == http.MethodDelete {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/models/:model", openAiName) && c.Request.Method == http.MethodDelete {
 				logDeleteModelResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodGet {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/files", openAiName) && c.Request.Method == http.MethodGet {
 				logListFilesResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodPost {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/files", openAiName) && c.Request.Method == http.MethodPost {
 				logUploadFileResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/files/:file_id" && c.Request.Method == http.MethodDelete {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/files/:file_id", openAiName) && c.Request.Method == http.MethodDelete {
 				logDeleteFileResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/files/:file_id" && c.Request.Method == http.MethodGet {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/files/:file_id", openAiName) && c.Request.Method == http.MethodGet {
 				logRetrieveFileResponse(log, bytes, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/files/:file_id/content" && c.Request.Method == http.MethodGet {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/files/:file_id/content", openAiName) && c.Request.Method == http.MethodGet {
 				logRetrieveFileContentResponse(log, prod)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/images/generations" && c.Request.Method == http.MethodPost {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/images/generations", openAiName) && c.Request.Method == http.MethodPost {
 				logImageResponse(log, bytes, prod, private)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/images/edits" && c.Request.Method == http.MethodPost {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/images/edits", openAiName) && c.Request.Method == http.MethodPost {
 				logImageResponse(log, bytes, prod, private)
 			}
 
-			if c.FullPath() == "/api/providers/openai/v1/images/variations" && c.Request.Method == http.MethodPost {
+			if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/images/variations", openAiName) && c.Request.Method == http.MethodPost {
 				logImageResponse(log, bytes, prod, private)
 			}
 		}
@@ -714,193 +720,193 @@ func getPassThroughHandler(prod, private bool, client http.Client) gin.HandlerFu
 	}
 }
 
-func buildProxyUrl(c *gin.Context) (string, error) {
-	if c.FullPath() == "/api/providers/openai/v1/assistants" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/assistants", nil
+func buildProxyUrl(c *gin.Context, openAiName, openAiUrl string) (string, error) {
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/assistants", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/assistants/" + c.Param("assistant_id"), nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/assistants/" + c.Param("assistant_id"), nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/assistants/" + c.Param("assistant_id"), nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/assistants/" + c.Param("assistant_id"), nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id" && c.Request.Method == http.MethodDelete {
-		return "https://api.openai.com/v1/assistants/" + c.Param("assistant_id"), nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id", openAiName) && c.Request.Method == http.MethodDelete {
+		return openAiUrl + "/v1/assistants/" + c.Param("assistant_id"), nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/assistants" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/assistants", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/assistants", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/assistants/" + c.Param("assistant_id") + "/files", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id/files", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/assistants/" + c.Param("assistant_id") + "/files", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files/:file_id" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/assistants/" + c.Param("assistant_id") + "/files/" + c.Param("file_id"), nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id/files/:file_id", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/assistants/" + c.Param("assistant_id") + "/files/" + c.Param("file_id"), nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files/:file_id" && c.Request.Method == http.MethodDelete {
-		return "https://api.openai.com/v1/assistants/" + c.Param("assistant_id") + "/files/" + c.Param("file_id"), nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id/files/:file_id", openAiName) && c.Request.Method == http.MethodDelete {
+		return openAiUrl + "/v1/assistants/" + c.Param("assistant_id") + "/files/" + c.Param("file_id"), nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/assistants/:assistant_id/files" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/assistants/" + c.Param("assistant_id") + "/files", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/assistants/:assistant_id/files", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/assistants/" + c.Param("assistant_id") + "/files", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/threads", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/threads", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/threads/" + c.Param("thread_id"), nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/threads/" + c.Param("thread_id"), nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/threads/" + c.Param("thread_id"), nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/threads/" + c.Param("thread_id"), nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id" && c.Request.Method == http.MethodDelete {
-		return "https://api.openai.com/v1/threads/" + c.Param("thread_id"), nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id", openAiName) && c.Request.Method == http.MethodDelete {
+		return openAiUrl + "/v1/threads/" + c.Param("thread_id"), nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/threads/" + c.Param("thread_id") + "/messages", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/threads/" + c.Param("thread_id") + "/messages", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/threads/" + c.Param("thread_id") + "/messages/" + c.Param("message_id"), nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages/:message_id", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/threads/" + c.Param("thread_id") + "/messages/" + c.Param("message_id"), nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/threads/" + c.Param("thread_id") + "/messages/" + c.Param("message_id"), nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages/:message_id", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/threads/" + c.Param("thread_id") + "/messages/" + c.Param("message_id"), nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/threads/" + c.Param("thread_id") + "/messages", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/threads/" + c.Param("thread_id") + "/messages", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files/:file_id" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/threads/" + c.Param("thread_id") + "/messages/" + c.Param("message_id") + "/files/" + c.Param("file_id"), nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages/:message_id/files/:file_id", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/threads/" + c.Param("thread_id") + "/messages/" + c.Param("message_id") + "/files/" + c.Param("file_id"), nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/messages/:message_id/files" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/threads/" + c.Param("thread_id") + "/messages/" + c.Param("message_id") + "/files", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/messages/:message_id/files", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/threads/" + c.Param("thread_id") + "/messages/" + c.Param("message_id") + "/files", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/threads/" + c.Param("thread_id") + "/runs", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/threads/" + c.Param("thread_id") + "/runs", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/threads/" + c.Param("thread_id") + "/runs/" + c.Param("run_id"), nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/threads/" + c.Param("thread_id") + "/runs/" + c.Param("run_id"), nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/threads/" + c.Param("thread_id") + "/runs/" + c.Param("run_id"), nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/threads/" + c.Param("thread_id") + "/runs/" + c.Param("run_id"), nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/threads/" + c.Param("thread_id") + "/runs", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/threads/" + c.Param("thread_id") + "/runs", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/threads/" + c.Param("thread_id") + "/runs/" + c.Param("run_id") + "/submit_tool_outputs", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/threads/" + c.Param("thread_id") + "/runs/" + c.Param("run_id") + "/submit_tool_outputs", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/cancel" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/threads/" + c.Param("thread_id") + "/runs/" + c.Param("run_id") + "/cancel", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id/cancel", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/threads/" + c.Param("thread_id") + "/runs/" + c.Param("run_id") + "/cancel", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads/runs" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/threads/runs", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/runs", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/threads/runs", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps/:step_id" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/threads/" + c.Param("thread_id") + "/runs/" + c.Param("run_id") + "/steps/" + c.Param("step_id"), nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id/steps/:step_id", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/threads/" + c.Param("thread_id") + "/runs/" + c.Param("run_id") + "/steps/" + c.Param("step_id"), nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/threads/" + c.Param("thread_id") + "/runs/" + c.Param("run_id") + "/steps", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/threads/:thread_id/runs/:run_id/steps", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/threads/" + c.Param("thread_id") + "/runs/" + c.Param("run_id") + "/steps", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/moderations" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/moderations", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/moderations", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/moderations", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/models" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/models", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/models", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/models", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/models/:model" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/models/" + c.Param("model"), nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/models/:model", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/models/" + c.Param("model"), nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/models/:model" && c.Request.Method == http.MethodDelete {
-		return "https://api.openai.com/v1/models/" + c.Param("model"), nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/models/:model", openAiName) && c.Request.Method == http.MethodDelete {
+		return openAiUrl + "/v1/models/" + c.Param("model"), nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/files", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/files", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/files", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/files" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/files", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/files", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/files", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/files/:file_id" && c.Request.Method == http.MethodDelete {
-		return "https://api.openai.com/v1/files/" + c.Param("file_id"), nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/files/:file_id", openAiName) && c.Request.Method == http.MethodDelete {
+		return openAiUrl + "/v1/files/" + c.Param("file_id"), nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/files/:file_id" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/files/" + c.Param("file_id"), nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/files/:file_id", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/files/" + c.Param("file_id"), nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/files/:file_id/content" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/files/" + c.Param("file_id") + "/content", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/files/:file_id/content", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/files/" + c.Param("file_id") + "/content", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/batches" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/batches", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/batches", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/batches", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/batches/:batch_id" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/batches/" + c.Param("batch_id"), nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/batches/:batch_id", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/batches/" + c.Param("batch_id"), nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/batches/:batch_id/cancel" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/batches/" + c.Param("batch_id") + "/cancel", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/batches/:batch_id/cancel", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/batches/" + c.Param("batch_id") + "/cancel", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/batches" && c.Request.Method == http.MethodGet {
-		return "https://api.openai.com/v1/batches", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/batches", openAiName) && c.Request.Method == http.MethodGet {
+		return openAiUrl + "/v1/batches", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/images/generations" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/images/generations", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/images/generations", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/images/generations", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/images/edits" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/images/edits", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/images/edits", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/images/edits", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/images/variations" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/images/variations", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/images/variations", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/images/variations", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/audio/speech" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/audio/speech", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/audio/speech", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/audio/speech", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/audio/transcriptions" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/audio/transcriptions", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/audio/transcriptions", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/audio/transcriptions", nil
 	}
 
-	if c.FullPath() == "/api/providers/openai/v1/audio/translations" && c.Request.Method == http.MethodPost {
-		return "https://api.openai.com/v1/audio/translations", nil
+	if c.FullPath() == fmt.Sprintf("/api/providers/%s/v1/audio/translations", openAiName) && c.Request.Method == http.MethodPost {
+		return openAiUrl + "/v1/audio/translations", nil
 	}
 
 	return "", errors.New("cannot find corresponding OpenAI target proxy")
@@ -915,80 +921,100 @@ var (
 
 func (ps *ProxyServer) Run() {
 	go func() {
-		ps.log.Info("proxy server listening at 8002")
+		for openAiName := range ps.openAiUrls {
+			ps.log.Info("proxy server listening at 8002")
 
-		// health check
-		ps.log.Info("PORT 8002 | GET    | /api/health is ready")
+			// health check
+			ps.log.Info("PORT 8002 | GET    | /api/health is ready")
 
-		// audio
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/audio/speech is ready for creating openai speeches")
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/audio/transcriptions is ready for creating openai transcriptions")
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/audio/translations is ready for creating openai translations")
+			// audio
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/audio/speech is ready for creating openai speeches", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/audio/transcriptions is ready for creating openai transcriptions", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/audio/translations is ready for creating openai translations", openAiName))
 
-		// chat completions
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/chat/completions is ready for forwarding chat completion requests to openai")
+			// chat completions
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/chat/completions is ready for forwarding chat completion requests to openai", openAiName))
 
-		// embeddings
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/embeddings is ready for forwarding embeddings requests to openai")
+			// embeddings
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/embeddings is ready for forwarding embeddings requests to openai", openAiName))
 
-		// moderations
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/moderations is ready for forwarding moderation requests to openai")
+			// moderations
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/moderations is ready for forwarding moderation requests to openai", openAiName))
 
-		// models
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/models is ready for listing openai models")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/models/:model is ready for retrieving an openai model")
+			// models
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/models is ready for listing openai models", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/models/:model is ready for retrieving an openai model", openAiName))
 
-		// files
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/files is ready for listing files from openai")
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/files is ready for uploading files to openai")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/files/:file_id is ready for retrieving a file metadata from openai")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/files/:file_id/content is ready for retrieving a file's content from openai")
+			// files
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/files is ready for listing files from openai", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/files is ready for uploading files to openai", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/files/:file_id is ready for retrieving a file metadata from openai", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/files/:file_id/content is ready for retrieving a file's content from openai", openAiName))
 
-		// assistants
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/assistants is ready for creating openai assistants")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/assistants/:assistant_id is ready for retrieving an openai assistant")
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/assistants/:assistant_id is ready for modifying an openai assistant")
-		ps.log.Info("PORT 8002 | DELETE | /api/providers/openai/v1/assistants/:assistant_id is ready for deleting an openai assistant")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/assistants is ready for retrieving openai assistants")
+			// assistants
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/assistants is ready for creating openai assistants", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/assistants/:assistant_id is ready for retrieving an openai assistant", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/assistants/:assistant_id is ready for modifying an openai assistant", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | DELETE | /api/providers/%s/v1/assistants/:assistant_id is ready for deleting an openai assistant", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/assistants is ready for retrieving openai assistants", openAiName))
 
-		// assistant files
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/assistants/:assistant_id/files is ready for creating openai assistant file")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/assistants/:assistant_id/files/:file_id is ready for retrieving openai assistant file")
-		ps.log.Info("PORT 8002 | DELETE | /api/providers/openai/v1/assistants/:assistant_id/files/:file_id is ready for deleting openai assistant file")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/assistants/:assistant_id/files is ready for retireving openai assistant files")
+			// assistant files
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/assistants/:assistant_id/files is ready for creating openai assistant file", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/assistants/:assistant_id/files/:file_id is ready for retrieving openai assistant file", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | DELETE | /api/providers/%s/v1/assistants/:assistant_id/files/:file_id is ready for deleting openai assistant file", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/assistants/:assistant_id/files is ready for retireving openai assistant files", openAiName))
 
-		// threads
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads is ready for creating an openai thread")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id is ready for retrieving an openai thread")
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads/:thread_id is ready for modifying an openai thread")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id is ready for deleting an openai thread")
+			// threads
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/threads is ready for creating an openai thread", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/threads/:thread_id is ready for retrieving an openai thread", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/threads/:thread_id is ready for modifying an openai thread", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/threads/:thread_id is ready for deleting an openai thread", openAiName))
 
-		// messages
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads/:thread_id/messages is ready for creating an openai message")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id/messages/:message_id is ready for retrieving an openai message")
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads/:thread_id/messages/:message_id is ready for modifying an openai message")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id/messages is ready for retrieving openai messages")
+			// messages
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/threads/:thread_id/messages is ready for creating an openai message", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/threads/:thread_id/messages/:message_id is ready for retrieving an openai message", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/threads/:thread_id/messages/:message_id is ready for modifying an openai message", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/threads/:thread_id/messages is ready for retrieving openai messages", openAiName))
 
-		// message files
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id/messages/:message_id/files/:file_id is ready for retrieving an openai message file")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id/messages/:message_id/files is ready for retrieving openai message files")
+			// message files
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/threads/:thread_id/messages/:message_id/files/:file_id is ready for retrieving an openai message file", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/threads/:thread_id/messages/:message_id/files is ready for retrieving openai message files", openAiName))
 
-		// runs
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads/:thread_id/runs is ready for creating an openai run")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id/runs/:run_id is ready for retrieving an openai run")
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads/:thread_id/runs/:run_id is ready for modifying an openai run")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id/runs is ready for retrieving openai runs")
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs is ready for submitting tool outputs to an openai run")
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads/:thread_id/runs/:run_id/cancel is ready for cancelling an openai run")
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/threads/runs is ready for creating an openai thread and run")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps/:step_id is ready for retrieving an openai run step")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/threads/:thread_id/runs/:run_id/steps is ready for retrieving openai run steps")
+			// runs
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/threads/:thread_id/runs is ready for creating an openai run", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/threads/:thread_id/runs/:run_id is ready for retrieving an openai run", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/threads/:thread_id/runs/:run_id is ready for modifying an openai run", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/threads/:thread_id/runs is ready for retrieving openai runs", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/threads/:thread_id/runs/:run_id/submit_tool_outputs is ready for submitting tool outputs to an openai run", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/threads/:thread_id/runs/:run_id/cancel is ready for cancelling an openai run", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/threads/runs is ready for creating an openai thread and run", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/threads/:thread_id/runs/:run_id/steps/:step_id is ready for retrieving an openai run step", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/threads/:thread_id/runs/:run_id/steps is ready for retrieving openai run steps", openAiName))
 
-		// images
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/images/generations is ready for generating openai images")
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/images/edits is ready for editting openi images")
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/images/variations is ready for generating openai image variations")
+			// images
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/images/generations is ready for generating openai images", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/images/edits is ready for editting openi images", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/images/variations is ready for generating openai image variations", openAiName))
 
+			// vector store
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/vector_stores is ready for creating an openai vector store", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/vector_stores is ready for listing openai vector stores", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/vector_stores/:vector_store_id is ready for getting an openai vector store", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/vector_stores/:vector_store_id is ready for modifying an openai vector store", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | DELETE | /api/providers/%s/v1/vector_stores/:vector_store_id is ready for deleting an openai vector store", openAiName))
+
+			// vector store files
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/vector_stores/:vector_store_id/files is ready for creating an openai vector store file", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/vector_stores/:vector_store_id/files is ready for listing openai vector store files", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/vector_stores/:vector_store_id/files/:file_id is ready for getting an openai vector store file", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | DELETE | /api/providers/%s/v1/vector_stores/:vector_store_id/files/:file_id is ready for deleting an openai vector store file", openAiName))
+
+			// vector store file batches
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/vector_stores/:vector_store_id/file_batches is ready for creating an openai vector store file batch", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/vector_stores/:vector_store_id/file_batches/:batch_id is ready for getting an openai vector store file batch", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | POST   | /api/providers/%s/v1/vector_stores/:vector_store_id/file_batches/:batch_id/cancel is ready for cancelling an openai vector store file batch", openAiName))
+			ps.log.Info(fmt.Sprintf("PORT 8002 | GET    | /api/providers/%s/v1/vector_stores/:vector_store_id/file_batches/:batch_id/files is ready for listing openai vector store file batch files", openAiName))
+		}
 		// azure
 		ps.log.Info("PORT 8002 | POST   | /api/providers/azure/openai/deployments/:deployment_id/chat/completions is ready for forwarding completion requests to azure openai")
 		ps.log.Info("PORT 8002 | POST   | /api/providers/azure/openai/deployments/:deployment_id/embeddings is ready for forwarding embeddings requests to azure openai")
@@ -1015,25 +1041,6 @@ func (ps *ProxyServer) Run() {
 
 		// custom route
 		ps.log.Info("PORT 8002 | POST   | /api/routes/*route is ready for forwarding requests to a custom route")
-
-		// vector store
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/vector_stores is ready for creating an openai vector store")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/vector_stores is ready for listing openai vector stores")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/vector_stores/:vector_store_id is ready for getting an openai vector store")
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/vector_stores/:vector_store_id is ready for modifying an openai vector store")
-		ps.log.Info("PORT 8002 | DELETE | /api/providers/openai/v1/vector_stores/:vector_store_id is ready for deleting an openai vector store")
-
-		// vector store files
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/vector_stores/:vector_store_id/files is ready for creating an openai vector store file")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/vector_stores/:vector_store_id/files is ready for listing openai vector store files")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/vector_stores/:vector_store_id/files/:file_id is ready for getting an openai vector store file")
-		ps.log.Info("PORT 8002 | DELETE | /api/providers/openai/v1/vector_stores/:vector_store_id/files/:file_id is ready for deleting an openai vector store file")
-
-		// vector store file batches
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/vector_stores/:vector_store_id/file_batches is ready for creating an openai vector store file batch")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id is ready for getting an openai vector store file batch")
-		ps.log.Info("PORT 8002 | POST   | /api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id/cancel is ready for cancelling an openai vector store file batch")
-		ps.log.Info("PORT 8002 | GET    | /api/providers/openai/v1/vector_stores/:vector_store_id/file_batches/:batch_id/files is ready for listing openai vector store file batch files")
 
 		if err := ps.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			ps.log.Sugar().Fatalf("error proxy server listening: %v", err)

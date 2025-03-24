@@ -2,6 +2,7 @@ package message
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -313,7 +314,7 @@ func (h *Handler) handleUserValidationResult(u *user.User, cost float64) error {
 	return nil
 }
 
-func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
+func (h *Handler) HandleEventWithRequestAndResponse(m Message, openAiUrls map[string]string) error {
 	e, ok := m.Data.(*event.EventWithRequestAndContent)
 	if !ok {
 		telemetry.Incr("bricksllm.message.handler.handle_event_with_request_and_response.message_data_parsing_error", nil, 1)
@@ -322,7 +323,7 @@ func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 	}
 
 	if e.Key != nil && !e.Key.Revoked && e.Event != nil {
-		err := h.decorateEvent(m)
+		err := h.decorateEvent(m, openAiUrls)
 		if err != nil {
 			telemetry.Incr("bricksllm.message.handler.handle_event_with_request_and_response.decorate_event_error", nil, 1)
 			h.log.Debug("error when decorating event", zap.Error(err))
@@ -403,7 +404,7 @@ func (h *Handler) HandleEventWithRequestAndResponse(m Message) error {
 	return nil
 }
 
-func (h *Handler) decorateEvent(m Message) error {
+func (h *Handler) decorateEvent(m Message, openAiUrls map[string]string) error {
 	telemetry.Incr("bricksllm.message.handler.decorate_event.request", nil, 1)
 
 	e, ok := m.Data.(*event.EventWithRequestAndContent)
@@ -413,23 +414,25 @@ func (h *Handler) decorateEvent(m Message) error {
 		return errors.New("message data cannot be parsed as event with request and response")
 	}
 
-	if e.Event.Path == "/api/providers/openai/v1/audio/speech" {
-		csr, ok := e.Request.(*goopenai.CreateSpeechRequest)
-		if !ok {
-			telemetry.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
-			h.log.Debug("event contains request that cannot be converted to anthropic completion request", zap.Any("data", m.Data))
-			return errors.New("event request data cannot be parsed as anthropic completion request")
-		}
-
-		if e.Event.Status == http.StatusOK {
-			cost, err := h.e.EstimateSpeechCost(csr.Input, string(csr.Model))
-			if err != nil {
-				telemetry.Incr("bricksllm.message.handler.decorate_event.estimate_prompt_cost", nil, 1)
-				h.log.Debug("event contains request that cannot be converted to anthropic completion request", zap.Error(err))
-				return err
+	for openAiName := range openAiUrls {
+		if e.Event.Path == fmt.Sprintf("/api/providers/%s/v1/audio/speech", openAiName) {
+			csr, ok := e.Request.(*goopenai.CreateSpeechRequest)
+			if !ok {
+				telemetry.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
+				h.log.Debug("event contains request that cannot be converted to anthropic completion request", zap.Any("data", m.Data))
+				return errors.New("event request data cannot be parsed as anthropic completion request")
 			}
 
-			e.Event.CostInUsd = cost
+			if e.Event.Status == http.StatusOK {
+				cost, err := h.e.EstimateSpeechCost(csr.Input, string(csr.Model))
+				if err != nil {
+					telemetry.Incr("bricksllm.message.handler.decorate_event.estimate_prompt_cost", nil, 1)
+					h.log.Debug("event contains request that cannot be converted to anthropic completion request", zap.Error(err))
+					return err
+				}
+
+				e.Event.CostInUsd = cost
+			}
 		}
 	}
 
@@ -607,42 +610,44 @@ func (h *Handler) decorateEvent(m Message) error {
 		}
 	}
 
-	if e.Event.Path == "/api/providers/openai/v1/chat/completions" {
-		ccr, ok := e.Request.(*goopenai.ChatCompletionRequest)
-		if !ok {
-			telemetry.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
-			h.log.Debug("event contains data that cannot be converted to openai completion request", zap.Any("data", m.Data))
-			return errors.New("event request data cannot be parsed as openai completion request")
-		}
-
-		if ccr.Stream {
-			tks, cost, err := h.e.EstimateChatCompletionPromptCostWithTokenCounts(ccr)
-			if err != nil {
-				telemetry.Incr("bricksllm.message.handler.decorate_event.estimate_chat_completion_prompt_cost_with_token_counts", nil, 1)
-				return err
+	for openAiName := range openAiUrls {
+		if e.Event.Path == fmt.Sprintf("/api/providers/%s/v1/chat/completions", openAiName) {
+			ccr, ok := e.Request.(*goopenai.ChatCompletionRequest)
+			if !ok {
+				telemetry.Incr("bricksllm.message.handler.decorate_event.event_request_parsing_error", nil, 1)
+				h.log.Debug("event contains data that cannot be converted to openai completion request", zap.Any("data", m.Data))
+				return errors.New("event request data cannot be parsed as openai completion request")
 			}
 
-			completiontks, completionCost, err := h.e.EstimateChatCompletionStreamCostWithTokenCounts(e.Event.Model, e.Content)
-			if err != nil {
-				telemetry.Incr("bricksllm.message.handler.decorate_event.estimate_chat_completion_stream_cost_with_token_counts", nil, 1)
-				return err
-			}
+			if ccr.Stream {
+				tks, cost, err := h.e.EstimateChatCompletionPromptCostWithTokenCounts(ccr)
+				if err != nil {
+					telemetry.Incr("bricksllm.message.handler.decorate_event.estimate_chat_completion_prompt_cost_with_token_counts", nil, 1)
+					return err
+				}
 
-			e.Event.PromptTokenCount = tks
-			e.Event.CompletionTokenCount = completiontks
+				completiontks, completionCost, err := h.e.EstimateChatCompletionStreamCostWithTokenCounts(e.Event.Model, e.Content)
+				if err != nil {
+					telemetry.Incr("bricksllm.message.handler.decorate_event.estimate_chat_completion_stream_cost_with_token_counts", nil, 1)
+					return err
+				}
 
-			if e.Event.Status == http.StatusOK {
-				e.Event.CostInUsd = cost + completionCost
+				e.Event.PromptTokenCount = tks
+				e.Event.CompletionTokenCount = completiontks
 
-				if e.CostMap != nil {
-					newCost, err := provider.EstimateTotalCostWithCostMaps(e.Event.Model, tks, completiontks, 1000, e.CostMap.PromptCostPerModel, e.CostMap.CompletionCostPerModel)
-					if err != nil {
-						h.log.Debug("error when estimating total cost with cost maps", zap.Error(err))
-						telemetry.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
-					}
+				if e.Event.Status == http.StatusOK {
+					e.Event.CostInUsd = cost + completionCost
 
-					if newCost != 0 {
-						e.Event.CostInUsd = newCost
+					if e.CostMap != nil {
+						newCost, err := provider.EstimateTotalCostWithCostMaps(e.Event.Model, tks, completiontks, 1000, e.CostMap.PromptCostPerModel, e.CostMap.CompletionCostPerModel)
+						if err != nil {
+							h.log.Debug("error when estimating total cost with cost maps", zap.Error(err))
+							telemetry.Incr("bricksllm.proxy.decorate_event.estimate_total_cost_with_cost_maps_error", nil, 1)
+						}
+
+						if newCost != 0 {
+							e.Event.CostInUsd = newCost
+						}
 					}
 				}
 			}

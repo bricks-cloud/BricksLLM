@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.27.7
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.16.2
 	github.com/aws/aws-sdk-go-v2/service/comprehend v1.31.2
-	github.com/caarlos0/env v3.5.0+incompatible
+	github.com/caarlos0/env/v11 v11.3.1
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/fatih/color v1.15.0
 	github.com/gin-gonic/gin v1.9.1

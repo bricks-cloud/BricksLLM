@@ -243,7 +243,7 @@ func InitializeBackoff(strategy string, dur time.Duration) backoff.BackOff {
 	return backoff.NewConstantBackOff(dur)
 }
 
-func (r *Route) RunStepsV2(req *Request, rec recorder, log *zap.Logger, kc *key.ResponseKey) (*Response, error) {
+func (r *Route) RunStepsV2(req *Request, rec recorder, log *zap.Logger, kc *key.ResponseKey, openAiUrls map[string]string) (*Response, error) {
 	if len(r.Steps) == 0 {
 		return nil, errors.New("steps are empty")
 	}
@@ -320,7 +320,7 @@ func (r *Route) RunStepsV2(req *Request, rec recorder, log *zap.Logger, kc *key.
 				}
 			}()
 
-			hreq, err := req.createHttpRequest(ctx, step.Provider, r.ShouldRunEmbeddings(), step.Params, bs)
+			hreq, err := req.createHttpRequest(ctx, step.Provider, r.ShouldRunEmbeddings(), step.Params, bs, openAiUrls)
 			if err != nil {
 				return err
 			}
@@ -389,7 +389,7 @@ func (r *Route) RunStepsV2(req *Request, rec recorder, log *zap.Logger, kc *key.
 	return nil, errors.New("no responses")
 }
 
-func (r *Route) RunSteps(req *Request, rec recorder, log *zap.Logger) (*Response, error) {
+func (r *Route) RunSteps(req *Request, rec recorder, log *zap.Logger, openAiUrls map[string]string) (*Response, error) {
 	if len(r.Steps) == 0 {
 		return nil, errors.New("steps are empty")
 	}
@@ -484,7 +484,7 @@ func (r *Route) RunSteps(req *Request, rec recorder, log *zap.Logger) (*Response
 				}
 			}
 
-			url := buildRequestUrl(step.Provider, r.ShouldRunEmbeddings(), resourceName, step.Params)
+			url := buildRequestUrl(step.Provider, r.ShouldRunEmbeddings(), resourceName, step.Params, openAiUrls)
 
 			if len(url) == 0 {
 				return nil, errors.New("only azure openai, openai chat completion and embeddings models are supported")
@@ -648,13 +648,14 @@ type Response struct {
 	Response *http.Response
 }
 
-func buildRequestUrl(provider string, runEmbeddings bool, resourceName string, params map[string]string) string {
-	if provider == "openai" && runEmbeddings {
-		return "https://api.openai.com/v1/embeddings"
-	}
-
-	if provider == "openai" && !runEmbeddings {
-		return "https://api.openai.com/v1/chat/completions"
+func buildRequestUrl(provider string, runEmbeddings bool, resourceName string, params, openAiUrls map[string]string) string {
+	// Configure URL based on provider
+	if openAiUrl, ok := openAiUrls[provider]; ok {
+		if runEmbeddings {
+			return openAiUrl + "/v1/embeddings"
+		} else {
+			return openAiUrl + "/v1/chat/completions"
+		}
 	}
 
 	deploymentId := params["deploymentId"]
@@ -680,7 +681,7 @@ func setHttpRequestAuthHeader(provider string, req *http.Request, key string) {
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", key))
 }
 
-func (r *Request) createHttpRequest(ctx context.Context, provider string, runEmbeddings bool, params map[string]string, data []byte) (*http.Request, error) {
+func (r *Request) createHttpRequest(ctx context.Context, provider string, runEmbeddings bool, params map[string]string, data []byte, openAiUrls map[string]string) (*http.Request, error) {
 	resourceName := ""
 	if provider == "azure" {
 		val, err := r.GetSettingValue("azure", "resourceName")
@@ -696,7 +697,7 @@ func (r *Request) createHttpRequest(ctx context.Context, provider string, runEmb
 		return nil, err
 	}
 
-	url := buildRequestUrl(provider, runEmbeddings, resourceName, params)
+	url := buildRequestUrl(provider, runEmbeddings, resourceName, params, openAiUrls)
 	if len(url) == 0 {
 		return nil, errors.New("request url is empty")
 	}

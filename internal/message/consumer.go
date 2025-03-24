@@ -11,7 +11,8 @@ type Consumer struct {
 	done                chan bool
 	log                 *zap.Logger
 	numOfEventConsumers int
-	handle              func(Message) error
+	handle              func(Message, map[string]string) error
+	openAiUrls          map[string]string
 }
 
 type recorder interface {
@@ -20,13 +21,14 @@ type recorder interface {
 	RecordEvent(e *event.Event) error
 }
 
-func NewConsumer(mc <-chan Message, log *zap.Logger, num int, handle func(Message) error) *Consumer {
+func NewConsumer(mc <-chan Message, log *zap.Logger, num int, handle func(Message, map[string]string) error, openAiUrls map[string]string) *Consumer {
 	return &Consumer{
 		messageChan:         mc,
 		done:                make(chan bool),
 		log:                 log,
 		numOfEventConsumers: num,
 		handle:              handle,
+		openAiUrls:          openAiUrls,
 	}
 }
 
@@ -40,7 +42,7 @@ func (c *Consumer) StartEventMessageConsumers() {
 					return
 
 				case m := <-c.messageChan:
-					err := c.handle(m)
+					err := c.handle(m, c.openAiUrls)
 					if err != nil {
 						continue
 					}
