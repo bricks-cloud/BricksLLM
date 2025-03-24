@@ -650,12 +650,10 @@ type Response struct {
 
 func buildRequestUrl(provider string, runEmbeddings bool, resourceName string, params, openAiUrls map[string]string) string {
 	// Configure URL based on provider
-	for openAiName, openAiUrl := range openAiUrls {
-		if provider == openAiName && runEmbeddings {
+	if openAiUrl, ok := openAiUrls[provider]; ok {
+		if runEmbeddings {
 			return openAiUrl + "/v1/embeddings"
-		}
-
-		if provider == openAiName && !runEmbeddings {
+		} else {
 			return openAiUrl + "/v1/chat/completions"
 		}
 	}

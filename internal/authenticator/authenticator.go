@@ -168,8 +168,14 @@ func canAccessPath(provider string, path string, openAiUrls map[string]string) b
 		return false
 	}
 
-	for openAiName := range openAiUrls {
-		if provider == openAiName && !strings.HasPrefix(path, "/api/providers/"+openAiName) {
+	if provider == "openai" {
+		matchedPaths := false
+		for openAiName := range openAiUrls {
+			if strings.HasPrefix(path, "/api/providers/"+openAiName) {
+				matchedPaths = true
+			}
+		}
+		if !matchedPaths {
 			return false
 		}
 	}
