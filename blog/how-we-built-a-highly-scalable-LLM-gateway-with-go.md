@@ -4,7 +4,7 @@ When I was working at Unity Technologies, one of the most useful internal tools 
 
 Fast forward to 8 months ago, I realized that there was no demand [design to code plugin](https://www.figma.com/community/plugin/1178847414663679049/bricks-ai-powered-design-to-tailwindcss-code) that we had been working on for the past year. That was when we decided to pivot. When building the design to code plugin, we used GPT-4 to name all the variables in generated code to make it feel like it was written by a real developer. At the time, OpenAI did not provide any API key level usage metrics nor have features that could impose any restrictions regarding API key usage. That was when we started hearing horror stories regarding people losing thousands of dollars from stolen API keys. This along with my experience working with the API gateway at Unity became the greatest inspiration for [BricksLLM](https://github.com/bricks-cloud/bricksllm).
 
-We wanted to create an API gateway specifically created for LLMs. When it came to technology choices, Go was a no-brainer due to its performance, type safety and emphasis on error handling. The first feature [we built](https://github.com/bricks-cloud/BricksLLM/blob/main/cookbook/granular_access_control.md) we developed was a way for developers to ratelimit OpenAI spending via API keys thus making these keys safer to use. 
+We wanted to create an API gateway specifically created for LLMs. When it came to technology choices, Go was a no-brainer due to its performance, type safety and emphasis on error handling. The first feature [we built](https://github.com/bricks-cloud/BricksLLM/blob/main/cookbook/granular_access_control.md) we developed was a way for developers to rate limit OpenAI spending via API keys thus making these keys safer to use. 
 
 Initially, we didn’t intend on building a very fast LLM gateway, because high performing LLMs such as GPT-4 did not have a very fast response time. On average, the GPT-4 API took about 60 seconds to respond to a fairly large prompt, meaning that a 1 second did not contribute much to the overall latency. This was a far cry from the advertisement bidding API that requires sub 1s latency that I used to work on at Unity. At the beginning, this was what BricksLLM’s architecture looked like:
 
@@ -18,7 +18,7 @@ OpenAI maintains a python library called a BPE tokenizer called [tiktoken](https
 
 On this quest to improve the performance of BricksLLM, I was curious to find out how far we can push utilizing the power of Go. 
 
-For each OpenAI chat completion request that goes through BricksLLM, we retrieve cached usage information (number of requests/cost incurred) from Redis to determine whether the request should be rate limited according to the corresponding API key configuration. The latency incurred here is about 30ms. This part can not be made async since the rate limit iss a feature that needs to happen before the request is forwarded to OpenAI. 
+For each OpenAI chat completion request that goes through BricksLLM, we retrieve cached usage information (number of requests/cost incurred) from Redis to determine whether the request should be rate limited according to the corresponding API key configuration. The latency incurred here is about 30ms. This part can not be made async since the rate limit is a feature that needs to happen before the request is forwarded to OpenAI. 
 
 After receiving a response back from OpenAI, we generate an event enriched with latency, token usage and cost information to the DB. This operation creates about 50 ms of latency and can be made asynchronous. Thus, we updated the architecture of BricksLLM to make this operation asynchronous:
 
@@ -26,7 +26,7 @@ After receiving a response back from OpenAI, we generate an event enriched with 
 <img src="../assets/current-architecture.png" width="600" />
 </p>
 
-Adopting an event driven architecture, events created by http requests are sent to the event bus storing the events within a channel. Eac consumer, in a different Go routine, handles counting the number of tokens of streaming responses, decorating the event with token usage information and ingesting the event into our DB. Utilizing the new architecture, we have successfully reduced the latency to about 30ms.
+Adopting an event driven architecture, events created by http requests are sent to the event bus storing the events within a channel. Each consumer, in a different Go routine, handles counting the number of tokens of streaming responses, decorating the event with token usage information and ingesting the event into our DB. Utilizing the new architecture, we have successfully reduced the latency to about 30ms.
 
 I wondered how the performance of our LLM gateway stacked up against similar OSS projects. As a result, I ran a series of tests using the load testing library [vegeta](https://github.com/tsenart/vegeta) firing the same prompt at different rates over 5s to see the performance limits of these softwares. The test was conducted on a 16GB MacBook Pro with M1 chip.
 
