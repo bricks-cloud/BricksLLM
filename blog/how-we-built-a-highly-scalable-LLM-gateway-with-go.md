@@ -18,7 +18,7 @@ OpenAI maintains a python library called a BPE tokenizer called [tiktoken](https
 
 On this quest to improve the performance of BricksLLM, I was curious to find out how far we can push utilizing the power of Go. 
 
-For each OpenAI chat completion request that goes through BricksLLM, we retrieve cached usage information (number of requests/cost incurred) from Redis to determine whether the request should be rate limited according to the corresponding API key configuration. The latency incurred here is about 30ms. This part can not be made async since the rate limit iss a feature that needs to happen before the request is forwarded to OpenAI. 
+For each OpenAI chat completion request that goes through BricksLLM, we retrieve cached usage information (number of requests/cost incurred) from Redis to determine whether the request should be rate limited according to the corresponding API key configuration. The latency incurred here is about 30ms. This part can not be made async since the rate limit is a feature that needs to happen before the request is forwarded to OpenAI. 
 
 After receiving a response back from OpenAI, we generate an event enriched with latency, token usage and cost information to the DB. This operation creates about 50 ms of latency and can be made asynchronous. Thus, we updated the architecture of BricksLLM to make this operation asynchronous:
 
