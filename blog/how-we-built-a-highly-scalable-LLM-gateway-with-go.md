@@ -26,7 +26,7 @@ After receiving a response back from OpenAI, we generate an event enriched with 
 <img src="../assets/current-architecture.png" width="600" />
 </p>
 
-Adopting an event driven architecture, events created by http requests are sent to the event bus storing the events within a channel. Eac consumer, in a different Go routine, handles counting the number of tokens of streaming responses, decorating the event with token usage information and ingesting the event into our DB. Utilizing the new architecture, we have successfully reduced the latency to about 30ms.
+Adopting an event driven architecture, events created by http requests are sent to the event bus storing the events within a channel. Each consumer, in a different Go routine, handles counting the number of tokens of streaming responses, decorating the event with token usage information and ingesting the event into our DB. Utilizing the new architecture, we have successfully reduced the latency to about 30ms.
 
 I wondered how the performance of our LLM gateway stacked up against similar OSS projects. As a result, I ran a series of tests using the load testing library [vegeta](https://github.com/tsenart/vegeta) firing the same prompt at different rates over 5s to see the performance limits of these softwares. The test was conducted on a 16GB MacBook Pro with M1 chip.
 
