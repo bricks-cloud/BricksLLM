@@ -29,6 +29,8 @@ type Config struct {
 	RedisDBStartIndex             int           `koanf:"redis_db_start_index" env:"REDIS_DB_START_INDEX" envDefault:"0"`
 	RedisReadTimeout              time.Duration `koanf:"redis_read_time_out" env:"REDIS_READ_TIME_OUT" envDefault:"1s"`
 	RedisWriteTimeout             time.Duration `koanf:"redis_write_time_out" env:"REDIS_WRITE_TIME_OUT" envDefault:"500ms"`
+	RedisSslEnabled               bool          `koanf:"redis_ssl_enabled" env:"REDIS_SSL_ENABLED" envDefault:"false"`
+	RedisSslInsecureSkipVerify    bool          `koanf:"redis_ssl_insecure_skip_verify" env:"REDIS_SSL_INSECURE_SKIP_VERIFY" envDefault:"false"`
 	PostgresqlReadTimeout         time.Duration `koanf:"postgresql_read_time_out" env:"POSTGRESQL_READ_TIME_OUT" envDefault:"10m"`
 	PostgresqlWriteTimeout        time.Duration `koanf:"postgresql_write_time_out" env:"POSTGRESQL_WRITE_TIME_OUT" envDefault:"5s"`
 	InMemoryDbUpdateInterval      time.Duration `koanf:"in_memory_db_update_interval" env:"IN_MEMORY_DB_UPDATE_INTERVAL" envDefault:"5s"`

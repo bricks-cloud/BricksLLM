@@ -11,6 +11,8 @@
     "redis_password": "",
     "redis_read_time_out": "1s",
     "redis_write_time_out": "500ms",
+    "redis_ssl_enabled": false,
+    "redis_ssl_insecure_skip_verify": false,
     "postgresql_read_time_out": "2m",
     "postgresql_write_time_out": "5s",
     "in_memory_db_update_interval": "5s",

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"os"
@@ -175,14 +176,7 @@ func main() {
 	rMemStore.Listen()
 
 	defaultRedisOption := func(cfg *config.Config, dbIndex int) *redis.Options {
-
-		options := &redis.Options{
-			Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
-			Password: cfg.RedisPassword,
-			DB:       cfg.RedisDBStartIndex + dbIndex,
-		}
-
-		return options
+		return buildRedisOptions(cfg, dbIndex)
 	}
 
 	rateLimitRedisCache := redis.NewClient(defaultRedisOption(cfg, 0))
@@ -387,4 +381,21 @@ func main() {
 	}
 
 	log.Info("server exited")
+}
+
+func buildRedisOptions(cfg *config.Config, dbIndex int) *redis.Options {
+	options := &redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHosts, cfg.RedisPort),
+		Username: cfg.RedisUsername,
+		Password: cfg.RedisPassword,
+		DB:       cfg.RedisDBStartIndex + dbIndex,
+	}
+
+	if cfg.RedisSslEnabled {
+		options.TLSConfig = &tls.Config{
+			InsecureSkipVerify: cfg.RedisSslInsecureSkipVerify,
+		}
+	}
+
+	return options
 }
