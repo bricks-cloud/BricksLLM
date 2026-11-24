@@ -33,7 +33,7 @@ import (
 	"github.com/tidwall/sjson"
 	"go.uber.org/zap"
 
-	responsesOpenai "github.com/openai/openai-go/responses"
+	responsesOpenai "github.com/openai/openai-go/v3/responses"
 	goopenai "github.com/sashabaranov/go-openai"
 )
 

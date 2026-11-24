@@ -15,7 +15,7 @@ import (
 	"github.com/bricks-cloud/bricksllm/internal/telemetry"
 	"github.com/bricks-cloud/bricksllm/internal/util"
 	"github.com/gin-gonic/gin"
-	responsesOpenai "github.com/openai/openai-go/responses"
+	responsesOpenai "github.com/openai/openai-go/v3/responses"
 	goopenai "github.com/sashabaranov/go-openai"
 )
 

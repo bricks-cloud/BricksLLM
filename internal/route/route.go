@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
+	"github.com/cenkalti/backoff/v5"
 	goopenai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 
@@ -268,7 +268,6 @@ func (r *Route) RunStepsV2(req *Request, rec recorder, log *zap.Logger, kc *key.
 		}
 
 		b := InitializeBackoff(r.RetryStrategy, dur)
-		withRetries := backoff.WithMaxRetries(b, uint64(step.Retries))
 
 		do := func() error {
 			start := time.Now()
@@ -363,7 +362,9 @@ func (r *Route) RunStepsV2(req *Request, rec recorder, log *zap.Logger, kc *key.
 			log.Debug("error when requesting external api via route", zap.Error(err), zap.Duration("duration", t))
 		}
 
-		err := backoff.RetryNotify(do, withRetries, notify)
+		_, err := backoff.Retry(context.Background(), func() (struct{}, error) {
+			return struct{}{}, do()
+		}, backoff.WithBackOff(b), backoff.WithMaxTries(uint(step.Retries)+1), backoff.WithMaxElapsedTime(0), backoff.WithNotify(notify))
 		if err == nil {
 			break
 		}
